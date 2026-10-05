@@ -60,7 +60,6 @@ class VideoDownloadService : Service() {
         // 설정: 알림 표시 여부 / 다운로드 위치 (공용 Download 폴더면 완료 후 복사)
         val sp = getSharedPreferences("settings", MODE_PRIVATE)
         val notifyOn = sp.getBoolean("dl_notify", true)
-        val folderPublic = sp.getString("dl_folder", "public") == "public"
 
         createChannel()
         startForeground(notifBase + (id % 500).toInt(), buildNotification(item.name, getString(com.example.streambrowser.R.string.notif_preparing), indeterminate = true))
@@ -81,7 +80,7 @@ class VideoDownloadService : Service() {
                         )
                     ) {
                         FastVideoDownloader.Result.DONE -> {
-                            if (folderPublic) item.file?.let { runCatching { copyToPublicDownloads(it) } }
+                            item.file?.let { DownloadFolder.export(this, it, "video/mp4") }
                             notifyFinished(item, notifyOn, startId)
                             return@Thread
                         }
@@ -128,9 +127,9 @@ class VideoDownloadService : Service() {
                         }
                         if (item.status == DlStatus.CANCELED) out.delete()
                         // 공용 다운로드 폴더 모드: 완료 파일을 Download/JC Browser로 복사
-                        if (item.status == DlStatus.DONE && folderPublic) {
-                            runCatching { copyToPublicDownloads(out) }
-                        }
+                        if (item.status == DlStatus.DONE) {
+                                    DownloadFolder.export(this, out, "video/mp4")
+                                }
                         DownloadStore.upsert(item)
                         if (notifyOn) {
                             val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -267,23 +266,6 @@ class VideoDownloadService : Service() {
     }
 
     /** 완료 파일을 공용 Download/JC Browser 폴더로 복사 (MediaStore, API 29+) */
-    private fun copyToPublicDownloads(src: File) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
-        val values = android.content.ContentValues().apply {
-            put(android.provider.MediaStore.Downloads.DISPLAY_NAME, src.name)
-            put(android.provider.MediaStore.Downloads.MIME_TYPE, "video/mp4")
-            put(
-                android.provider.MediaStore.Downloads.RELATIVE_PATH,
-                Environment.DIRECTORY_DOWNLOADS + "/JC Browser"
-            )
-        }
-        val uri = contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-            ?: return
-        contentResolver.openOutputStream(uri)?.use { out ->
-            src.inputStream().use { it.copyTo(out) }
-        }
-    }
-
     private fun createChannel() {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(

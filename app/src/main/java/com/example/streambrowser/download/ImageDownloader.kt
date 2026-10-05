@@ -62,32 +62,11 @@ object ImageDownloader {
                 item.file = f
                 item.status = DlStatus.DONE
                 // 공용 다운로드 폴더 모드
-                val sp = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
-                if (sp.getString("dl_folder", "public") == "public") {
-                    runCatching { copyToPublicDownloads(ctx, f) }
-                }
+                DownloadFolder.export(ctx, f, "image/*")
             }.onFailure {
                 item.status = DlStatus.FAILED
             }
             DownloadStore.upsert(item)
         }.start()
-    }
-
-    /** 완료 이미지를 공용 Download/JC Browser 폴더로 복사 (MediaStore, API 29+) */
-    private fun copyToPublicDownloads(ctx: Context, src: File) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
-        val values = android.content.ContentValues().apply {
-            put(android.provider.MediaStore.Downloads.DISPLAY_NAME, src.name)
-            put(android.provider.MediaStore.Downloads.MIME_TYPE, "image/*")
-            put(
-                android.provider.MediaStore.Downloads.RELATIVE_PATH,
-                android.os.Environment.DIRECTORY_DOWNLOADS + "/JC Browser"
-            )
-        }
-        val uri = ctx.contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-            ?: return
-        ctx.contentResolver.openOutputStream(uri)?.use { out ->
-            src.inputStream().use { it.copyTo(out) }
-        }
     }
 }

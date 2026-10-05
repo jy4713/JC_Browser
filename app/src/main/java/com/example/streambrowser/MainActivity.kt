@@ -29,7 +29,10 @@ import android.view.GestureDetector
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
+import android.view.OrientationEventListener
 import android.view.View
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
@@ -348,6 +351,38 @@ class MainActivity : Activity() {
         imageAdapter.clearSelection()
     }
 
+    // ------------------------------------------------------- 전체화면 몰입 모드
+
+    /** 상태바/낵비케이션 바 숨기기 (전체화면 동영상용) */
+    private fun enterImmersive() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
+            window.insetsController?.apply {
+                systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                hide(WindowInsets.Type.systemBars())
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility =
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                        View.SYSTEM_UI_FLAG_FULLSCREEN
+        }
+    }
+
+    private fun exitImmersive() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(true)
+            window.insetsController?.show(WindowInsets.Type.systemBars())
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+        }
+    }
+
     // ------------------------------------------------------- WebView 충돌 방어
 
     private fun showWebViewErrorAndFinish() {
@@ -456,6 +491,7 @@ class MainActivity : Activity() {
                 topBar.visibility = View.GONE
                 bottomBar.visibility = View.GONE
                 findBar.visibility = View.GONE
+                enterImmersive()
                 container.addView(
                     view,
                     FrameLayout.LayoutParams(
@@ -472,6 +508,8 @@ class MainActivity : Activity() {
                 fullscreenCallback = null
                 topBar.visibility = View.VISIBLE
                 bottomBar.visibility = View.VISIBLE
+                stopAutoRotate()
+                if (!jsFsActive) exitImmersive()
             }
         }
         wv.webChromeClient = chromeClient
@@ -1016,29 +1054,84 @@ class MainActivity : Activity() {
     }
 
     private fun showDownloadFolderDialog() {
-        val values = arrayOf("public", "app")
+        val values = arrayOf("public", "custom", "app")
         val labels = arrayOf(
             getString(R.string.folder_public),
+            getString(R.string.folder_custom),
             getString(R.string.folder_app)
         )
         val cur = values.indexOf(prefs.getString("dl_folder", "public")).coerceAtLeast(0)
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.dlg_dl_folder))
             .setSingleChoiceItems(labels, cur) { d, which ->
-                prefs.edit().putString("dl_folder", values[which]).apply()
-                d.dismiss()
+                if (values[which] == "custom") {
+                    val i = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+                    runCatching { startActivityForResult(i, 5) }
+                        .onFailure {
+                            Toast.makeText(this, getString(R.string.folder_pick_failed), Toast.LENGTH_SHORT).show()
+                        }
+                    d.dismiss()
+                } else {
+                    prefs.edit().putString("dl_folder", values[which]).apply()
+                    d.dismiss()
+                }
             }
             .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
-
-    // ------------------------------------------------------- Soul 스타일 동영상 메뉴
 
     private var videoMenuPopup: PopupWindow? = null
     private var videoHideRunnable: Runnable? = null
 
     private fun runVideoJs(js: String) {
         runCatching { current()?.web?.evaluateJavascript(js, null) }
+    }
+
+    private var orientListener: OrientationEventListener? = null
+
+    /** Rotate only the fullscreen view: 0=portrait, 90=landscape */
+    private fun applyFullscreenRotation(v: View, deg: Float) {
+        val dm = resources.displayMetrics
+        val lp = v.layoutParams as FrameLayout.LayoutParams
+        if (deg == 0f || deg == 180f) {
+            lp.width = ViewGroup.LayoutParams.MATCH_PARENT
+            lp.height = ViewGroup.LayoutParams.MATCH_PARENT
+        } else {
+            lp.width = dm.heightPixels
+            lp.height = dm.widthPixels
+        }
+        lp.gravity = Gravity.CENTER
+        v.layoutParams = lp
+        v.rotation = deg
+    }
+
+    private fun rotateFullscreen(deg: Float) {
+        val v = fullscreenView ?: return
+        stopAutoRotate()
+        applyFullscreenRotation(v, deg)
+    }
+
+    private fun startAutoRotate() {
+        stopAutoRotate()
+        orientListener = object : OrientationEventListener(this) {
+            override fun onOrientationChanged(degrees: Int) {
+                if (degrees == ORIENTATION_UNKNOWN) return
+                val v = fullscreenView ?: return
+                val target = when {
+                    degrees >= 45 && degrees < 135 -> 90f
+                    degrees >= 135 && degrees < 225 -> 180f
+                    degrees >= 225 && degrees < 315 -> 270f
+                    else -> 0f
+                }
+                if (v.rotation != target) applyFullscreenRotation(v, target)
+            }
+        }
+        if (orientListener?.canDetectOrientation() == true) orientListener?.enable()
+    }
+
+    private fun stopAutoRotate() {
+        orientListener?.disable()
+        orientListener = null
     }
 
     private fun showVideoMenu() {
@@ -1073,22 +1166,27 @@ class MainActivity : Activity() {
                     jsFsActive = false
                     topBar.visibility = View.VISIBLE
                     bottomBar.visibility = View.VISIBLE
+                    if (fullscreenView == null) exitImmersive()
                 } else {
                     runVideoJs("window.__sbFsOn();")
                     jsFsActive = true
                     topBar.visibility = View.GONE
                     bottomBar.visibility = View.GONE
+                    enterImmersive()
                 }
             })
-            addView(row(getString(R.string.vm_landscape)) {
-                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            })
-            addView(row(getString(R.string.vm_portrait)) {
-                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-            })
-            addView(row(getString(R.string.vm_auto_rotate)) {
-                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            })
+            // custom-view fullscreen only: rotate the video, not the browser (Soul-style)
+            if (fullscreenView != null) {
+                addView(row(getString(R.string.vm_landscape)) {
+                    rotateFullscreen(90f)
+                })
+                addView(row(getString(R.string.vm_portrait)) {
+                    rotateFullscreen(0f)
+                })
+                addView(row(getString(R.string.vm_auto_rotate)) {
+                    startAutoRotate()
+                })
+            }
             addView(row(getString(R.string.vm_play)) {
                 runVideoJs("var v=window.__sbBigVideo(); if(v){try{v.play();}catch(e){}}")
             })
@@ -1161,7 +1259,10 @@ class MainActivity : Activity() {
         runCatching {
             val bmp = Bitmap.createBitmap(wv.width, wv.contentHeight.coerceAtLeast(wv.height), Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bmp)
+            val wasHw = wv.layerType == View.LAYER_TYPE_HARDWARE
+            if (wasHw) wv.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
             wv.draw(canvas)
+            if (wasHw) wv.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             val dir = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "JC Browser").apply { mkdirs() }
             val f = File(dir, "capture_${System.currentTimeMillis()}.png")
             f.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -1414,6 +1515,21 @@ class MainActivity : Activity() {
                 }
             }.onFailure {
                 Toast.makeText(this, getString(R.string.bookmark_export_failed), Toast.LENGTH_SHORT).show()
+            }
+        }
+        // 사용자 지정 다운로드 폴터 (SAF 트리)
+        if (requestCode == 5 && resultCode == RESULT_OK) {
+            runCatching {
+                data?.data?.let { uri ->
+                    contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                    prefs.edit().putString("dl_folder", "custom").putString("dl_folder_tree", uri.toString()).apply()
+                    Toast.makeText(this, getString(R.string.dl_folder_saved), Toast.LENGTH_SHORT).show()
+                }
+            }.onFailure {
+                Toast.makeText(this, getString(R.string.folder_pick_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }

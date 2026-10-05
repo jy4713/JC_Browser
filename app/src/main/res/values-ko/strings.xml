@@ -60,8 +60,8 @@
     <string name="vm_title">동영상 옵션</string>
     <string name="vm_fs_on">전체화면</string>
     <string name="vm_fs_off">전체화면 해제</string>
-    <string name="vm_landscape">가로 고정</string>
-    <string name="vm_portrait">세로 고정</string>
+    <string name="vm_landscape">가로로 보기</string>
+    <string name="vm_portrait">세로로 보기</string>
     <string name="vm_auto_rotate">자동 회전</string>
     <string name="vm_play">재생</string>
     <string name="vm_pause">일시정지</string>
@@ -85,7 +85,10 @@
     <string name="dlg_dl_folder">다운로드 위치</string>
     <string name="folder_public">다운로드 폴더 (권장)</string>
     <string name="folder_app">앱 전용 폴더</string>
-    <string name="dlg_text_size">글자 크기</string>
+    <string name="folder_custom">직접 폴더 선택…</string>
+    <string name="dl_folder_saved">다운로드 폴더가 설정되었습니다</string>
+    <string name="folder_pick_failed">폴더를 설정하지 못했습니다</string>
+        <string name="dlg_text_size">글자 크기</string>
     <string name="dlg_clear_title">방문 기록/캐시 삭제</string>
     <string name="dlg_clear_msg">방문 기록, 쿠키, 캐시를 삭제하시겠습니까?</string>
     <string name="btn_delete">삭제</string>

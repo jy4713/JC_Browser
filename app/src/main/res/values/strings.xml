@@ -62,8 +62,8 @@
     <string name="vm_title">Video options</string>
     <string name="vm_fs_on">Fullscreen</string>
     <string name="vm_fs_off">Exit fullscreen</string>
-    <string name="vm_landscape">Lock landscape</string>
-    <string name="vm_portrait">Lock portrait</string>
+    <string name="vm_landscape">Landscape</string>
+    <string name="vm_portrait">Portrait</string>
     <string name="vm_auto_rotate">Auto-rotate</string>
     <string name="vm_play">Play</string>
     <string name="vm_pause">Pause</string>
@@ -86,7 +86,10 @@
     <string name="lang_en">English</string>
     <string name="dlg_dl_folder">Download location</string>
     <string name="folder_public">Downloads folder (recommended)</string>
+    <string name="folder_custom">Choose folder…</string>
     <string name="folder_app">App folder (private)</string>
+    <string name="dl_folder_saved">Download folder set</string>
+    <string name="folder_pick_failed">Could not set folder</string>
     <string name="dlg_text_size">Text size</string>
     <string name="dlg_clear_title">Clear history &amp; cache</string>
     <string name="dlg_clear_msg">Delete browsing history, cookies and cache?</string>
