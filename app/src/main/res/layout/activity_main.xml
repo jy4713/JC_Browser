@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF"
+    android:orientation="vertical">
+
+    <!-- 상단: 둥근 주소창 + 영상 버튼(배지) -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="8dp">
+
+        <EditText
+            android:id="@+id/editUrl"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_url"
+            android:drawableStart="@drawable/ic_search"
+            android:drawablePadding="10dp"
+            android:drawableTint="#9AA0A6"
+            android:hint="검색 또는 URL 입력"
+            android:imeOptions="actionGo"
+            android:inputType="textUri"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:singleLine="true"
+            android:textColor="#202124"
+            android:textColorHint="#9AA0A6"
+            android:textSize="15sp" />
+
+        <FrameLayout
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp">
+
+            <ImageButton
+                android:id="@+id/btnVideos"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_btn_ripple"
+                android:contentDescription="영상"
+                android:padding="11dp"
+                android:src="@drawable/ic_video"
+                android:tint="@color/icon_tint" />
+
+            <TextView
+                android:id="@+id/badgeVideos"
+                android:layout_width="wrap_content"
+                android:layout_height="18dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="1dp"
+                android:layout_marginEnd="1dp"
+                android:background="@drawable/bg_badge"
+                android:gravity="center"
+                android:minWidth="18dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:text="0"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- 웹뷰 -->
+    <FrameLayout
+        android:id="@+id/webContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- 페이지 내 찾기 바 -->
+    <LinearLayout
+        android:id="@+id/findBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="6dp"
+        android:visibility="gone">
+
+        <EditText
+            android:id="@+id/findInput"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_url"
+            android:hint="페이지에서 찾기"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:singleLine="true"
+            android:textSize="14sp" />
+
+        <ImageButton
+            android:id="@+id/btnFindPrev"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="이전"
+            android:padding="9dp"
+            android:src="@drawable/ic_expand_less"
+            android:tint="@color/icon_tint" />
+
+        <ImageButton
+            android:id="@+id/btnFindNext"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="다음"
+            android:padding="9dp"
+            android:src="@drawable/ic_expand_more"
+            android:tint="@color/icon_tint" />
+
+        <ImageButton
+            android:id="@+id/btnFindClose"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="닫기"
+            android:padding="9dp"
+            android:src="@drawable/ic_close"
+            android:tint="@color/icon_tint" />
+    </LinearLayout>
+
+    <!-- 감지된 영상 목록 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/videoList"
+        android:layout_width="match_parent"
+        android:layout_height="180dp"
+        android:visibility="gone" />
+
+    <!-- 하단 툴팁 (둥근 모서리 카드 스타일) -->
+    <LinearLayout
+        android:id="@+id/bottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="@drawable/bg_bottom_bar"
+        android:elevation="12dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+
+        <ImageButton
+            android:id="@+id/btnNavBack"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="뒤로"
+            android:padding="11dp"
+            android:src="@drawable/ic_arrow_back"
+            android:tint="@color/icon_tint" />
+
+        <ImageButton
+            android:id="@+id/btnNavForward"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="앞으로"
+            android:padding="11dp"
+            android:src="@drawable/ic_arrow_forward"
+            android:tint="@color/icon_tint" />
+
+        <ImageButton
+            android:id="@+id/btnNavRefresh"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="새로고침"
+            android:padding="11dp"
+            android:src="@drawable/ic_refresh"
+            android:tint="@color/icon_tint" />
+
+        <ImageButton
+            android:id="@+id/btnNavHome"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="홈"
+            android:padding="11dp"
+            android:src="@drawable/ic_home"
+            android:tint="@color/icon_tint" />
+
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1">
+
+            <ImageButton
+                android:id="@+id/btnNavTabs"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_btn_ripple"
+                android:contentDescription="탭"
+                android:padding="11dp"
+                android:src="@drawable/ic_tabs"
+                android:tint="@color/icon_tint" />
+
+            <TextView
+                android:id="@+id/badgeTabs"
+                android:layout_width="wrap_content"
+                android:layout_height="18dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="1dp"
+                android:layout_marginEnd="1dp"
+                android:background="@drawable/bg_badge"
+                android:gravity="center"
+                android:minWidth="18dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:text="1"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </FrameLayout>
+
+        <ImageButton
+            android:id="@+id/btnNavMenu"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="메뉴"
+            android:padding="11dp"
+            android:src="@drawable/ic_menu_vert"
+            android:tint="@color/icon_tint" />
+    </LinearLayout>
+</LinearLayout>

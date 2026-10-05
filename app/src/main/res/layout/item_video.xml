@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="12dp"
+    android:paddingTop="6dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="6dp">
+
+    <TextView
+        android:id="@+id/txtVideoInfo"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:ellipsize="middle"
+        android:singleLine="true"
+        android:textSize="12sp" />
+
+    <ImageButton
+        android:id="@+id/btnPreview"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginStart="6dp"
+        android:background="@drawable/bg_btn_ripple"
+        android:contentDescription="미리보기"
+        android:padding="8dp"
+        android:src="@drawable/ic_play"
+        android:tint="#1A73E8" />
+
+    <Button
+        android:id="@+id/btnDownload"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:layout_marginStart="6dp"
+        android:background="@drawable/bg_btn_primary"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:text="받기"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp" />
+</LinearLayout>

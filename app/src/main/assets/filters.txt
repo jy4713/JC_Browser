@@ -1,0 +1,20 @@
+# URL에 포함되면 차단하는 문자열 필터 (Adblock 스타일 단순화 버전)
+# 예: "/ads/" 는 .../ads/... 가 들어간 모든 요청 차단
+/ads/
+/ad/
+/adv/
+/adserv
+/adserver
+/adslot
+/adbanner
+/adbox
+/adframe
+/advertisement
+/popads
+/popup.js
+/tracker
+/analytics.
+/beacon.
+/tracking?
+/impression?
+/clicktrack

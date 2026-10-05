@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:id="@+id/menu_new_tab" android:title="새 탭" />
+    <item android:id="@+id/menu_new_incognito" android:title="새 시크릿 탭" />
+    <item android:id="@+id/menu_close_tab" android:title="현재 탭 닫기" />
+
+    <item android:id="@+id/menu_add_bookmark" android:title="즐겨찾기 추가" />
+    <item android:id="@+id/menu_bookmarks" android:title="즐겨찾기" />
+    <item android:id="@+id/menu_history" android:title="방문 기록" />
+    <item android:id="@+id/menu_downloads" android:title="다운로드" />
+
+    <item android:id="@+id/menu_find" android:title="페이지에서 찾기" />
+    <item
+        android:id="@+id/menu_desktop"
+        android:checkable="true"
+        android:title="데스크톱 사이트" />
+    <item
+        android:id="@+id/menu_dark"
+        android:checkable="true"
+        android:title="어두운 모드" />
+    <item
+        android:id="@+id/menu_adblock"
+        android:checkable="true"
+        android:title="광고 차단" />
+    <item
+        android:id="@+id/menu_restore_tabs"
+        android:checkable="true"
+        android:title="시작 시 탭 복원" />
+    <item android:id="@+id/menu_text_size" android:title="글자 크기" />
+    <item android:id="@+id/menu_capture" android:title="화면 캡처" />
+
+    <item android:id="@+id/menu_share" android:title="공유" />
+    <item android:id="@+id/menu_copy_url" android:title="URL 복사" />
+    <item android:id="@+id/menu_add_adblock_rule" android:title="이 사이트 광고 차단" />
+    <item android:id="@+id/menu_clear_data" android:title="방문 기록/캐시 삭제" />
+
+    <item android:id="@+id/menu_about" android:title="정보" />
+    <item android:id="@+id/menu_exit" android:title="종료" />
+</menu>
