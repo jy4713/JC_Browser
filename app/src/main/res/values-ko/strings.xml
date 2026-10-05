@@ -124,6 +124,7 @@
     <string name="dlg_adblock_host">광고 차단할 도메인</string>
     <string name="btn_add">추가</string>
     <string name="dlg_tabs_close">현재 탭 닫기</string>
+    <string name="dlg_tabs_close_all">모든 탭 닫기</string>
     <string name="dlg_new_tab">새 탭</string>
     <string name="dlg_tabs_count">탭</string>
     <string name="last_tab">마지막 탭은 닫을 수 없습니다</string>

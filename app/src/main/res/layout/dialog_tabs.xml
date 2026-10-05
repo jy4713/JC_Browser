@@ -53,11 +53,11 @@
         android:layout_marginTop="6dp"
         android:overScrollMode="never" />
 
-    <!-- 하단 액션 -->
+    <!-- 하단 액션: 볍더 없는 플랫 버튼 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="4dp"
         android:orientation="horizontal">
 
         <Button
@@ -65,38 +65,56 @@
             android:layout_width="0dp"
             android:layout_height="44dp"
             android:layout_weight="1"
-            android:background="@drawable/bg_btn_soft"
+            android:background="@drawable/bg_btn_ripple"
             android:drawableStart="@drawable/ic_tabs"
-            android:drawablePadding="8dp"
+            android:drawablePadding="6dp"
             android:drawableTint="#1A73E8"
             android:gravity="center"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
             android:text="@string/dlg_new_tab"
             android:textAllCaps="false"
             android:textColor="#1A73E8"
-            android:textSize="14sp" />
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/btnCloseAll"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_btn_ripple"
+            android:drawableStart="@drawable/ic_close"
+            android:drawablePadding="6dp"
+            android:drawableTint="#D93025"
+            android:gravity="center"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:text="@string/dlg_tabs_close_all"
+            android:textAllCaps="false"
+            android:textColor="#D93025"
+            android:textSize="13sp" />
 
         <Button
             android:id="@+id/btnCloseCurrent"
             android:layout_width="0dp"
             android:layout_height="44dp"
-            android:layout_marginStart="10dp"
             android:layout_weight="1"
-            android:background="@drawable/bg_btn_soft"
+            android:background="@drawable/bg_btn_ripple"
             android:drawableStart="@drawable/ic_close"
-            android:drawablePadding="8dp"
+            android:drawablePadding="6dp"
             android:drawableTint="#D93025"
             android:gravity="center"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
             android:text="@string/dlg_tabs_close"
             android:textAllCaps="false"
             android:textColor="#D93025"
-            android:textSize="14sp" />
+            android:textSize="13sp" />
     </LinearLayout>
 </LinearLayout>

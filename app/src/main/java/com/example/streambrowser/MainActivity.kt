@@ -708,6 +708,14 @@ class MainActivity : Activity() {
             createTab(HOME)
             dlg.dismiss()
         }
+        dlg.findViewById<Button>(R.id.btnCloseAll).setOnClickListener {
+            // 모든 탭 닫고 홈 탭 하나만 새로 열기
+            tabs.forEach { runCatching { it.web.destroy() } }
+            tabs.clear()
+            current = 0
+            createTab(prefs.getString("home_url", HOME) ?: HOME)
+            dlg.dismiss()
+        }
         dlg.findViewById<Button>(R.id.btnCloseCurrent).setOnClickListener {
             closeTab(current)
             txtCount.text = "${getString(R.string.dlg_tabs_count)} ${tabs.size}"

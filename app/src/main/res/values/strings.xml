@@ -126,6 +126,7 @@
     <string name="dlg_adblock_host">Domain to block</string>
     <string name="btn_add">Add</string>
     <string name="dlg_tabs_close">Close current tab</string>
+    <string name="dlg_tabs_close_all">Close all tabs</string>
     <string name="dlg_new_tab">New tab</string>
     <string name="dlg_tabs_count">Tabs</string>
     <string name="last_tab">Cannot close the last tab</string>
