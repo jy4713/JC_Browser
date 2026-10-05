@@ -51,7 +51,7 @@
     <string name="menu_dl_folder">Download location</string>
     <string name="menu_share">Share</string>
     <string name="menu_copy_url">Copy URL</string>
-    <string name="menu_add_adblock_rule">Block ads on this site</string>
+    <string name="menu_allow_ads">Allow ads on this site</string>
     <string name="menu_clear_data">Clear history &amp; cache</string>
     <string name="menu_language">Language</string>
     <string name="menu_about">About</string>
@@ -99,7 +99,7 @@
     <string name="dlg_adblock_host">Domain to block</string>
     <string name="btn_add">Add</string>
     <string name="dlg_tabs_close">Close current tab</string>
-    <string name="dlg_new_tab">+ New tab</string>
+    <string name="dlg_new_tab">New tab</string>
     <string name="dlg_tabs_count">Tabs</string>
     <string name="last_tab">Cannot close the last tab</string>
 

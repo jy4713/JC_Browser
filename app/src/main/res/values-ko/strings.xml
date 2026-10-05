@@ -49,7 +49,7 @@
     <string name="menu_dl_folder">다운로드 위치</string>
     <string name="menu_share">공유</string>
     <string name="menu_copy_url">URL 복사</string>
-    <string name="menu_add_adblock_rule">이 사이트 광고 차단</string>
+    <string name="menu_allow_ads">이 사이트 광고 허용</string>
     <string name="menu_clear_data">방문 기록/캐시 삭제</string>
     <string name="menu_language">언어</string>
     <string name="menu_about">정보</string>
@@ -97,7 +97,7 @@
     <string name="dlg_adblock_host">광고 차단할 도메인</string>
     <string name="btn_add">추가</string>
     <string name="dlg_tabs_close">현재 탭 닫기</string>
-    <string name="dlg_new_tab">＋ 새 탭</string>
+    <string name="dlg_new_tab">새 탭</string>
     <string name="dlg_tabs_count">탭</string>
     <string name="last_tab">마지막 탭은 닫을 수 없습니다</string>
 

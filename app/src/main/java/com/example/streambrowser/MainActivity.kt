@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -48,6 +49,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.recyclerview.widget.GridLayoutManager
@@ -125,6 +127,15 @@ class MainActivity : Activity() {
         prefs = getSharedPreferences("settings", MODE_PRIVATE)
         AdBlocker.init(this)
 
+        // Android 13+ : 다운로드 진행 알림을 위한 알림 권한 요청
+        if (Build.VERSION.SDK_INT >= 33) {
+            runCatching {
+                if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 9)
+                }
+            }
+        }
+
         container = findViewById(R.id.webContainer)
         editUrl = findViewById(R.id.editUrl)
         btnVideos = findViewById(R.id.btnVideos)
@@ -187,6 +198,24 @@ class MainActivity : Activity() {
         }
         btnSelectAll.setOnClickListener { imageAdapter.selectAll() }
         btnDlSelected.setOnClickListener { downloadSelectedImages() }
+
+        // 미디어 패널 아래로 끌어내리면 닫기 (버튼 재클릭과 동일)
+        val panelCloseOnDrag = View.OnTouchListener { _, ev ->
+            when (ev.action) {
+                MotionEvent.ACTION_DOWN -> panelDragStartY = ev.y
+                MotionEvent.ACTION_MOVE -> {
+                    if (panelDragStartY >= 0f && ev.y - panelDragStartY > 220 * resources.displayMetrics.density) {
+                        closePanels()
+                        panelDragStartY = -1f
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> panelDragStartY = -1f
+            }
+            false
+        }
+        mediaPanel.setOnTouchListener(panelCloseOnDrag)
+        videoList.setOnTouchListener(panelCloseOnDrag)
+        imageGrid.setOnTouchListener(panelCloseOnDrag)
 
         // 하단 툴팁
         btnNavBack = findViewById(R.id.btnNavBack)
@@ -697,10 +726,10 @@ class MainActivity : Activity() {
     private class MenuEntry(
         val title: String,
         val iconRes: Int,
-        val prefKey: String?,     // 체크 상태 표시용 pref
+        val prefKey: String?,     // pref-based check state
+        val state: (() -> Boolean)? = null,  // custom check state (e.g. per-site allow)
         val action: () -> Unit
     )
-
     private class MenuGroup(
         val groupRes: Int,
         val iconRes: Int,
@@ -715,22 +744,31 @@ class MainActivity : Activity() {
     }
 
     private var menuDialog: Dialog? = null
+    private var panelDragStartY = -1f
     private var expandedGroup: Int? = null
 
     /** 상단 단축키 그리드 항목 (아이콘, 라벨, 동작) */
-    private fun shortcutItems(): List<Triple<Int, Int, () -> Unit>> {
+    private class ShortcutSpec(
+        val iconRes: Int,
+        val labelRes: Int,
+        val state: (() -> Boolean)? = null,
+        val action: () -> Unit
+    )
+
+    /** Top shortcut grid: actions + ON/OFF toggles with live state tint */
+    private fun shortcutItems(): List<ShortcutSpec> {
         val s = fun(res: Int) = getString(res)
         return listOf(
-            Triple(R.drawable.ic_tabs, R.string.menu_new_tab) {
+            ShortcutSpec(R.drawable.ic_tabs, R.string.menu_new_tab) {
                 createTab(HOME)
                 menuDialog?.dismiss()
             },
-            Triple(R.drawable.ic_incognito, R.string.menu_new_incognito) {
+            ShortcutSpec(R.drawable.ic_incognito, R.string.menu_new_incognito) {
                 createTab(HOME, incognito = true)
                 Toast.makeText(this, s(R.string.incognito_on), Toast.LENGTH_SHORT).show()
                 menuDialog?.dismiss()
             },
-            Triple(R.drawable.ic_bookmark_add, R.string.menu_add_bookmark) {
+            ShortcutSpec(R.drawable.ic_bookmark_add, R.string.menu_add_bookmark) {
                 val url = current()?.web?.url
                 if (!url.isNullOrEmpty()) {
                     BookmarkRepo.add(this, current()?.web?.title ?: url, url)
@@ -738,31 +776,57 @@ class MainActivity : Activity() {
                 }
                 menuDialog?.dismiss()
             },
-            Triple(R.drawable.ic_bookmark, R.string.menu_bookmarks) {
+            ShortcutSpec(R.drawable.ic_bookmark, R.string.menu_bookmarks) {
                 startActivityForResult(Intent(this, com.example.streambrowser.ui.BookmarksActivity::class.java), 1)
                 menuDialog?.dismiss()
             },
-            Triple(R.drawable.ic_history, R.string.menu_history) {
+            ShortcutSpec(R.drawable.ic_history, R.string.menu_history) {
                 startActivityForResult(Intent(this, com.example.streambrowser.ui.HistoryActivity::class.java), 2)
                 menuDialog?.dismiss()
             },
-            Triple(R.drawable.ic_download, R.string.menu_downloads) {
+            ShortcutSpec(R.drawable.ic_download, R.string.menu_downloads) {
                 startActivity(Intent(this, com.example.streambrowser.ui.DownloadsActivity::class.java))
                 menuDialog?.dismiss()
             },
-            Triple(R.drawable.ic_search, R.string.menu_find) {
+            ShortcutSpec(R.drawable.ic_search, R.string.menu_find) {
                 findBar.visibility = View.VISIBLE
                 findInput.requestFocus()
                 menuDialog?.dismiss()
             },
-            Triple(R.drawable.ic_image, R.string.menu_capture) {
+            ShortcutSpec(R.drawable.ic_image, R.string.menu_capture) {
                 captureCurrentPage()
                 menuDialog?.dismiss()
+            },
+            // ON/OFF toggles (state shown as blue tint, no toasts)
+            ShortcutSpec(R.drawable.ic_dark, R.string.menu_dark, { prefs.getBoolean("dark", false) }) {
+                val on = !prefs.getBoolean("dark", false)
+                prefs.edit().putBoolean("dark", on).apply()
+                tabs.forEach { applyDarkMode(it.web.settings) }
+                rebuildMenu()
+            },
+            ShortcutSpec(R.drawable.ic_desktop, R.string.menu_desktop, { prefs.getBoolean("desktop", false) }) {
+                val on = !prefs.getBoolean("desktop", false)
+                prefs.edit().putBoolean("desktop", on).apply()
+                tabs.forEach {
+                    it.web.settings.userAgentString = if (on) UA_DESKTOP else UA_MOBILE
+                    it.web.reload()
+                }
+                rebuildMenu()
+            },
+            ShortcutSpec(R.drawable.ic_adblock, R.string.menu_adblock, { AdBlocker.enabled }) {
+                AdBlocker.enabled = !AdBlocker.enabled
+                rebuildMenu()
+            },
+            ShortcutSpec(R.drawable.ic_pip, R.string.menu_auto_pip, { prefs.getBoolean("auto_pip", false) }) {
+                val on = !prefs.getBoolean("auto_pip", false)
+                prefs.edit().putBoolean("auto_pip", on).apply()
+                updatePipParams()
+                rebuildMenu()
             }
         )
     }
-
     /** 설정 그룹 (아코디언): 용도별 4개 그룹으로 정리 */
+    /** Settings groups (accordion), grouped by purpose. Toggles live in the shortcut grid. */
     private fun menuGroups(): List<MenuGroup> {
         val s = fun(res: Int) = getString(res)
         return listOf(
@@ -785,54 +849,24 @@ class MainActivity : Activity() {
                     prefs.edit().putBoolean("dl_notify", on).apply()
                 }
             )),
-            MenuGroup(R.string.group_display, R.drawable.ic_search, listOf(
-                MenuEntry(s(R.string.menu_desktop), R.drawable.ic_refresh, "desktop") {
-                    val on = !prefs.getBoolean("desktop", false)
-                    prefs.edit().putBoolean("desktop", on).apply()
-                    tabs.forEach {
-                        it.web.settings.userAgentString = if (on) UA_DESKTOP else UA_MOBILE
-                        it.web.reload()
-                    }
-                },
-                MenuEntry(s(R.string.menu_dark), R.drawable.ic_menu_vert, "dark") {
-                    val on = !prefs.getBoolean("dark", false)
-                    prefs.edit().putBoolean("dark", on).apply()
-                    tabs.forEach { applyDarkMode(it.web.settings) }
-                    Toast.makeText(this, s(if (on) R.string.dark_on else R.string.dark_off), Toast.LENGTH_SHORT).show()
-                },
-                MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
-                    showTextSizeDialog()
-                },
-                MenuEntry(s(R.string.menu_auto_pip), R.drawable.ic_play, "auto_pip") {
-                    val on = !prefs.getBoolean("auto_pip", false)
-                    prefs.edit().putBoolean("auto_pip", on).apply()
-                    updatePipParams()
-                    var msg = s(if (on) R.string.auto_pip_on else R.string.auto_pip_off)
-                    if (on && Build.VERSION.SDK_INT in Build.VERSION_CODES.O..Build.VERSION_CODES.R)
-                        msg += s(R.string.auto_pip_legacy)
-                    Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-                }
-            )),
             MenuGroup(R.string.group_privacy, R.drawable.ic_incognito, listOf(
-                MenuEntry(s(R.string.menu_adblock), R.drawable.ic_close, "adblock") {
-                    AdBlocker.enabled = !AdBlocker.enabled
-                    Toast.makeText(this, s(if (AdBlocker.enabled) R.string.adblock_on else R.string.adblock_off), Toast.LENGTH_SHORT).show()
-                },
-                MenuEntry(s(R.string.menu_add_adblock_rule), R.drawable.ic_close, null) {
-                    current()?.web?.url?.let { addAdBlockRule(it) }
+                MenuEntry(s(R.string.menu_allow_ads), R.drawable.ic_check_circle, null, { isCurrentHostAllowed() }) {
+                    toggleAllowAds()
                 },
                 MenuEntry(s(R.string.menu_clear_data), R.drawable.ic_close, null) {
                     confirmClearData()
                 }
             )),
             MenuGroup(R.string.group_general, R.drawable.ic_settings, listOf(
+                MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
+                    showTextSizeDialog()
+                },
                 MenuEntry(s(R.string.menu_home_setting), R.drawable.ic_home, null) {
                     showHomeDialog()
                 },
                 MenuEntry(s(R.string.menu_restore_tabs), R.drawable.ic_tabs, "restore_tabs") {
                     val on = !prefs.getBoolean("restore_tabs", true)
                     prefs.edit().putBoolean("restore_tabs", on).apply()
-                    Toast.makeText(this, s(if (on) R.string.restore_on else R.string.restore_off), Toast.LENGTH_SHORT).show()
                 },
                 MenuEntry(s(R.string.menu_import_bookmarks), R.drawable.ic_bookmark_add, null) {
                     val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -907,34 +941,56 @@ class MainActivity : Activity() {
         list.adapter = MenuSheetAdapter(buildMenuRows())
     }
 
-    private fun showSplitDialog() {
-        val values = intArrayOf(2, 4, 8, 16)
-        val labels = values.map { it.toString() }.toTypedArray()
-        val cur = values.indexOf(prefs.getInt("dl_split", 8)).coerceAtLeast(0)
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dlg_split_title))
-            .setSingleChoiceItems(labels, cur) { d, which ->
-                prefs.edit().putInt("dl_split", values[which]).apply()
-                d.dismiss()
-                rebuildMenu()
+    /** 각 설정의 실제 동작 기본값 (메뉴 ON 표시와 일치시키기 위함) */
+    private fun prefDefault(key: String): Boolean = when (key) {
+        "desktop", "dark", "auto_pip" -> false
+        "adblock" -> AdBlocker.enabled
+        else -> true // restore_tabs, fast_dl, dl_notify
+    }
+
+    /** SeekBar + number dialog (min..max inclusive) */
+    private fun showIntPickerDialog(title: String, min: Int, max: Int, current: Int, onPick: (Int) -> Unit) {
+        val label = TextView(this).apply { textSize = 18f; gravity = Gravity.CENTER }
+        val seek = SeekBar(this).apply {
+            this.max = max - min
+            progress = (current - min).coerceIn(0, max - min)
+        }
+        label.text = (min + seek.progress).toString()
+        seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+                label.text = (min + p).toString()
             }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        })
+        val density = resources.displayMetrics.density
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = (24 * density).toInt()
+            setPadding(pad, pad / 2, pad, pad / 2)
+            addView(label)
+            addView(seek)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(box)
+            .setPositiveButton(getString(R.string.btn_ok)) { _, _ -> onPick(min + seek.progress) }
             .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
+    private fun showSplitDialog() {
+        showIntPickerDialog(getString(R.string.dlg_split_title), 1, 10, prefs.getInt("dl_split", 8)) { v ->
+            prefs.edit().putInt("dl_split", v).apply()
+            rebuildMenu()
+        }
+    }
+
     private fun showConnDialog() {
-        val values = intArrayOf(1, 2, 4, 6, 8)
-        val labels = values.map { it.toString() }.toTypedArray()
-        val cur = values.indexOf(prefs.getInt("dl_conn", 4)).coerceAtLeast(0)
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dlg_conn_title))
-            .setSingleChoiceItems(labels, cur) { d, which ->
-                prefs.edit().putInt("dl_conn", values[which]).apply()
-                d.dismiss()
-                rebuildMenu()
-            }
-            .setNegativeButton(getString(R.string.btn_cancel), null)
-            .show()
+        showIntPickerDialog(getString(R.string.dlg_conn_title), 1, 10, prefs.getInt("dl_conn", 4)) { v ->
+            prefs.edit().putInt("dl_conn", v).apply()
+            rebuildMenu()
+        }
     }
 
     private fun showHomeDialog() {
@@ -988,11 +1044,17 @@ class MainActivity : Activity() {
                     val grid = h.itemView.findViewById<GridLayout>(R.id.shortcutGrid) ?: return
                     grid.removeAllViews()
                     val inflater = LayoutInflater.from(this@MainActivity)
-                    shortcutItems().forEach { (ic, label, act) ->
+                    shortcutItems().forEach { spec ->
                         val cell = inflater.inflate(R.layout.item_shortcut_cell, grid, false)
-                        cell.findViewById<ImageView>(R.id.scIcon).setImageResource(ic)
-                        cell.findViewById<TextView>(R.id.scLabel).text = getString(label)
-                        cell.setOnClickListener { act() }
+                        val iconV = cell.findViewById<ImageView>(R.id.scIcon)
+                        val labelV = cell.findViewById<TextView>(R.id.scLabel)
+                        iconV.setImageResource(spec.iconRes)
+                        labelV.text = getString(spec.labelRes)
+                        if (spec.state?.invoke() == true) {
+                            iconV.setColorFilter(Color.parseColor("#1A73E8"))
+                            labelV.setTextColor(Color.parseColor("#1A73E8"))
+                        }
+                        cell.setOnClickListener { spec.action() }
                         grid.addView(cell)
                     }
                 }
@@ -1017,12 +1079,14 @@ class MainActivity : Activity() {
                     h.icon?.setImageResource(e.iconRes)
                     h.title?.text = e.title
                     h.title?.setTypeface(h.title?.typeface, android.graphics.Typeface.NORMAL)
-                    val checked = when (e.prefKey) {
-                        null -> false
-                        "adblock" -> AdBlocker.enabled
-                        else -> prefs.getBoolean(e.prefKey, e.prefKey != "dl_notify")
+                    val checked = when {
+                        e.state != null -> e.state.invoke()
+                        e.prefKey == "adblock" -> AdBlocker.enabled
+                        e.prefKey != null -> prefs.getBoolean(e.prefKey, prefDefault(e.prefKey))
+                        else -> false
                     }
-                    h.state?.visibility = if (e.prefKey != null && checked) View.VISIBLE else View.GONE
+                    h.state?.visibility =
+                        if ((e.prefKey != null || e.state != null) && checked) View.VISIBLE else View.GONE
                     h.state?.text = getString(R.string.on_state)
                     h.state?.setTextColor(Color.parseColor("#1A73E8"))
                     h.itemView.setOnClickListener {
@@ -1117,10 +1181,11 @@ class MainActivity : Activity() {
             override fun onOrientationChanged(degrees: Int) {
                 if (degrees == ORIENTATION_UNKNOWN) return
                 val v = fullscreenView ?: return
+                // 기기 회전 방향에 맞춰 영상 회전 (landscape에서 뒤집히지 않게)
                 val target = when {
-                    degrees >= 45 && degrees < 135 -> 90f
+                    degrees >= 45 && degrees < 135 -> 270f
                     degrees >= 135 && degrees < 225 -> 180f
-                    degrees >= 225 && degrees < 315 -> 270f
+                    degrees >= 225 && degrees < 315 -> 90f
                     else -> 0f
                 }
                 if (v.rotation != target) applyFullscreenRotation(v, target)
@@ -1145,7 +1210,19 @@ class MainActivity : Activity() {
                 val padV = (14 * resources.displayMetrics.density).toInt()
                 val padH = (24 * resources.displayMetrics.density).toInt()
                 setPadding(padH, padV, padH, padV)
-                setBackgroundColor(Color.WHITE)
+                background = android.graphics.drawable.StateListDrawable().apply {
+                    addState(
+                        intArrayOf(android.R.attr.state_pressed),
+                        GradientDrawable().apply {
+                            setColor(Color.parseColor("#E8F0FE"))
+                            cornerRadius = 10f
+                        }
+                    )
+                    addState(
+                        intArrayOf(),
+                        GradientDrawable().apply { setColor(Color.WHITE) }
+                    )
+                }
                 setOnClickListener {
                     onClick()
                     scheduleVideoMenuHide()
@@ -1230,28 +1307,23 @@ class MainActivity : Activity() {
     // ------------------------------------------------------- 기타 헬퍼
 
     private fun applyDarkMode(settings: WebSettings) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val on = prefs.getBoolean("dark", false)
+        if (Build.VERSION.SDK_INT >= 33) {
+            runCatching { settings.setAlgorithmicDarkeningAllowed(on) }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             runCatching {
-                settings.forceDark =
-                    if (prefs.getBoolean("dark", false)) WebSettings.FORCE_DARK_ON
-                    else WebSettings.FORCE_DARK_OFF
+                settings.forceDark = if (on) WebSettings.FORCE_DARK_ON else WebSettings.FORCE_DARK_OFF
             }
         }
     }
 
     private fun showTextSizeDialog() {
-        val sizes = arrayOf("50%", "75%", "100%", "125%", "150%")
-        val values = arrayOf(50, 75, 100, 125, 150)
-        val cur = values.indexOf(prefs.getInt("text_zoom", 100)).let { if (it < 0) 2 else it }
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dlg_text_size))
-            .setSingleChoiceItems(sizes, cur) { d, which ->
-                prefs.edit().putInt("text_zoom", values[which]).apply()
-                tabs.forEach { it.web.settings.textZoom = values[which] }
-                d.dismiss()
-            }
-            .setNegativeButton(getString(R.string.btn_cancel), null)
-            .show()
+        showIntPickerDialog(getString(R.string.dlg_text_size), 50, 150, prefs.getInt("text_zoom", 100)) { v ->
+            val zoom = (v / 5) * 5
+            prefs.edit().putInt("text_zoom", zoom).apply()
+            tabs.forEach { it.web.settings.textZoom = zoom }
+            rebuildMenu()
+        }
     }
 
     private fun captureCurrentPage() {
@@ -1272,23 +1344,21 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun addAdBlockRule(url: String) {
-        val host = runCatching { Uri.parse(url).host }.getOrNull()
+    private fun currentHost(): String? =
+        runCatching { Uri.parse(current()?.web?.url ?: "").host }.getOrNull()
+
+    private fun isCurrentHostAllowed(): Boolean =
+        currentHost()?.let { AdBlocker.isHostAllowed(it) } == true
+
+    /** 이 사이트 광고 허용 토글 (전역 차단은 유지, 예외 사이트만 허용) */
+    private fun toggleAllowAds() {
+        val host = currentHost()
         if (host.isNullOrEmpty()) {
             Toast.makeText(this, getString(R.string.invalid_page), Toast.LENGTH_SHORT).show()
             return
         }
-        val input = EditText(this).apply { setText(host) }
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dlg_adblock_host))
-            .setView(input)
-            .setPositiveButton(getString(R.string.btn_add)) { _, _ ->
-                AdBlocker.addCustomHost(this, input.text.toString().trim())
-                current()?.web?.reload()
-                Toast.makeText(this, getString(R.string.adblock_added), Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton(getString(R.string.btn_cancel), null)
-            .show()
+        AdBlocker.toggleAllowHost(this, host)
+        current()?.web?.reload()
     }
 
     private fun confirmClearData() {
@@ -1307,21 +1377,16 @@ class MainActivity : Activity() {
     }
 
     private fun showAbout() {
+        val ver = runCatching {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(packageName, 0).versionName
+        }.getOrNull() ?: ""
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.app_name))
-            .setMessage(
-                getString(R.string.about_version, "2.0.0") + "\n\n" +
-                        "· Ad & tracker blocking (Brave-style EasyList)\n" +
-                        "· Streaming video download (HLS/DASH) + images\n" +
-                        "· Multi tab / incognito / PIP\n" +
-                        "· Bookmarks, history, downloads\n\n" +
-                        "WebView based browser"
-            )
+            .setMessage("JC Browser\nVersion $ver\n\nMade by Junyoung Choi")
             .setPositiveButton(getString(R.string.btn_ok), null)
             .show()
     }
-
-    // ------------------------------------------------------- Chrome/Brave 롱프레스 메뉴
 
     private fun showHitMenu(wv: WebView): Boolean {
         val r = wv.hitTestResult ?: return false

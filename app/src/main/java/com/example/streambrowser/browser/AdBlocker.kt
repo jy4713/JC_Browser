@@ -19,6 +19,7 @@ import java.io.ByteArrayInputStream
 object AdBlocker {
 
     private val hosts = HashSet<String>()
+    private val allowHosts = HashSet<String>()         // per-site ad allowlist
     private val substrings = ArrayList<String>()       // 단순 문자열 필터
     private val domainRules = ArrayList<DomainRule>()  // ||도메인 규칙
     private val exceptions = ArrayList<Regex>()        // @@ 예외
@@ -52,6 +53,22 @@ object AdBlocker {
             }
         }
         prefs?.getStringSet("custom_hosts", emptySet())?.forEach { hosts.add(it) }
+        prefs?.getStringSet("ad_allow_hosts", emptySet())?.forEach { allowHosts.add(it.lowercase()) }
+    }
+
+    /** 이 사이트(호스트)의 광고를 차단에서 예외 처리했는지 */
+    fun isHostAllowed(host: String): Boolean {
+        val h = host.lowercase()
+        return allowHosts.any { h == it || h.endsWith("." + it) }
+    }
+
+    /** 사이트별 광고 허용 토글 (전역 차단은 그대로 두고 예외만 관리) */
+    fun toggleAllowHost(context: Context, host: String) {
+        val h = host.lowercase()
+        if (!allowHosts.add(h)) allowHosts.remove(h)
+        val cur = prefs?.getStringSet("ad_allow_hosts", emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (!cur.add(h)) cur.remove(h)
+        prefs?.edit()?.putStringSet("ad_allow_hosts", cur)?.apply()
     }
 
     /** 규칙 한 줄 파싱 (EasyList 문법 단순화) */
@@ -134,7 +151,10 @@ object AdBlocker {
             if (e.containsMatchIn(u)) return false
         }
 
-        // 1) 호스트 차단
+        // 1) 사이트별 허용 목록이면 통과
+        if (isHostAllowed(host)) return false
+
+        // 2) 호스트 차단
         val h = host.lowercase()
         for (b in hosts) {
             if (h == b || h.endsWith("." + b)) return true
