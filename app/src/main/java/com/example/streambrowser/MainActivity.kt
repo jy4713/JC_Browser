@@ -716,11 +716,6 @@ class MainActivity : Activity() {
             createTab(prefs.getString("home_url", HOME) ?: HOME)
             dlg.dismiss()
         }
-        dlg.findViewById<Button>(R.id.btnCloseCurrent).setOnClickListener {
-            closeTab(current)
-            txtCount.text = "${getString(R.string.dlg_tabs_count)} ${tabs.size}"
-            tabAdapter.submit(tabs)
-        }
         dlg.show()
     }
 
@@ -1567,8 +1562,9 @@ class MainActivity : Activity() {
             packageManager.getPackageInfo(packageName, 0).versionName
         }.getOrNull() ?: ""
         AlertDialog.Builder(this)
+            .setIcon(R.mipmap.ic_launcher)
             .setTitle(getString(R.string.app_name))
-            .setMessage("JC Browser\nVersion $ver\n\nMade by Junyoung Choi")
+            .setMessage("Version $ver\n\nMade by Junyoung Choi")
             .setPositiveButton(getString(R.string.btn_ok), null)
             .show()
     }

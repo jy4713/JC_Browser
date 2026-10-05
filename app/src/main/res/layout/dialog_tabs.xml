@@ -97,24 +97,5 @@
             android:textAllCaps="false"
             android:textColor="#D93025"
             android:textSize="13sp" />
-
-        <Button
-            android:id="@+id/btnCloseCurrent"
-            android:layout_width="0dp"
-            android:layout_height="44dp"
-            android:layout_weight="1"
-            android:background="@drawable/bg_btn_ripple"
-            android:drawableStart="@drawable/ic_close"
-            android:drawablePadding="6dp"
-            android:drawableTint="#D93025"
-            android:gravity="center"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:text="@string/dlg_tabs_close"
-            android:textAllCaps="false"
-            android:textColor="#D93025"
-            android:textSize="13sp" />
     </LinearLayout>
 </LinearLayout>

@@ -18,7 +18,7 @@
     <string name="dlg_home_title">홈페이지 URL</string>
     <string name="menu_home_saved">홈페이지가 저장되었습니다</string>
     <string name="menu_import_bookmarks">즐겨찾기 HTML 가져오기</string>
-    <string name="menu_export_bookmarks">즐겨찾기 HTML 내보내기</string>
+    <string name="menu_export_bookmarks">즐겨찾기 HTML 납볘내기</string>
     <string name="bookmark_imported">%1$d개 항목을 가져왔습니다</string>
     <string name="bookmark_import_failed">가져오기 실패</string>
     <string name="bookmark_exported">즐겨찾기를 내보냈습니다</string>
@@ -34,11 +34,11 @@
     <string name="menu_close_tab">현재 탭 닫기</string>
     <string name="menu_add_bookmark">즐겨찾기 추가</string>
     <string name="dlg_bookmark_name">이름</string>
-    <string name="dlg_bookmark_folder">퐔더</string>
+    <string name="dlg_bookmark_folder">폴더</string>
     <string name="dlg_bookmark_root">기본 (최상위)</string>
-    <string name="dlg_bookmark_new_folder">＋ 새 퐔더 만들기</string>
-    <string name="dlg_new_folder">새 퐔더</string>
-    <string name="dlg_folder_hint">퐔더 이름</string>
+    <string name="dlg_bookmark_new_folder">＋ 새 폴더 만들기</string>
+    <string name="dlg_new_folder">새 폴더</string>
+    <string name="dlg_folder_hint">폴더 이름</string>
     <string name="action_create">만들기</string>
     <string name="action_cancel">취소</string>
     <string name="close">닫기</string>
@@ -49,7 +49,7 @@
     <string name="tab_canceled">취소·실패</string>
     <string name="already_downloading">이미 다운로드 중입니다</string>
     <string name="btn_done">완료</string>
-    <string name="no_downloads">항목 이없닅니다</string>
+    <string name="no_downloads">항목이 없습니다</string>
     <string name="btn_import_html">HTML 가져오기</string>
     <string name="btn_export_html">HTML 내보내기</string>
     <string name="menu_bookmarks">즐겨찾기</string>
@@ -96,7 +96,7 @@
     <string name="item_info">정보</string>
     <string name="dlg_video_info">동영상 정보</string>
     <string name="info_type">유형</string>
-    <string name="info_link">전체 긌링</string>
+    <string name="info_link">전체 링크</string>
     <string name="info_page">페이지</string>
     <string name="item_preview">미리보기</string>
     <string name="item_download">다운로드</string>
@@ -112,7 +112,7 @@
     <string name="folder_custom">직접 폴더 선택…</string>
     <string name="dl_folder_saved">다운로드 폴더가 설정되었습니다</string>
     <string name="folder_pick_failed">폴더를 설정하지 못했습니다</string>
-        <string name="dlg_text_size">글자 크기</string>
+    <string name="dlg_text_size">글자 크기</string>
     <string name="dlg_clear_title">방문 기록/캐시 삭제</string>
     <string name="dlg_clear_msg">방문 기록, 쿠키, 캐시를 삭제하시겠습니까?</string>
     <string name="btn_delete">삭제</string>
@@ -155,7 +155,7 @@
     <string name="image_copied">이미지 주소가 복사되었습니다</string>
     <string name="url_copied">URL이 복사되었습니다</string>
     <string name="bookmark_added">즐겨찾기에 추가되었습니다</string>
-    <string name="incognito_on">시크릿 탭이 열립니다 (기록 저장 안 함)</string>
+    <string name="incognito_on">시크릿 탭이 열니다 (기록 저장 안 함)</string>
     <string name="dark_on">어두운 모드 켜짐</string>
     <string name="dark_off">어두운 모드 꺼짐</string>
     <string name="adblock_on">광고 차단 켜짐</string>
@@ -182,7 +182,7 @@
     <string name="vm_speed">배속</string>
 
     <!-- 다운로드 설정 -->
-        <string name="group_cleaner">웹 클리너</string>
+    <string name="group_cleaner">웹 클리너</string>
     <string name="back">뒤로</string>
     <string name="menu_ad_filters">광고 필터</string>
     <string name="menu_ad_whitelist">광고 허용 목록</string>
@@ -206,19 +206,19 @@
     <string name="action_pause">일시 중지</string>
     <string name="dl_paused">일시 중지됨</string>
     <string name="notif_paused">다운로드 일시 중지</string>
-    <string name="list_empty">목록이 이비어있습니다</string>
+    <string name="list_empty">목록이 비어 있습니다</string>
     <string name="filter_url_hint">필터 주소 (https://…/filter.txt)</string>
     <string name="filter_url_invalid">올바른 주소를 입력하세요</string>
-    <string name="filter_added_fmt">필터를 추가했습니다 (%1$d 규옹)</string>
+    <string name="filter_added_fmt">필터를 추가했습니다 (%1$d 규칙)</string>
     <string name="filter_add_failed">필터 추가/업데이트에 실패했습니다</string>
     <string name="filter_updated">필터를 업데이트했습니다</string>
     <string name="builtin_filters">기본 제공 필터</string>
-    <string name="builtin_filters_fmt">호시된지는 규옹 %1$d개 / 필터 규옹 %2$d개 / 사용자 규옹 %3$d개</string>
+    <string name="builtin_filters_fmt">차단 도메인 %1$d개 · 필터 규칙 %2$d개 · 사용자 규칙 %3$d개</string>
     <string name="custom_url_filters">URL 필터</string>
-    <string name="user_rules">사용자 규옹</string>
-    <string name="filter_rules_fmt">규옹 %1$d개</string>
+    <string name="user_rules">사용자 규칙</string>
+    <string name="filter_rules_fmt">규칙 %1$d개</string>
     <string name="rule_hint">예: ||ads.example.com^</string>
-<string name="group_dl_settings">다운로드 설정</string>
+    <string name="group_dl_settings">다운로드 설정</string>
     <string name="menu_fast_dl">고속 다운로드 (분할 병렬)</string>
     <string name="menu_dl_split">한 파일 분할 수 (%d)</string>
     <string name="menu_dl_conn">동시 연결 수 (%d)</string>
