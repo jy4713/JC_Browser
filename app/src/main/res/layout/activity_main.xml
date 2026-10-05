@@ -310,6 +310,17 @@
             android:src="@drawable/ic_home"
             android:tint="@color/icon_tint" />
 
+        <ImageButton
+            android:id="@+id/btnNavBookmark"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="즐겨찾기 추가"
+            android:padding="11dp"
+            android:src="@drawable/ic_bookmark_add"
+            android:tint="@color/icon_tint" />
+
         <FrameLayout
             android:layout_width="0dp"
             android:layout_height="44dp"

@@ -11,6 +11,16 @@
 
     <!-- 메뉴 그룹 -->
     <string name="group_tabs">탭</string>
+    <string name="group_settings">설정</string>
+    <string name="menu_home_setting">홈페이지 설정</string>
+    <string name="dlg_home_title">홈페이지 URL</string>
+    <string name="menu_home_saved">홈페이지가 저장되었습니다</string>
+    <string name="menu_import_bookmarks">즐겨찾기 HTML 가져오기</string>
+    <string name="menu_export_bookmarks">즐겨찾기 HTML 내보내기</string>
+    <string name="bookmark_imported">%1$d개 항목을 가져왔습니다</string>
+    <string name="bookmark_import_failed">가져오기 실패</string>
+    <string name="bookmark_exported">즐겨찾기를 내보냈었습니다</string>
+    <string name="bookmark_export_failed">내보내기 실패</string>
     <string name="group_data">즐겨찾기 · 기록</string>
     <string name="group_display">화면</string>
     <string name="group_tools">도구</string>

@@ -40,7 +40,9 @@ import android.webkit.WebView
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.GridLayout
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.TextView
@@ -190,7 +192,16 @@ class MainActivity : Activity() {
             current()?.let { if (it.web.canGoForward()) it.web.goForward() }
         }
         findViewById<ImageButton>(R.id.btnNavRefresh).setOnClickListener { current()?.web?.reload() }
-        findViewById<ImageButton>(R.id.btnNavHome).setOnClickListener { current()?.web?.loadUrl(HOME) }
+        findViewById<ImageButton>(R.id.btnNavHome).setOnClickListener {
+            current()?.web?.loadUrl(prefs.getString("home_url", HOME) ?: HOME)
+        }
+        findViewById<ImageButton>(R.id.btnNavBookmark).setOnClickListener {
+            val url = current()?.web?.url
+            if (!url.isNullOrEmpty()) {
+                BookmarkRepo.add(this, current()?.web?.title ?: url, url)
+                Toast.makeText(this, getString(R.string.bookmark_added), Toast.LENGTH_SHORT).show()
+            }
+        }
         btnNavTabs.setOnClickListener { showTabDialog() }
         findViewById<ImageButton>(R.id.btnNavMenu).setOnClickListener { showMainMenu() }
 
@@ -622,7 +633,7 @@ class MainActivity : Activity() {
     }
 
 
-    // ------------------------------------------------------- 메뉴 (아코디언 2단계 시트)
+    // ------------------------------------------------------- 메뉴 (Soul 스타일: 단축키 그리드 + 설정 그룹)
 
     private class MenuEntry(
         val title: String,
@@ -638,50 +649,65 @@ class MainActivity : Activity() {
     )
 
     private sealed class MenuRow {
+        class Shortcut : MenuRow()
         class Quick(val entry: MenuEntry) : MenuRow()
         class Header(val groupRes: Int) : MenuRow()
         class Child(val entry: MenuEntry) : MenuRow()
     }
 
     private var menuDialog: Dialog? = null
-    private var expandedGroup: Int? = null
+    private var expandedGroup: Int? = R.string.group_settings
 
-    /** 1단계: 빠른 항목 + 그룹 헤더 / 2단계: 펼친 그룹의 항목들 (아코디언) */
+    /** 상단 단축키 그리드 항목 (아이콘, 라벨, 동작) */
+    private fun shortcutItems(): List<Triple<Int, Int, () -> Unit>> {
+        val s = fun(res: Int) = getString(res)
+        return listOf(
+            Triple(R.drawable.ic_tabs, R.string.menu_new_tab) {
+                createTab(HOME)
+                menuDialog?.dismiss()
+            },
+            Triple(R.drawable.ic_incognito, R.string.menu_new_incognito) {
+                createTab(HOME, incognito = true)
+                Toast.makeText(this, s(R.string.incognito_on), Toast.LENGTH_SHORT).show()
+                menuDialog?.dismiss()
+            },
+            Triple(R.drawable.ic_bookmark_add, R.string.menu_add_bookmark) {
+                val url = current()?.web?.url
+                if (!url.isNullOrEmpty()) {
+                    BookmarkRepo.add(this, current()?.web?.title ?: url, url)
+                    Toast.makeText(this, s(R.string.bookmark_added), Toast.LENGTH_SHORT).show()
+                }
+                menuDialog?.dismiss()
+            },
+            Triple(R.drawable.ic_bookmark, R.string.menu_bookmarks) {
+                startActivityForResult(Intent(this, com.example.streambrowser.ui.BookmarksActivity::class.java), 1)
+                menuDialog?.dismiss()
+            },
+            Triple(R.drawable.ic_history, R.string.menu_history) {
+                startActivityForResult(Intent(this, com.example.streambrowser.ui.HistoryActivity::class.java), 2)
+                menuDialog?.dismiss()
+            },
+            Triple(R.drawable.ic_download, R.string.menu_downloads) {
+                startActivity(Intent(this, com.example.streambrowser.ui.DownloadsActivity::class.java))
+                menuDialog?.dismiss()
+            },
+            Triple(R.drawable.ic_search, R.string.menu_find) {
+                findBar.visibility = View.VISIBLE
+                findInput.requestFocus()
+                menuDialog?.dismiss()
+            },
+            Triple(R.drawable.ic_image, R.string.menu_capture) {
+                captureCurrentPage()
+                menuDialog?.dismiss()
+            }
+        )
+    }
+
+    /** 설정 그룹 (아코디언) */
     private fun menuGroups(): List<MenuGroup> {
         val s = fun(res: Int) = getString(res)
         return listOf(
-            MenuGroup(R.string.group_tabs, R.drawable.ic_tabs, listOf(
-                MenuEntry(s(R.string.menu_new_incognito), R.drawable.ic_close, null) {
-                    createTab(HOME, incognito = true)
-                    Toast.makeText(this, s(R.string.incognito_on), Toast.LENGTH_SHORT).show()
-                },
-                MenuEntry(s(R.string.menu_close_tab), R.drawable.ic_close, null) {
-                    closeTab(current)
-                }
-            )),
-            MenuGroup(R.string.group_data, R.drawable.ic_bookmark, listOf(
-                MenuEntry(s(R.string.menu_add_bookmark), R.drawable.ic_bookmark, null) {
-                    val url = current()?.web?.url
-                    if (!url.isNullOrEmpty()) {
-                        BookmarkRepo.add(this, current()?.web?.title ?: url, url)
-                        Toast.makeText(this, s(R.string.bookmark_added), Toast.LENGTH_SHORT).show()
-                    }
-                },
-                MenuEntry(s(R.string.menu_bookmarks), R.drawable.ic_bookmark, null) {
-                    startActivityForResult(Intent(this, com.example.streambrowser.ui.BookmarksActivity::class.java), 1)
-                },
-                MenuEntry(s(R.string.menu_history), R.drawable.ic_menu_vert, null) {
-                    startActivityForResult(Intent(this, com.example.streambrowser.ui.HistoryActivity::class.java), 2)
-                },
-                MenuEntry(s(R.string.menu_downloads), R.drawable.ic_play, null) {
-                    startActivity(Intent(this, com.example.streambrowser.ui.DownloadsActivity::class.java))
-                }
-            )),
-            MenuGroup(R.string.group_display, R.drawable.ic_search, listOf(
-                MenuEntry(s(R.string.menu_find), R.drawable.ic_search, null) {
-                    findBar.visibility = View.VISIBLE
-                    findInput.requestFocus()
-                },
+            MenuGroup(R.string.group_settings, R.drawable.ic_settings, listOf(
                 MenuEntry(s(R.string.menu_desktop), R.drawable.ic_refresh, "desktop") {
                     val on = !prefs.getBoolean("desktop", false)
                     prefs.edit().putBoolean("desktop", on).apply()
@@ -696,14 +722,14 @@ class MainActivity : Activity() {
                     tabs.forEach { applyDarkMode(it.web.settings) }
                     Toast.makeText(this, s(if (on) R.string.dark_on else R.string.dark_off), Toast.LENGTH_SHORT).show()
                 },
-                MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
-                    showTextSizeDialog()
+                MenuEntry(s(R.string.menu_adblock), R.drawable.ic_close, "adblock") {
+                    AdBlocker.enabled = !AdBlocker.enabled
+                    Toast.makeText(this, s(if (AdBlocker.enabled) R.string.adblock_on else R.string.adblock_off), Toast.LENGTH_SHORT).show()
                 },
-                MenuEntry(s(R.string.menu_capture), R.drawable.ic_image, null) {
-                    captureCurrentPage()
-                },
-                MenuEntry(s(R.string.menu_pip), R.drawable.ic_play, null) {
-                    enterPipManual()
+                MenuEntry(s(R.string.menu_restore_tabs), R.drawable.ic_tabs, "restore_tabs") {
+                    val on = !prefs.getBoolean("restore_tabs", true)
+                    prefs.edit().putBoolean("restore_tabs", on).apply()
+                    Toast.makeText(this, s(if (on) R.string.restore_on else R.string.restore_off), Toast.LENGTH_SHORT).show()
                 },
                 MenuEntry(s(R.string.menu_auto_pip), R.drawable.ic_play, "auto_pip") {
                     val on = !prefs.getBoolean("auto_pip", false)
@@ -713,9 +739,16 @@ class MainActivity : Activity() {
                     if (on && Build.VERSION.SDK_INT in Build.VERSION_CODES.O..Build.VERSION_CODES.R)
                         msg += s(R.string.auto_pip_legacy)
                     Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-                }
-            )),
-            MenuGroup(R.string.group_dl_settings, R.drawable.ic_folder, listOf(
+                },
+                MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
+                    showTextSizeDialog()
+                },
+                MenuEntry(s(R.string.menu_home_setting), R.drawable.ic_home, null) {
+                    showHomeDialog()
+                },
+                MenuEntry(s(R.string.menu_dl_folder), R.drawable.ic_folder, null) {
+                    showDownloadFolderDialog()
+                },
                 MenuEntry(s(R.string.menu_fast_dl), R.drawable.ic_play, "fast_dl") {
                     val on = !prefs.getBoolean("fast_dl", true)
                     prefs.edit().putBoolean("fast_dl", on).apply()
@@ -726,42 +759,32 @@ class MainActivity : Activity() {
                 MenuEntry(getString(R.string.menu_dl_conn, prefs.getInt("dl_conn", 4)), R.drawable.ic_folder, null) {
                     showConnDialog()
                 },
-                MenuEntry(s(R.string.menu_dl_folder), R.drawable.ic_folder, null) {
-                    showDownloadFolderDialog()
-                },
                 MenuEntry(s(R.string.menu_dl_notify), R.drawable.ic_play, "dl_notify") {
                     val on = !prefs.getBoolean("dl_notify", true)
                     prefs.edit().putBoolean("dl_notify", on).apply()
-                }
-            )),
-            MenuGroup(R.string.group_tools, R.drawable.ic_close, listOf(
-                MenuEntry(s(R.string.menu_adblock), R.drawable.ic_close, "adblock") {
-                    AdBlocker.enabled = !AdBlocker.enabled
-                    Toast.makeText(this, s(if (AdBlocker.enabled) R.string.adblock_on else R.string.adblock_off), Toast.LENGTH_SHORT).show()
                 },
                 MenuEntry(s(R.string.menu_add_adblock_rule), R.drawable.ic_close, null) {
                     current()?.web?.url?.let { addAdBlockRule(it) }
                 },
-                MenuEntry(s(R.string.menu_restore_tabs), R.drawable.ic_tabs, "restore_tabs") {
-                    val on = !prefs.getBoolean("restore_tabs", true)
-                    prefs.edit().putBoolean("restore_tabs", on).apply()
-                    Toast.makeText(this, s(if (on) R.string.restore_on else R.string.restore_off), Toast.LENGTH_SHORT).show()
-                },
                 MenuEntry(s(R.string.menu_clear_data), R.drawable.ic_close, null) {
                     confirmClearData()
-                }
-            )),
-            MenuGroup(R.string.group_app, R.drawable.ic_menu_vert, listOf(
-                MenuEntry(s(R.string.menu_share), R.drawable.ic_menu_vert, null) {
-                    val url = current()?.web?.url ?: ""
-                    val i = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, url)
-                    }
-                    startActivity(Intent.createChooser(i, null))
                 },
-                MenuEntry(s(R.string.menu_copy_url), R.drawable.ic_search, null) {
-                    copyText(current()?.web?.url ?: "", s(R.string.url_copied))
+                MenuEntry(s(R.string.menu_import_bookmarks), R.drawable.ic_bookmark_add, null) {
+                    val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                    }
+                    runCatching { startActivityForResult(i, 3) }
+                        .onFailure { Toast.makeText(this, s(R.string.bookmark_import_failed), Toast.LENGTH_SHORT).show() }
+                },
+                MenuEntry(s(R.string.menu_export_bookmarks), R.drawable.ic_bookmark_add, null) {
+                    val i = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "text/html"
+                        putExtra(Intent.EXTRA_TITLE, "jc_browser_bookmarks.html")
+                    }
+                    runCatching { startActivityForResult(i, 4) }
+                        .onFailure { Toast.makeText(this, s(R.string.bookmark_export_failed), Toast.LENGTH_SHORT).show() }
                 },
                 MenuEntry(s(R.string.menu_language), R.drawable.ic_menu_vert, null) {
                     showLanguageDialog()
@@ -778,8 +801,14 @@ class MainActivity : Activity() {
 
     private fun buildMenuRows(): List<MenuRow> {
         val rows = mutableListOf<MenuRow>()
-        rows += MenuRow.Quick(MenuEntry(getString(R.string.menu_new_tab), R.drawable.ic_tabs, null) {
-            createTab(HOME)
+        rows += MenuRow.Shortcut()
+        rows += MenuRow.Quick(MenuEntry(getString(R.string.menu_pip), R.drawable.ic_play, null) {
+            enterPipManual()
+            menuDialog?.dismiss()
+        })
+        rows += MenuRow.Quick(MenuEntry(getString(R.string.menu_close_tab), R.drawable.ic_close, null) {
+            closeTab(current)
+            menuDialog?.dismiss()
         })
         for (g in menuGroups()) {
             rows += MenuRow.Header(g.groupRes)
@@ -844,51 +873,94 @@ class MainActivity : Activity() {
             .show()
     }
 
+    private fun showHomeDialog() {
+        val edit = EditText(this).apply {
+            setText(prefs.getString("home_url", HOME) ?: HOME)
+            setSelectAllOnFocus(true)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.dlg_home_title))
+            .setView(edit)
+            .setPositiveButton(getString(R.string.btn_ok)) { _, _ ->
+                var u = edit.text.toString().trim()
+                if (u.isNotEmpty()) {
+                    if (!u.startsWith("http://") && !u.startsWith("https://")) u = "https://$u"
+                    prefs.edit().putString("home_url", u).apply()
+                    Toast.makeText(this, getString(R.string.menu_home_saved), Toast.LENGTH_SHORT).show()
+                    rebuildMenu()
+                }
+            }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
+    }
+
     private inner class MenuSheetAdapter(
         private val rows: List<MenuRow>
     ) : RecyclerView.Adapter<MenuSheetAdapter.VH>() {
 
-        inner class VH(v: View) : RecyclerView.ViewHolder(v) {
-            val group: TextView = v.findViewById(R.id.menuGroupTitle)
-            val icon: ImageButton = v.findViewById(R.id.menuIcon)
-            val title: TextView = v.findViewById(R.id.menuTitle)
-            val state: TextView = v.findViewById(R.id.menuState)
+        inner class VH(v: View, val type: Int) : RecyclerView.ViewHolder(v) {
+            val group: TextView? = v.findViewById(R.id.menuGroupTitle)
+            val icon: ImageButton? = v.findViewById(R.id.menuIcon)
+            val title: TextView? = v.findViewById(R.id.menuTitle)
+            val state: TextView? = v.findViewById(R.id.menuState)
         }
 
         override fun getItemViewType(position: Int): Int =
-            if (rows[position] is MenuRow.Header) 0 else 1
+            if (rows[position] is MenuRow.Shortcut) 0 else 1
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
-            VH(LayoutInflater.from(parent.context).inflate(R.layout.item_menu, parent, false))
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            val v = if (viewType == 0)
+                LayoutInflater.from(parent.context).inflate(R.layout.item_menu_shortcuts, parent, false)
+            else
+                LayoutInflater.from(parent.context).inflate(R.layout.item_menu, parent, false)
+            return VH(v, viewType)
+        }
 
         override fun getItemCount() = rows.size
 
         override fun onBindViewHolder(h: VH, position: Int) {
-            h.group.visibility = View.GONE
             when (val r = rows[position]) {
+                is MenuRow.Shortcut -> {
+                    val grid = h.itemView.findViewById<GridLayout>(R.id.shortcutGrid) ?: return
+                    grid.removeAllViews()
+                    val inflater = LayoutInflater.from(this@MainActivity)
+                    shortcutItems().forEach { (ic, label, act) ->
+                        val cell = inflater.inflate(R.layout.item_shortcut_cell, grid, false)
+                        cell.findViewById<ImageView>(R.id.scIcon).setImageResource(ic)
+                        cell.findViewById<TextView>(R.id.scLabel).text = getString(label)
+                        cell.setOnClickListener { act() }
+                        grid.addView(cell)
+                    }
+                }
                 is MenuRow.Header -> {
-                    h.icon.setImageResource(
+                    h.group?.visibility = View.GONE
+                    h.icon?.setImageResource(
                         menuGroups().firstOrNull { it.groupRes == r.groupRes }?.iconRes ?: R.drawable.ic_menu_vert
                     )
-                    h.title.text = getString(r.groupRes)
-                    h.title.setTypeface(h.title.typeface, android.graphics.Typeface.BOLD)
-                    h.state.visibility = View.VISIBLE
-                    h.state.text = if (expandedGroup == r.groupRes) "▾" else "▸"
-                    h.state.setTextColor(Color.parseColor("#9AA0A6"))
+                    h.title?.text = getString(r.groupRes)
+                    h.title?.setTypeface(h.title?.typeface, android.graphics.Typeface.BOLD)
+                    h.state?.visibility = View.VISIBLE
+                    h.state?.text = if (expandedGroup == r.groupRes) "▾" else "▸"
+                    h.state?.setTextColor(Color.parseColor("#9AA0A6"))
                     h.itemView.setOnClickListener {
                         expandedGroup = if (expandedGroup == r.groupRes) null else r.groupRes
                         rebuildMenu()
                     }
                 }
                 is MenuRow.Quick, is MenuRow.Child -> {
+                    h.group?.visibility = View.GONE
                     val e = (r as? MenuRow.Quick)?.entry ?: (r as MenuRow.Child).entry
-                    h.icon.setImageResource(e.iconRes)
-                    h.title.text = e.title
-                    h.title.setTypeface(h.title.typeface, android.graphics.Typeface.NORMAL)
-                    val checked = e.prefKey != null && prefs.getBoolean(e.prefKey, e.prefKey != "dl_notify")
-                    h.state.visibility = if (e.prefKey != null && checked) View.VISIBLE else View.GONE
-                    h.state.text = getString(R.string.on_state)
-                    h.state.setTextColor(Color.parseColor("#1A73E8"))
+                    h.icon?.setImageResource(e.iconRes)
+                    h.title?.text = e.title
+                    h.title?.setTypeface(h.title?.typeface, android.graphics.Typeface.NORMAL)
+                    val checked = when (e.prefKey) {
+                        null -> false
+                        "adblock" -> AdBlocker.enabled
+                        else -> prefs.getBoolean(e.prefKey, e.prefKey != "dl_notify")
+                    }
+                    h.state?.visibility = if (e.prefKey != null && checked) View.VISIBLE else View.GONE
+                    h.state?.text = getString(R.string.on_state)
+                    h.state?.setTextColor(Color.parseColor("#1A73E8"))
                     h.itemView.setOnClickListener {
                         e.action()
                         rebuildMenu()
@@ -897,6 +969,7 @@ class MainActivity : Activity() {
             }
         }
     }
+
     private fun showLanguageDialog() {
         val values = arrayOf("system", "ko", "en")
         val labels = arrayOf(
@@ -1289,6 +1362,33 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if ((requestCode == 1 || requestCode == 2) && resultCode == RESULT_OK) {
             data?.getStringExtra("url")?.let { current()?.web?.loadUrl(it) }
+        }
+        // 즐겨찾기 HTML 가져오기
+        if (requestCode == 3 && resultCode == RESULT_OK) {
+            runCatching {
+                data?.data?.let { uri ->
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        val html = input.readBytes().toString(Charsets.UTF_8)
+                        val n = BookmarkRepo.importHtml(this, html)
+                        Toast.makeText(this, getString(R.string.bookmark_imported, n), Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }.onFailure {
+                Toast.makeText(this, getString(R.string.bookmark_import_failed), Toast.LENGTH_SHORT).show()
+            }
+        }
+        // 즐겨찾기 HTML 날볶기
+        if (requestCode == 4 && resultCode == RESULT_OK) {
+            runCatching {
+                data?.data?.let { uri ->
+                    contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(BookmarkRepo.exportHtml(this).toByteArray(Charsets.UTF_8))
+                    }
+                    Toast.makeText(this, getString(R.string.bookmark_exported), Toast.LENGTH_SHORT).show()
+                }
+            }.onFailure {
+                Toast.makeText(this, getString(R.string.bookmark_export_failed), Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

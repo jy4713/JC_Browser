@@ -13,6 +13,16 @@
 
     <!-- 메뉴 그룹 -->
     <string name="group_tabs">Tabs</string>
+    <string name="group_settings">Settings</string>
+    <string name="menu_home_setting">Home page</string>
+    <string name="dlg_home_title">Home page URL</string>
+    <string name="menu_home_saved">Home page saved</string>
+    <string name="menu_import_bookmarks">Import bookmarks (HTML)</string>
+    <string name="menu_export_bookmarks">Export bookmarks (HTML)</string>
+    <string name="bookmark_imported">%1$d items imported</string>
+    <string name="bookmark_import_failed">Import failed</string>
+    <string name="bookmark_exported">Bookmarks exported</string>
+    <string name="bookmark_export_failed">Export failed</string>
     <string name="group_data">Bookmarks &amp; History</string>
     <string name="group_display">Display</string>
     <string name="group_tools">Tools</string>
