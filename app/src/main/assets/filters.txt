@@ -1,5 +1,45 @@
-# URL에 포함되면 차단하는 문자열 필터 (Adblock 스타일 단순화 버전)
-# 예: "/ads/" 는 .../ads/... 가 들어간 모든 요청 차단
+! JC Browser 광고 차단 필터 (EasyList 스타일 문법)
+! ||domain^  = 도메인 전체 차단   @@규칙 = 예외   ##선택자 = 요소 숨김   문자열 = URL 부분 매치
+
+! ---------- 네트워크 차단: 광고 서버 (||도메인^) ----------
+||doubleclick.net^
+||googlesyndication.com^
+||googleadservices.com^
+||adservice.google.com^
+||ads.yahoo.com^
+||ads-twitter.com^
+||advertising.com^
+||adsafeprotected.com^
+||adsrvr.org^
+||adsystem.com^
+||amazon-adsystem.com^
+||criteo.com^
+||criteo.net^
+||taboola.com^
+||outbrain.com^
+||moatads.com^
+||scorecardresearch.com^
+||quantserve.com^
+||adnxs.com^
+||rubiconproject.com^
+||openx.net^
+||pubmatic.com^
+||casalemedia.com^
+||bidswitch.net^
+||smartadserver.com^
+||adingo.jp^
+||fundingchoicesmessages.google.com^
+||google-analytics.com^
+||googletagmanager.com^
+||segment.io^
+||mixpanel.com^
+||hotjar.com^
+||clarity.ms^
+||appsflyer.com^
+||adjust.com^
+||branch.io^
+
+! ---------- 네트워크 차단: URL 패턴 (부분 문자열) ----------
 /ads/
 /ad/
 /adv/
@@ -7,14 +47,40 @@
 /adserver
 /adslot
 /adbanner
-/adbox
 /adframe
-/advertisement
+/adbox
 /popads
-/popup.js
 /tracker
 /analytics.
 /beacon.
 /tracking?
 /impression?
 /clicktrack
+/pagead/
+/show_ads
+/sponsored/
+/banner_ads
+/_ads/
+
+! ---------- 예외 (@@) — 차단하면 안 되는 것 ----------
+@@google-analytics.com/analytics.js
+@@googletagmanager.com/gtm.js
+@@/ad/confirm
+
+! ---------- 요소 숨김 (##) — Brave 스타일 cosmetic 차단 ----------
+##.adsbygoogle
+##ins.adsbygoogle
+##[id^="div-gpt-ad"]
+##[id^="google_ads"]
+##.ad-banner
+##.ad-container
+##.ad-wrap
+##.ad-wrapper
+##.advertisement
+##.adsense
+##.ad-space
+##.ad-slot
+##[class*=" sponsored"]
+##[data-ad-format]
+##.gnn-bn-wrap
+##.cm_opt_ads

@@ -29,6 +29,11 @@
         android:title="시작 시 탭 복원" />
     <item android:id="@+id/menu_text_size" android:title="글자 크기" />
     <item android:id="@+id/menu_capture" android:title="화면 캡처" />
+    <item android:id="@+id/menu_pip" android:title="PIP 모드 (화면 속 화면)" />
+    <item
+        android:id="@+id/menu_auto_pip"
+        android:checkable="true"
+        android:title="자동 PIP (홈 버튼 시)" />
 
     <item android:id="@+id/menu_share" android:title="공유" />
     <item android:id="@+id/menu_copy_url" android:title="URL 복사" />

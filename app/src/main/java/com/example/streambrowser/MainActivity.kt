@@ -3,11 +3,13 @@ package com.example.streambrowser
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.Dialog
+import android.app.PictureInPictureParams
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -19,6 +21,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Rational
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -142,6 +145,8 @@ class MainActivity : Activity() {
         btnNavBack.setOnClickListener {
             onBackPressed()
         }
+        // Chrome: 뒤로가기 길게 누륵 → 이 탭의 방문 기록 팝업
+        btnNavBack.setOnLongClickListener { showBackHistory() }
         btnNavForward.setOnClickListener {
             current()?.let { if (it.web.canGoForward()) it.web.goForward() }
         }
@@ -198,6 +203,9 @@ class MainActivity : Activity() {
         }
 
         intent?.data?.let { uri -> createTab(uri.toString()) }
+
+        // PIP 파라미터 초기화 (자동 PIP 설정 반영)
+        updatePipParams()
     }
 
     // ------------------------------------------------------- WebView 충돌 방어
@@ -273,6 +281,16 @@ class MainActivity : Activity() {
                     }
                     // 페이지 내 video/audio 소스 스캐너 주입
                     runCatching { view.evaluateJavascript(VideoJsBridge.SCANNER_JS, null) }
+                    // Brave 스타일 요소 숨김 (##규칙 CSS 주입)
+                    val css = AdBlocker.hideCss()
+                    if (css.isNotEmpty()) {
+                        runCatching {
+                            val js = "var s=document.createElement('style');" +
+                                    "s.textContent=${org.json.JSONObject.quote(css)};" +
+                                    "document.head.appendChild(s);"
+                            view.evaluateJavascript(js, null)
+                        }
+                    }
                 }
             },
             onRenderProcessGoneCb = { gone -> recoverRenderProcess(gone) }
@@ -411,6 +429,88 @@ class MainActivity : Activity() {
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         cm.setPrimaryClip(ClipData.newPlainText("text", text))
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    }
+
+    // ------------------------------------------------------- Chrome: 뒤로가기 길게 누르기
+
+    /** 현재 탭의 방문 기록(히스토리 스택) 팝업 — 선택한 위치로 바로 이동 */
+    private fun showBackHistory(): Boolean {
+        val wv = current()?.web ?: return false
+        val stack = runCatching { wv.copyBackForwardList() }.getOrNull() ?: return false
+        if (stack.size == 0) {
+            Toast.makeText(this, "이동할 기록이 없습니다.", Toast.LENGTH_SHORT).show()
+            return true
+        }
+        val cur = stack.currentIndex
+        val items = (0 until stack.size).map { i ->
+            val e = stack.getItemAtIndex(i)
+            val t = (e.title ?: e.url ?: "").let { if (it.length > 50) it.take(50) + "…" else it }
+            (if (i == cur) "● " else "") + t
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("이 탭의 방문 기록")
+            .setItems(items) { _, which -> wv.goBackOrForward(which - cur) }
+            .setNegativeButton("취소", null)
+            .show()
+        return true
+    }
+
+    // ------------------------------------------------------- PIP (화면 속 화면)
+
+    /** 메뉴에서 PIP 수동 진입 */
+    private fun enterPipManual() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            Toast.makeText(this, "PIP는 안드로이드 8.0 이상에서 지원됩니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        runCatching {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(16, 9))
+                .build()
+            enterPictureInPictureMode(params)
+        }.onFailure {
+            Toast.makeText(this, "PIP를 시작할 수 없습니다.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** 자동 PIP 설정 반영 (API 31+: 시스템이 자동 진입, 26~30: onUserLeaveHint로 수동) */
+    private fun updatePipParams() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            runCatching {
+                val params = PictureInPictureParams.Builder()
+                    .setAspectRatio(Rational(16, 9))
+                    .setAutoEnterEnabled(prefs.getBoolean("auto_pip", false))
+                    .build()
+                setPictureInPictureParams(params)
+            }
+        }
+    }
+
+    /** API 26~30: 홈 버튼(앱 이탈) 시 자동 PIP 진입 */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT in Build.VERSION_CODES.O..Build.VERSION_CODES.R &&
+            prefs.getBoolean("auto_pip", false)
+        ) {
+            runCatching {
+                enterPictureInPictureMode(
+                    PictureInPictureParams.Builder()
+                        .setAspectRatio(Rational(16, 9))
+                        .build()
+                )
+            }
+        }
+    }
+
+    /** PIP 진입/복귀 시 상하단 바 처리 */
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        if (fullscreenView != null) return
+        topBar.visibility = if (isInPictureInPictureMode) View.GONE else View.VISIBLE
+        bottomBar.visibility = if (isInPictureInPictureMode) View.GONE else View.VISIBLE
     }
 
     private fun showCurrent() {
@@ -559,6 +659,7 @@ class MainActivity : Activity() {
         popup.menu.findItem(R.id.menu_dark).isChecked = prefs.getBoolean("dark", false)
         popup.menu.findItem(R.id.menu_adblock).isChecked = AdBlocker.enabled
         popup.menu.findItem(R.id.menu_restore_tabs).isChecked = prefs.getBoolean("restore_tabs", true)
+        popup.menu.findItem(R.id.menu_auto_pip).isChecked = prefs.getBoolean("auto_pip", false)
         popup.setOnMenuItemClickListener { item ->
             handleMenu(item.itemId)
             true
@@ -617,6 +718,18 @@ class MainActivity : Activity() {
             }
             R.id.menu_text_size -> showTextSizeDialog()
             R.id.menu_capture -> captureCurrentPage()
+            R.id.menu_pip -> enterPipManual()
+            R.id.menu_auto_pip -> {
+                val on = !prefs.getBoolean("auto_pip", false)
+                prefs.edit().putBoolean("auto_pip", on).apply()
+                updatePipParams()
+                Toast.makeText(
+                    this,
+                    "자동 PIP ${if (on) "켜짐" else "꺼짐"}" + if (on && Build.VERSION.SDK_INT in Build.VERSION_CODES.O..Build.VERSION_CODES.R)
+                        " (홈 버튼 시 자동 진입)" else "",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
             R.id.menu_share -> {
                 val i = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
