@@ -1,13 +1,15 @@
 package com.example.streambrowser.browser
 
 import android.webkit.JavascriptInterface
+import android.webkit.WebView
 
 /**
  * 페이지에 주입하는 JS가 감지한 미디어 소스를 안드로이드로 전달하는 다리.
  * - video/audio 태그의 src 수집 (blob:/MSE 포함)
  * - XHR/fetch 응답 본문에서 .m3u8/.mpd/.mp4 등 URL 추출 (FirePlayer 계열 대응)
+ * - owner: 이 다리가 붙은 WebView (탭별 미디어 목록 구분용)
  */
-class VideoJsBridge {
+class VideoJsBridge(private val owner: WebView? = null) {
 
     @JavascriptInterface
     fun addVideo(url: String, tag: String, page: String) {
@@ -19,21 +21,21 @@ class VideoJsBridge {
             ".mp4" in url || ".m4v" in url || ".mov" in url -> "MP4"
             ".webm" in url -> "WEBM"
             ".flv" in url -> "FLV"
-            else -> "미지정"
+            else -> "MEDIA"
         }
-        VideoStore.add(DetectedVideo(url = url, page = page, kind = kind))
+        VideoStore.add(owner, DetectedVideo(url = url, page = page, kind = kind))
     }
 
     @JavascriptInterface
     fun addImage(url: String, page: String) {
         if (url.isBlank()) return
         if (!url.startsWith("http://") && !url.startsWith("https://")) return
-        VideoStore.add(DetectedVideo(url = url, page = page, kind = "IMG"))
+        VideoStore.add(owner, DetectedVideo(url = url, page = page, kind = "IMG"))
     }
 
     @JavascriptInterface
     fun addPoster(videoUrl: String, poster: String) {
-        VideoStore.addPoster(videoUrl, poster)
+        VideoStore.addPoster(owner, videoUrl, poster)
     }
 
     /** Soul 브라우저 스타일: 동영상 길게 누르기 → 네이티브 메뉴 호출 */
@@ -42,10 +44,10 @@ class VideoJsBridge {
         onVideoLongPress?.invoke()
     }
 
-    /** SPA 등에서 주소만 바뀌는 페이지 전환 감지 → 목록 리셋 */
+    /** SPA 등에서 주소만 바뀌는 페이지 전환 감지 → 이 탭의 목록만 리셋 */
     @JavascriptInterface
     fun pageChanged() {
-        VideoStore.clear()
+        VideoStore.clear(owner)
     }
 
     /** JS -> 네이티브 상태 전달 (전체화면 등) */
@@ -190,6 +192,7 @@ class VideoJsBridge {
   XMLHttpRequest.prototype.send = function(){
     try{
       this.addEventListener('load', function(){
+        try{ scanText(this.__u); }catch(e){}
         try{ if (this.responseType === '' || this.responseType === 'text') scanText(this.responseText); }catch(e){}
       });
     }catch(e){}

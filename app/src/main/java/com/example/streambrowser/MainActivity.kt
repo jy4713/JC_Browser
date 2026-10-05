@@ -52,6 +52,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.streambrowser.browser.AdBlocker
 import com.example.streambrowser.browser.SniffingWebViewClient
+import com.example.streambrowser.browser.TabMedia
 import com.example.streambrowser.browser.VideoJsBridge
 import com.example.streambrowser.browser.VideoStore
 import com.example.streambrowser.db.BookmarkRepo
@@ -142,12 +143,14 @@ class MainActivity : Activity() {
         bottomBar = findViewById(R.id.bottomBar)
 
         videoAdapter = VideoAdapter()
+        videoAdapter.provider = { currentMedia() }
         videoList.layoutManager = LinearLayoutManager(this)
         videoList.adapter = videoAdapter
 
         imageAdapter = ImageAdapter { count ->
             btnDlSelected.text = getString(R.string.dl_selected, count)
         }
+        imageAdapter.provider = { currentMedia() }
         imageGrid.layoutManager = GridLayoutManager(this, 3)
         imageGrid.adapter = imageAdapter
 
@@ -222,10 +225,7 @@ class MainActivity : Activity() {
 
         VideoStore.listener = {
             runOnUiThread {
-                badgeVideos.text = VideoStore.videos.size.toString()
-                badgeVideos.visibility = if (VideoStore.videos.isNotEmpty()) View.VISIBLE else View.GONE
-                badgeImages.text = VideoStore.images.size.toString()
-                badgeImages.visibility = if (VideoStore.images.isNotEmpty()) View.VISIBLE else View.GONE
+                refreshMediaBadges()
                 if (mediaPanel.visibility == View.VISIBLE) {
                     videoAdapter.notifyDataSetChanged()
                     imageAdapter.notifyDataSetChanged()
@@ -282,7 +282,7 @@ class MainActivity : Activity() {
             txtMediaHeader.text = "${getString(R.string.cd_videos)} (${videoAdapter.itemCount})"
             updateBlockedToggle()
         } else {
-            txtMediaHeader.text = "${getString(R.string.cd_images)} (${VideoStore.images.size})"
+            txtMediaHeader.text = "${getString(R.string.cd_images)} (${currentMedia()?.images?.size ?: 0})"
         }
     }
 
@@ -402,9 +402,10 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     if (view == current()?.web) {
                         editUrl.setText(url)
-                        VideoStore.clear()
                         updateNavButtons()
                     }
+                    // 이 탭의 페이지 이동 → 이 탭의 목록만 리셋
+                    VideoStore.clear(view)
                 }
             },
             onPageFinishedCb = { view, url ->
@@ -478,7 +479,7 @@ class MainActivity : Activity() {
         val tab = Tab(wv, incognito)
         tabs.add(tab)
         current = tabs.size - 1
-        runCatching { wv.addJavascriptInterface(VideoJsBridge(), "StreamBrowser") }
+        runCatching { wv.addJavascriptInterface(VideoJsBridge(wv), "StreamBrowser") }
         if (url.isNotEmpty()) wv.loadUrl(url)
         showCurrent()
         return tab
@@ -505,8 +506,28 @@ class MainActivity : Activity() {
         tabs.forEachIndexed { i, t ->
             runCatching { if (i == current) t.web.onResume() else t.web.onPause() }
         }
-        // 미디어 목록은 현재 페이지 것만 표시
-        VideoStore.clear()
+        // 탭별 목록: 전환핸도 각 탭은 자기 페이지의 동영상/이미지만 표시
+        imageAdapter.clearSelection()
+        refreshMediaBadges()
+        if (mediaPanel.visibility == View.VISIBLE) {
+            videoAdapter.notifyDataSetChanged()
+            imageAdapter.notifyDataSetChanged()
+            refreshMediaHeader()
+        }
+    }
+
+    /** 현재 탭의 미디어 목록 */
+    private fun currentMedia(): TabMedia? =
+        current()?.web?.let { VideoStore.mediaFor(it) }
+
+    private fun refreshMediaBadges() {
+        val m = currentMedia()
+        val nVideos = m?.videos?.size ?: 0
+        val nImages = m?.images?.size ?: 0
+        badgeVideos.text = nVideos.toString()
+        badgeVideos.visibility = if (nVideos > 0) View.VISIBLE else View.GONE
+        badgeImages.text = nImages.toString()
+        badgeImages.visibility = if (nImages > 0) View.VISIBLE else View.GONE
     }
 
     private fun updateNavButtons() {

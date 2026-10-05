@@ -22,7 +22,7 @@ import com.example.streambrowser.db.BookmarkRepo
 import java.io.File
 
 /**
- * 즐겨찾기 화면: 폴드 탐색/생성/이름변경/삭제 + Netscape HTML 가져오기/낳볶기 (Soul 스타일).
+ * 즐겨찾기 화면: 폴드 탐색/생성/이름변경/삭제 + Netscape HTML 가져오기/내보내기 (Soul 스타일).
  * 북마크 클릭 시 MainActivity에 URL을 결과로 돌려준다.
  */
 class BookmarksActivity : Activity() {
@@ -85,9 +85,9 @@ class BookmarksActivity : Activity() {
     }
 
     private fun showNewFolderDialog() {
-        val input = EditText(this).apply { hint = "폴트 이름" }
+        val input = EditText(this).apply { hint = "폴더 이름" }
         AlertDialog.Builder(this)
-            .setTitle("새 폴트")
+            .setTitle("새 폴더")
             .setView(input)
             .setPositiveButton("만들기") { _, _ ->
                 val name = input.text.toString().trim()
@@ -128,7 +128,7 @@ class BookmarksActivity : Activity() {
             .show()
     }
 
-    // ---------------- 가져오기 / 낳볶기 ----------------
+    // ---------------- 가져오기 / 내보내기 ----------------
 
     private fun pickImportFile() {
         val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -153,10 +153,10 @@ class BookmarksActivity : Activity() {
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            runCatching { startActivity(Intent.createChooser(share, "즐겨찾기 낳볶기")) }
+            runCatching { startActivity(Intent.createChooser(share, "즐겨찾기 내보내기")) }
             Toast.makeText(this, "저장됨: ${f.absolutePath}", Toast.LENGTH_LONG).show()
         }.onFailure {
-            Toast.makeText(this, "낳볶기 실패", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "내보내기 실패", Toast.LENGTH_SHORT).show()
         }
     }
 

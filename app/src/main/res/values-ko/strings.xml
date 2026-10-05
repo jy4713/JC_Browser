@@ -19,7 +19,7 @@
     <string name="menu_export_bookmarks">즐겨찾기 HTML 내보내기</string>
     <string name="bookmark_imported">%1$d개 항목을 가져왔습니다</string>
     <string name="bookmark_import_failed">가져오기 실패</string>
-    <string name="bookmark_exported">즐겨찾기를 내보냈었습니다</string>
+    <string name="bookmark_exported">즐겨찾기를 내보냈습니다</string>
     <string name="bookmark_export_failed">내보내기 실패</string>
     <string name="group_data">즐겨찾기 · 기록</string>
     <string name="group_display">화면</string>
@@ -81,8 +81,8 @@
     <string name="lang_ko">한국어</string>
     <string name="lang_en">English</string>
     <string name="dlg_dl_folder">다운로드 위치</string>
-    <string name="folder_public">다운로드 폴터 (권장)</string>
-    <string name="folder_app">앱 전용 폴터</string>
+    <string name="folder_public">다운로드 폴더 (권장)</string>
+    <string name="folder_app">앱 전용 폴더</string>
     <string name="dlg_text_size">글자 크기</string>
     <string name="dlg_clear_title">방문 기록/캐시 삭제</string>
     <string name="dlg_clear_msg">방문 기록, 쿠키, 캐시를 삭제하시겠습니까?</string>

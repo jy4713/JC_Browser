@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.streambrowser.MainActivity
 import com.example.streambrowser.R
 import com.example.streambrowser.browser.DetectedVideo
+import com.example.streambrowser.browser.TabMedia
 import com.example.streambrowser.browser.VideoStore
 import com.example.streambrowser.ui.PlayerActivity
 
@@ -32,6 +33,10 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
     /** 다운로드 불가 항목 표시 여부 */
     var showBlocked = false
 
+    /** 현재 탭의 미디어 목록 제공자 (MainActivity가 주입) */
+    var provider: (() -> TabMedia?)? = null
+    private fun media() = provider?.invoke()
+
     class VH(v: View) : RecyclerView.ViewHolder(v) {
         val thumb: ImageView = v.findViewById(R.id.videoThumb)
         val kind: TextView = v.findViewById(R.id.txtVideoKind)
@@ -43,9 +48,9 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
 
     /** 현재 표시 대상 목록 (불가 항목 제외 규칙 적용) */
     private fun items(): List<DetectedVideo> =
-        VideoStore.videos.filter { showBlocked || !it.unavailable }
+        (media()?.videos ?: emptyList()).filter { showBlocked || !it.unavailable }
 
-    fun blockedCount(): Int = VideoStore.videos.count { it.unavailable }
+    fun blockedCount(): Int = media()?.videos?.count { it.unavailable } ?: 0
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
         VH(LayoutInflater.from(parent.context).inflate(R.layout.item_video, parent, false))
@@ -58,7 +63,7 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
         holder.info.text = v.url
 
         // 썸네일: poster URL 로드, 실패/없으면 페이지 스냅샷
-        val poster = VideoStore.posterByUrl[v.url]
+        val poster = media()?.posterByUrl?.get(v.url)
         if (poster != null) {
             ThumbLoader.load(poster, holder.thumb, ThumbLoader.PageSnapshot.bitmap)
         } else {

@@ -41,7 +41,7 @@ class SniffingWebViewClient(
             }
             val accept = request.requestHeaders["Accept"] ?: ""
             detect(url, accept)?.let { kind ->
-                VideoStore.add(DetectedVideo(url = url, page = view.url ?: "", kind = kind))
+                VideoStore.add(view, DetectedVideo(url = url, page = view.url ?: "", kind = kind))
             }
             // HTML 문서(메인 프레임 + iframe)면 스캐너 JS 주입
             if (request.method == "GET" && accept.lowercase().contains("text/html")) {
@@ -157,7 +157,7 @@ class SniffingWebViewClient(
         runCatching { callback.backToSafety(false) }
         android.widget.Toast.makeText(
             view.context,
-            "피싱/악성코드로 탐지된 사이트라 차단했습니다.",
+            view.context.getString(com.example.streambrowser.R.string.blocked_warning),
             android.widget.Toast.LENGTH_LONG
         ).show()
     }

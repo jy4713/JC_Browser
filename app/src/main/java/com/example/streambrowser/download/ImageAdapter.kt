@@ -7,6 +7,7 @@ import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.streambrowser.R
 import com.example.streambrowser.browser.DetectedVideo
+import com.example.streambrowser.browser.TabMedia
 import com.example.streambrowser.browser.VideoStore
 
 /** 이미지 그리드 어댑터: 탭으로 멀티 선택 → 선택 항목 일괄 다운로드 */
@@ -16,12 +17,16 @@ class ImageAdapter(
 
     private val selected = LinkedHashSet<String>()
 
+    /** 현재 탭의 미디어 목록 제공자 (MainActivity가 주입) */
+    var provider: (() -> TabMedia?)? = null
+    private fun media() = provider?.invoke()
+
     fun selectedItems(): List<DetectedVideo> =
-        VideoStore.images.filter { selected.contains(it.url) }
+        media()?.images?.filter { selected.contains(it.url) } ?: emptyList()
 
     fun selectAll() {
         selected.clear()
-        VideoStore.images.forEach { selected.add(it.url) }
+        media()?.images?.forEach { selected.add(it.url) }
         notifyDataSetChanged()
         onSelectionChanged(selected.size)
     }
@@ -41,10 +46,10 @@ class ImageAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
         VH(LayoutInflater.from(parent.context).inflate(R.layout.item_image, parent, false))
 
-    override fun getItemCount(): Int = VideoStore.images.size
+    override fun getItemCount(): Int = media()?.images?.size ?: 0
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        val v = VideoStore.images[position]
+        val v = media()?.images?.get(position) ?: return
         ThumbLoader.load(v.url, holder.thumb)
         val isSel = selected.contains(v.url)
         holder.scrim.visibility = if (isSel) View.VISIBLE else View.GONE
