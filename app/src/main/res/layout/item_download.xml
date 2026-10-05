@@ -52,6 +52,28 @@
             android:tint="#1A73E8" />
 
         <ImageButton
+            android:id="@+id/btnCopy"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="2dp"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="@string/item_copy_link"
+            android:padding="9dp"
+            android:src="@drawable/ic_copy"
+            android:tint="#5F6368" />
+
+        <ImageButton
+            android:id="@+id/btnDelete"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="2dp"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="@string/action_remove"
+            android:padding="9dp"
+            android:src="@drawable/ic_close"
+            android:tint="#D93025" />
+
+        <ImageButton
             android:id="@+id/btnCancel"
             android:layout_width="40dp"
             android:layout_height="40dp"

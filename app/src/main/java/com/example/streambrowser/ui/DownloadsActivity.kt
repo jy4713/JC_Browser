@@ -2,6 +2,9 @@ package com.example.streambrowser.ui
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -73,7 +76,8 @@ class DownloadsActivity : Activity() {
                 com.example.streambrowser.util.JcToast.show(this, "취소 요청됨")
             },
             onRename = { item -> renameItem(item) },
-            onDelete = { item -> deleteItem(item) }
+            onDelete = { item -> deleteItem(item) },
+            onCopy = { item -> copyUrl(item) }
         )
         list.adapter = adapter
 
@@ -179,13 +183,20 @@ class DownloadsActivity : Activity() {
         DownloadStore.remove(item.id)
     }
 
+    private fun copyUrl(item: DlItem) {
+        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText("url", item.url))
+        com.example.streambrowser.util.JcToast.show(this, R.string.link_copied)
+    }
+
     // ---------------- 어댑터 ----------------
 
     class DlAdapter(
         private val onPlay: (DlItem) -> Unit,
         private val onCancel: (DlItem) -> Unit,
         private val onRename: (DlItem) -> Unit,
-        private val onDelete: (DlItem) -> Unit
+        private val onDelete: (DlItem) -> Unit,
+        private val onCopy: (DlItem) -> Unit
     ) : RecyclerView.Adapter<DlAdapter.VH>() {
 
         private var items = listOf<DlItem>()
@@ -201,6 +212,8 @@ class DownloadsActivity : Activity() {
             val progress: ProgressBar = v.findViewById(R.id.dlProgress)
             val btnPlay: ImageButton = v.findViewById(R.id.btnPlay)
             val btnCancel: ImageButton = v.findViewById(R.id.btnCancel)
+            val btnCopy: ImageButton = v.findViewById(R.id.btnCopy)
+            val btnDelete: ImageButton = v.findViewById(R.id.btnDelete)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
@@ -218,6 +231,8 @@ class DownloadsActivity : Activity() {
                     holder.progress.visibility = View.GONE
                     holder.btnPlay.visibility = View.GONE
                     holder.btnCancel.visibility = View.VISIBLE
+                    holder.btnCopy.visibility = View.GONE
+                    holder.btnDelete.visibility = View.GONE
                 }
                 DlStatus.RUNNING -> {
                     holder.status.text = DlFormat.progress(item)
@@ -230,6 +245,8 @@ class DownloadsActivity : Activity() {
                     }
                     holder.btnPlay.visibility = View.GONE
                     holder.btnCancel.visibility = View.VISIBLE
+                    holder.btnCopy.visibility = View.GONE
+                    holder.btnDelete.visibility = View.GONE
                 }
                 DlStatus.DONE -> {
                     val sz = (item.file?.length() ?: 0) / 1048576.0
@@ -237,23 +254,31 @@ class DownloadsActivity : Activity() {
                     holder.progress.visibility = View.GONE
                     holder.btnPlay.visibility = View.VISIBLE
                     holder.btnCancel.visibility = View.GONE
+                    holder.btnCopy.visibility = View.VISIBLE
+                    holder.btnDelete.visibility = View.VISIBLE
                 }
                 DlStatus.CANCELED -> {
                     holder.status.text = "취소됨"
                     holder.progress.visibility = View.GONE
                     holder.btnPlay.visibility = View.GONE
                     holder.btnCancel.visibility = View.GONE
+                    holder.btnCopy.visibility = View.VISIBLE
+                    holder.btnDelete.visibility = View.VISIBLE
                 }
                 DlStatus.FAILED -> {
-                    holder.status.text = "실패 (길게 눌러 삭제)"
+                    holder.status.text = "실패"
                     holder.progress.visibility = View.GONE
                     holder.btnPlay.visibility = View.GONE
                     holder.btnCancel.visibility = View.GONE
+                    holder.btnCopy.visibility = View.VISIBLE
+                    holder.btnDelete.visibility = View.VISIBLE
                 }
             }
 
             holder.btnPlay.setOnClickListener { onPlay(item) }
             holder.btnCancel.setOnClickListener { onCancel(item) }
+            holder.btnCopy.setOnClickListener { onCopy(item) }
+            holder.btnDelete.setOnClickListener { onDelete(item) }
             holder.itemView.setOnLongClickListener {
                 val opts = arrayOf("이름 변경", "삭제")
                 AlertDialog.Builder(holder.itemView.context)

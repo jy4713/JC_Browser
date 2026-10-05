@@ -13,18 +13,18 @@
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="12dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="8dp">
+        android:paddingTop="5dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="5dp">
 
         <EditText
             android:id="@+id/editUrl"
             android:layout_width="0dp"
-            android:layout_height="44dp"
+            android:layout_height="36dp"
             android:layout_weight="1"
             android:background="@drawable/bg_url"
             android:drawableStart="@drawable/ic_search"
-            android:drawablePadding="10dp"
+            android:drawablePadding="8dp"
             android:drawableTint="#9AA0A6"
             android:hint="@string/hint_url"
             android:imeOptions="actionGo"
@@ -34,21 +34,21 @@
             android:singleLine="true"
             android:textColor="#202124"
             android:textColorHint="#9AA0A6"
-            android:textSize="15sp" />
+            android:textSize="14sp" />
 
         <FrameLayout
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="8dp">
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp">
 
             <ImageButton
                 android:id="@+id/btnVideos"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
                 android:layout_gravity="center"
                 android:background="@drawable/bg_btn_ripple"
                 android:contentDescription="@string/cd_videos"
-                android:padding="11dp"
+                android:padding="9dp"
                 android:src="@drawable/ic_video"
                 android:tint="@color/icon_tint" />
 
@@ -72,18 +72,18 @@
         </FrameLayout>
 
         <FrameLayout
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:layout_marginStart="2dp">
 
             <ImageButton
                 android:id="@+id/btnImages"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
                 android:layout_gravity="center"
                 android:background="@drawable/bg_btn_ripple"
                 android:contentDescription="@string/cd_images"
-                android:padding="11dp"
+                android:padding="9dp"
                 android:src="@drawable/ic_image"
                 android:tint="@color/icon_tint" />
 
