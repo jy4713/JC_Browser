@@ -62,6 +62,7 @@ import com.example.streambrowser.browser.SniffingWebViewClient
 import com.example.streambrowser.browser.TabMedia
 import com.example.streambrowser.browser.VideoJsBridge
 import com.example.streambrowser.browser.VideoStore
+import com.example.streambrowser.browser.WebCleaner
 import com.example.streambrowser.db.BookmarkRepo
 import com.example.streambrowser.db.HistoryRepo
 import com.example.streambrowser.download.DownloadStore
@@ -130,6 +131,7 @@ class MainActivity : Activity() {
 
         prefs = getSharedPreferences("settings", MODE_PRIVATE)
         AdBlocker.init(this)
+        WebCleaner.init(this)
 
         // Android 13+ : 다운로드 진행 알림을 위한 알림 권한 요청
         if (Build.VERSION.SDK_INT >= 33) {
@@ -474,6 +476,11 @@ class MainActivity : Activity() {
                 runCatching { safeBrowsingEnabled = true }
             }
         }
+        // 사이트별 JS 차단 초기 적용
+        runCatching {
+            val h = Uri.parse(url).host ?: ""
+            if (h.isNotEmpty() && WebCleaner.isJsBlockedFor(h)) wv.settings.javaScriptEnabled = false
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             runCatching { wv.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true) }
         }
@@ -486,6 +493,12 @@ class MainActivity : Activity() {
                     }
                     // 이 탭의 페이지 이동 → 이 탭의 목록만 리셋
                     VideoStore.clear(view)
+                    // 사이트별 JS 차단 갱신 (다음 로드부터 적용)
+                    runCatching {
+                        val h = Uri.parse(url).host ?: ""
+                        val want = h.isEmpty() || !WebCleaner.isJsBlockedFor(h)
+                        if (view.settings.javaScriptEnabled != want) view.settings.javaScriptEnabled = want
+                    }
                 }
             },
             onPageFinishedCb = { view, url ->
@@ -509,6 +522,11 @@ class MainActivity : Activity() {
                             view.evaluateJavascript(js, null)
                         }
                     }
+                    // 오버레이 차단 (화면 가리는 고정 레이어 자동 제거, 허용 목록 사이트 제외)
+                    val host = runCatching { Uri.parse(url).host ?: "" }.getOrDefault("")
+                    if (WebCleaner.overlayEnabled && host.isNotEmpty() && !WebCleaner.isOverlayAllowed(host)) {
+                        runCatching { view.evaluateJavascript(WebCleaner.overlayJs(), null) }
+                    }
                 }
             },
             onRenderProcessGoneCb = { gone -> recoverRenderProcess(gone) }
@@ -518,6 +536,14 @@ class MainActivity : Activity() {
                 view: WebView, isDialog: Boolean, isUserGesture: Boolean,
                 resultMsg: android.os.Message
             ): Boolean {
+                // 팝업 차단: 사용자 제스처 없는 새창 (허용 목록 사이트 제외)
+                if (WebCleaner.popupEnabled && !isUserGesture) {
+                    val openerHost = runCatching { Uri.parse(view.url ?: "").host ?: "" }.getOrDefault("")
+                    if (openerHost.isEmpty() || !WebCleaner.isPopupAllowed(openerHost)) {
+                        Toast.makeText(this@MainActivity, R.string.popup_blocked, Toast.LENGTH_SHORT).show()
+                        return false
+                    }
+                }
                 val newTab = createTab("") ?: return false
                 newTab.fromWindow = true
                 val transport = resultMsg.obj as WebView.WebViewTransport
@@ -841,7 +867,66 @@ class MainActivity : Activity() {
     /** Settings groups (accordion), grouped by purpose. Toggles live in the shortcut grid. */
     private fun menuGroups(): List<MenuGroup> {
         val s = fun(res: Int) = getString(res)
+        val currentHost = runCatching { Uri.parse(current()?.web?.url ?: "").host ?: "" }.getOrDefault("")
         return listOf(
+            MenuGroup(R.string.group_cleaner, R.drawable.ic_check_circle, listOf(
+                MenuEntry(s(R.string.menu_adblock), R.drawable.ic_check_circle, "adblock") {
+                    val on = !prefs.getBoolean("adblock", true)
+                    prefs.edit().putBoolean("adblock", on).apply()
+                    AdBlocker.enabled = on
+                },
+                MenuEntry(s(R.string.menu_ad_filters), R.drawable.ic_menu_vert, null) {
+                    startActivity(Intent(this, com.example.streambrowser.ui.AdFiltersActivity::class.java))
+                },
+                MenuEntry(s(R.string.menu_ad_whitelist), R.drawable.ic_bookmark, null) {
+                    startActivity(Intent(this, com.example.streambrowser.ui.HostListActivity::class.java)
+                        .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_TITLE, s(R.string.menu_ad_whitelist))
+                        .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_PREF, "ad_allow_hosts")
+                        .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_CURRENT, currentHost))
+                },
+                MenuEntry(s(R.string.menu_overlay_block), R.drawable.ic_check_circle, "overlay_block") {
+                    val on = !prefs.getBoolean("overlay_block", true)
+                    prefs.edit().putBoolean("overlay_block", on).apply()
+                    WebCleaner.overlayEnabled = on
+                },
+                MenuEntry(s(R.string.menu_overlay_whitelist), R.drawable.ic_bookmark, null) {
+                    startActivity(Intent(this, com.example.streambrowser.ui.HostListActivity::class.java)
+                        .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_TITLE, s(R.string.menu_overlay_whitelist))
+                        .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_PREF, "overlay_allow_hosts")
+                        .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_CURRENT, currentHost))
+                },
+                MenuEntry(s(R.string.menu_popup_block), R.drawable.ic_check_circle, "popup_block") {
+                    val on = !prefs.getBoolean("popup_block", true)
+                    prefs.edit().putBoolean("popup_block", on).apply()
+                    WebCleaner.popupEnabled = on
+                },
+                MenuEntry(getString(R.string.menu_popup_mode) + ": " + s(if (WebCleaner.popupBlockAll) R.string.popup_mode_all else R.string.popup_mode_ad), R.drawable.ic_expand_more, null) {
+                    showPopupModeDialog()
+                },
+                MenuEntry(s(R.string.menu_popup_whitelist), R.drawable.ic_bookmark, null) {
+                    startActivity(Intent(this, com.example.streambrowser.ui.HostListActivity::class.java)
+                        .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_TITLE, s(R.string.menu_popup_whitelist))
+                        .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_PREF, "popup_allow_hosts")
+                        .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_CURRENT, currentHost))
+                },
+                MenuEntry(s(R.string.menu_js_block), R.drawable.ic_check_circle, "js_block") {
+                    val on = !prefs.getBoolean("js_block", false)
+                    prefs.edit().putBoolean("js_block", on).apply()
+                    WebCleaner.jsBlockEnabled = on
+                    current()?.web?.reload()
+                },
+                MenuEntry(s(R.string.menu_js_block_sites), R.drawable.ic_bookmark, null) {
+                    startActivity(Intent(this, com.example.streambrowser.ui.HostListActivity::class.java)
+                        .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_TITLE, s(R.string.menu_js_block_sites))
+                        .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_PREF, "js_block_hosts")
+                        .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_CURRENT, currentHost))
+                },
+                MenuEntry(s(R.string.menu_app_block), R.drawable.ic_check_circle, "app_block") {
+                    val on = !prefs.getBoolean("app_block", true)
+                    prefs.edit().putBoolean("app_block", on).apply()
+                    WebCleaner.appBlockEnabled = on
+                }
+            )),
             MenuGroup(R.string.group_dl_settings, R.drawable.ic_download, listOf(
                 MenuEntry(s(R.string.menu_dl_folder), R.drawable.ic_folder, null) {
                     showDownloadFolderDialog()
@@ -955,9 +1040,23 @@ class MainActivity : Activity() {
 
     /** 각 설정의 실제 동작 기본값 (메뉴 ON 표시와 일치시키기 위함) */
     private fun prefDefault(key: String): Boolean = when (key) {
-        "desktop", "dark", "auto_pip" -> false
+        "desktop", "dark", "auto_pip", "js_block" -> false
         "adblock" -> AdBlocker.enabled
-        else -> true // restore_tabs, fast_dl, dl_notify
+        else -> true // restore_tabs, fast_dl, dl_notify, overlay_block, popup_block, app_block
+    }
+
+    /** 팝업 차단 방식: 모든 팝업 / 광고 의심만 (Soul 스타일) */
+    private fun showPopupModeDialog() {
+        val modes = arrayOf(getString(R.string.popup_mode_all), getString(R.string.popup_mode_ad))
+        AlertDialog.Builder(this)
+            .setTitle(R.string.menu_popup_mode)
+            .setSingleChoiceItems(modes, if (WebCleaner.popupBlockAll) 0 else 1) { dlg, which ->
+                WebCleaner.setPopupMode(which == 0)
+                dlg.dismiss()
+                rebuildMenu()
+            }
+            .setNegativeButton(R.string.action_cancel, null)
+            .show()
     }
 
     /** SeekBar + number dialog (min..max inclusive) */

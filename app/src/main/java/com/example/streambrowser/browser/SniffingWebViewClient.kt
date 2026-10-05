@@ -95,8 +95,40 @@ class SniffingWebViewClient(
     /** http/https 외 스킴은 여기서 처리. 예외가 나도 앱이 죽지 않게 true 리턴 */
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         val url = request.url.toString()
+        val scheme = request.url.scheme ?: ""
         if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("about:")) {
+            // 팝업 차단: 제스처 없는 메인프레임 이동 중 서버 리다이렉트가 아닌 것
+            if (WebCleaner.popupEnabled && request.isForMainFrame &&
+                !request.hasGesture() && !request.isRedirect
+            ) {
+                val host = request.url.host ?: ""
+                val pageHost = runCatching { Uri.parse(view.url ?: "").host ?: "" }.getOrDefault("")
+                val blocked = if (WebCleaner.popupBlockAll) {
+                    true
+                } else {
+                    // 광고 의심 모드: 다른 사이트로 가는 것만
+                    host.isNotEmpty() && pageHost.isNotEmpty() &&
+                            host != pageHost && !host.endsWith("." + pageHost) && !pageHost.endsWith("." + host)
+                }
+                if (blocked && !WebCleaner.isPopupAllowed(pageHost)) {
+                    android.widget.Toast.makeText(
+                        view.context,
+                        com.example.streambrowser.R.string.popup_blocked,
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    return true
+                }
+            }
             return false
+        }
+        // 앱 실행 차단 (intent://, market://, android-app:// 등)
+        if (WebCleaner.appBlockEnabled && scheme in setOf("intent", "market", "android-app", "mailto", "tel")) {
+            android.widget.Toast.makeText(
+                view.context,
+                com.example.streambrowser.R.string.app_blocked,
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            return true
         }
         return openExternal(view, url)
     }
