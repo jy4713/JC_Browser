@@ -12,6 +12,8 @@
     <!-- 메뉴 그룹 -->
     <string name="group_tabs">탭</string>
     <string name="group_settings">설정</string>
+    <string name="group_privacy">보안/개인정보</string>
+    <string name="group_general">일반</string>
     <string name="menu_home_setting">홈페이지 설정</string>
     <string name="dlg_home_title">홈페이지 URL</string>
     <string name="menu_home_saved">홈페이지가 저장되었습니다</string>

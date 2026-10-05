@@ -57,7 +57,7 @@ class VideoDownloadService : Service() {
 
         val item = DownloadStore.get(id) ?: DlItem(id, url, page, kind, name, ext).also { DownloadStore.upsert(it) }
 
-        // 설정: 알림 표시 여부 / 다운로드 위치 (공용 Download 폴터면 완료 후 복사)
+        // 설정: 알림 표시 여부 / 다운로드 위치 (공용 Download 폴더면 완료 후 복사)
         val sp = getSharedPreferences("settings", MODE_PRIVATE)
         val notifyOn = sp.getBoolean("dl_notify", true)
         val folderPublic = sp.getString("dl_folder", "public") == "public"
@@ -127,7 +127,7 @@ class VideoDownloadService : Service() {
                             else -> DlStatus.FAILED
                         }
                         if (item.status == DlStatus.CANCELED) out.delete()
-                        // 공용 다운로드 폴터 모드: 완료 파일을 Download/JC Browser로 복사
+                        // 공용 다운로드 폴더 모드: 완료 파일을 Download/JC Browser로 복사
                         if (item.status == DlStatus.DONE && folderPublic) {
                             runCatching { copyToPublicDownloads(out) }
                         }
@@ -266,7 +266,7 @@ class VideoDownloadService : Service() {
         return f
     }
 
-    /** 완료 파일을 공용 Download/JC Browser 폴터로 복사 (MediaStore, API 29+) */
+    /** 완료 파일을 공용 Download/JC Browser 폴더로 복사 (MediaStore, API 29+) */
     private fun copyToPublicDownloads(src: File) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
         val values = android.content.ContentValues().apply {

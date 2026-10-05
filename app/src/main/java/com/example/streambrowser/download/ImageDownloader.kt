@@ -61,7 +61,7 @@ object ImageDownloader {
                 conn.disconnect()
                 item.file = f
                 item.status = DlStatus.DONE
-                // 공용 다운로드 폴터 모드
+                // 공용 다운로드 폴더 모드
                 val sp = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
                 if (sp.getString("dl_folder", "public") == "public") {
                     runCatching { copyToPublicDownloads(ctx, f) }
@@ -73,7 +73,7 @@ object ImageDownloader {
         }.start()
     }
 
-    /** 완료 이미지를 공용 Download/JC Browser 폴터로 복사 (MediaStore, API 29+) */
+    /** 완료 이미지를 공용 Download/JC Browser 폴더로 복사 (MediaStore, API 29+) */
     private fun copyToPublicDownloads(ctx: Context, src: File) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
         val values = android.content.ContentValues().apply {

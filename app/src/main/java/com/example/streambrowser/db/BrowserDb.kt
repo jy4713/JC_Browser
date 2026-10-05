@@ -5,7 +5,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-/** 북마크(폴트 지원)/방문기록 저장 DB */
+/** 북마크(폴더 지원)/방문기록 저장 DB */
 class BrowserDb(context: Context) :
     SQLiteOpenHelper(context, "browser.db", null, 2) {
 
@@ -81,7 +81,7 @@ object BookmarkRepo {
         return BrowserDb.get(context).writableDatabase.insert("bookmarks", null, v)
     }
 
-    /** 폴트 먼저 → 즐겨찾기 (제목 순) */
+    /** 폴더 먼저 → 즐겨찾기 (제목 순) */
     fun list(context: Context, parentId: Long): List<BookmarkEntry> {
         val c = BrowserDb.get(context).readableDatabase.rawQuery(
             "SELECT id, parent_id, is_folder, title, url FROM bookmarks WHERE parent_id=? ORDER BY is_folder DESC, time DESC",
@@ -104,7 +104,7 @@ object BookmarkRepo {
         BrowserDb.get(context).writableDatabase.update("bookmarks", v, "id=?", arrayOf(id.toString()))
     }
 
-    /** 폴트 삭제 시 하위 항목도 재귀 삭제 */
+    /** 폴더 삭제 시 하위 항목도 재귀 삭제 */
     fun remove(context: Context, id: Long) {
         val db = BrowserDb.get(context).writableDatabase
         val c = db.rawQuery("SELECT id FROM bookmarks WHERE parent_id=?", arrayOf(id.toString()))
@@ -125,7 +125,7 @@ object BookmarkRepo {
         return n
     }
 
-    // ---------------- Netscape Bookmark HTML 낳볶기 ----------------
+    // ---------------- Netscape Bookmark HTML 내보내기 ----------------
 
     fun exportHtml(context: Context): String {
         val sb = StringBuilder()

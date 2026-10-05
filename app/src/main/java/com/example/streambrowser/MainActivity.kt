@@ -677,7 +677,7 @@ class MainActivity : Activity() {
     }
 
     private var menuDialog: Dialog? = null
-    private var expandedGroup: Int? = R.string.group_settings
+    private var expandedGroup: Int? = null
 
     /** 상단 단축키 그리드 항목 (아이콘, 라벨, 동작) */
     private fun shortcutItems(): List<Triple<Int, Int, () -> Unit>> {
@@ -724,49 +724,11 @@ class MainActivity : Activity() {
         )
     }
 
-    /** 설정 그룹 (아코디언) */
+    /** 설정 그룹 (아코디언): 용도별 4개 그룹으로 정리 */
     private fun menuGroups(): List<MenuGroup> {
         val s = fun(res: Int) = getString(res)
         return listOf(
-            MenuGroup(R.string.group_settings, R.drawable.ic_settings, listOf(
-                MenuEntry(s(R.string.menu_desktop), R.drawable.ic_refresh, "desktop") {
-                    val on = !prefs.getBoolean("desktop", false)
-                    prefs.edit().putBoolean("desktop", on).apply()
-                    tabs.forEach {
-                        it.web.settings.userAgentString = if (on) UA_DESKTOP else UA_MOBILE
-                        it.web.reload()
-                    }
-                },
-                MenuEntry(s(R.string.menu_dark), R.drawable.ic_menu_vert, "dark") {
-                    val on = !prefs.getBoolean("dark", false)
-                    prefs.edit().putBoolean("dark", on).apply()
-                    tabs.forEach { applyDarkMode(it.web.settings) }
-                    Toast.makeText(this, s(if (on) R.string.dark_on else R.string.dark_off), Toast.LENGTH_SHORT).show()
-                },
-                MenuEntry(s(R.string.menu_adblock), R.drawable.ic_close, "adblock") {
-                    AdBlocker.enabled = !AdBlocker.enabled
-                    Toast.makeText(this, s(if (AdBlocker.enabled) R.string.adblock_on else R.string.adblock_off), Toast.LENGTH_SHORT).show()
-                },
-                MenuEntry(s(R.string.menu_restore_tabs), R.drawable.ic_tabs, "restore_tabs") {
-                    val on = !prefs.getBoolean("restore_tabs", true)
-                    prefs.edit().putBoolean("restore_tabs", on).apply()
-                    Toast.makeText(this, s(if (on) R.string.restore_on else R.string.restore_off), Toast.LENGTH_SHORT).show()
-                },
-                MenuEntry(s(R.string.menu_auto_pip), R.drawable.ic_play, "auto_pip") {
-                    val on = !prefs.getBoolean("auto_pip", false)
-                    prefs.edit().putBoolean("auto_pip", on).apply()
-                    updatePipParams()
-                    var msg = s(if (on) R.string.auto_pip_on else R.string.auto_pip_off)
-                    if (on && Build.VERSION.SDK_INT in Build.VERSION_CODES.O..Build.VERSION_CODES.R)
-                        msg += s(R.string.auto_pip_legacy)
-                    Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-                },
-                MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
-                    showTextSizeDialog()
-                },
-                MenuEntry(s(R.string.menu_home_setting), R.drawable.ic_home, null) {
-                    showHomeDialog()
-                },
+            MenuGroup(R.string.group_dl_settings, R.drawable.ic_download, listOf(
                 MenuEntry(s(R.string.menu_dl_folder), R.drawable.ic_folder, null) {
                     showDownloadFolderDialog()
                 },
@@ -783,12 +745,56 @@ class MainActivity : Activity() {
                 MenuEntry(s(R.string.menu_dl_notify), R.drawable.ic_play, "dl_notify") {
                     val on = !prefs.getBoolean("dl_notify", true)
                     prefs.edit().putBoolean("dl_notify", on).apply()
+                }
+            )),
+            MenuGroup(R.string.group_display, R.drawable.ic_search, listOf(
+                MenuEntry(s(R.string.menu_desktop), R.drawable.ic_refresh, "desktop") {
+                    val on = !prefs.getBoolean("desktop", false)
+                    prefs.edit().putBoolean("desktop", on).apply()
+                    tabs.forEach {
+                        it.web.settings.userAgentString = if (on) UA_DESKTOP else UA_MOBILE
+                        it.web.reload()
+                    }
+                },
+                MenuEntry(s(R.string.menu_dark), R.drawable.ic_menu_vert, "dark") {
+                    val on = !prefs.getBoolean("dark", false)
+                    prefs.edit().putBoolean("dark", on).apply()
+                    tabs.forEach { applyDarkMode(it.web.settings) }
+                    Toast.makeText(this, s(if (on) R.string.dark_on else R.string.dark_off), Toast.LENGTH_SHORT).show()
+                },
+                MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
+                    showTextSizeDialog()
+                },
+                MenuEntry(s(R.string.menu_auto_pip), R.drawable.ic_play, "auto_pip") {
+                    val on = !prefs.getBoolean("auto_pip", false)
+                    prefs.edit().putBoolean("auto_pip", on).apply()
+                    updatePipParams()
+                    var msg = s(if (on) R.string.auto_pip_on else R.string.auto_pip_off)
+                    if (on && Build.VERSION.SDK_INT in Build.VERSION_CODES.O..Build.VERSION_CODES.R)
+                        msg += s(R.string.auto_pip_legacy)
+                    Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+                }
+            )),
+            MenuGroup(R.string.group_privacy, R.drawable.ic_incognito, listOf(
+                MenuEntry(s(R.string.menu_adblock), R.drawable.ic_close, "adblock") {
+                    AdBlocker.enabled = !AdBlocker.enabled
+                    Toast.makeText(this, s(if (AdBlocker.enabled) R.string.adblock_on else R.string.adblock_off), Toast.LENGTH_SHORT).show()
                 },
                 MenuEntry(s(R.string.menu_add_adblock_rule), R.drawable.ic_close, null) {
                     current()?.web?.url?.let { addAdBlockRule(it) }
                 },
                 MenuEntry(s(R.string.menu_clear_data), R.drawable.ic_close, null) {
                     confirmClearData()
+                }
+            )),
+            MenuGroup(R.string.group_general, R.drawable.ic_settings, listOf(
+                MenuEntry(s(R.string.menu_home_setting), R.drawable.ic_home, null) {
+                    showHomeDialog()
+                },
+                MenuEntry(s(R.string.menu_restore_tabs), R.drawable.ic_tabs, "restore_tabs") {
+                    val on = !prefs.getBoolean("restore_tabs", true)
+                    prefs.edit().putBoolean("restore_tabs", on).apply()
+                    Toast.makeText(this, s(if (on) R.string.restore_on else R.string.restore_off), Toast.LENGTH_SHORT).show()
                 },
                 MenuEntry(s(R.string.menu_import_bookmarks), R.drawable.ic_bookmark_add, null) {
                     val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -819,7 +825,6 @@ class MainActivity : Activity() {
             ))
         )
     }
-
     private fun buildMenuRows(): List<MenuRow> {
         val rows = mutableListOf<MenuRow>()
         rows += MenuRow.Shortcut()
@@ -1398,7 +1403,7 @@ class MainActivity : Activity() {
                 Toast.makeText(this, getString(R.string.bookmark_import_failed), Toast.LENGTH_SHORT).show()
             }
         }
-        // 즐겨찾기 HTML 날볶기
+        // 즐겨찾기 HTML 내보내기
         if (requestCode == 4 && resultCode == RESULT_OK) {
             runCatching {
                 data?.data?.let { uri ->
