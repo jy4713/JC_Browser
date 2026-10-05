@@ -21,7 +21,7 @@ import java.net.URL
  * 2) 스트리밍 미디어(m3u8/mpd/mp4 등) 감지 (VideoStore에 등록)
  * 3) HTML 응답에 영상 소스 스캐너 JS 주입 (iframe 플레이어 낶부까지 커버)
  * 4) http(s) 외 스킴(intent:// 등) 처리
- * 5) SSL 오류 허용 / 렌더 프로세스 종료 시 복구
+ * 5) SSL 오류 시 사용자 확인 (기본 차단) / 렌더 프로세스 종료 시 복구
  */
 class SniffingWebViewClient(
     private val onPageStartedCb: (WebView, String) -> Unit = { _, _ -> },
@@ -163,9 +163,23 @@ class SniffingWebViewClient(
         }.getOrElse { true }
     }
 
-    /** 스트리밍 사이트의 인증서 오류 시 로드를 계속 진행 */
+    /**
+     * SSL 인증서 오류: 기본은 차단하고, 사용자가 명시적으로 확인한 경우에만 진행.
+     * (구버전의 proceed()는 MITM 공격에 노출되므로 제거)
+     */
     override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
-        handler.proceed()
+        val ctx = view.context
+        if (ctx !is android.app.Activity || ctx.isFinishing || ctx.isDestroyed) {
+            handler.cancel()
+            return
+        }
+        android.app.AlertDialog.Builder(ctx)
+            .setTitle(ctx.getString(com.example.streambrowser.R.string.ssl_error_title))
+            .setMessage(ctx.getString(com.example.streambrowser.R.string.ssl_error_msg))
+            .setPositiveButton(ctx.getString(com.example.streambrowser.R.string.ssl_error_continue)) { _, _ -> handler.proceed() }
+            .setNegativeButton(ctx.getString(com.example.streambrowser.R.string.btn_cancel)) { _, _ -> handler.cancel() }
+            .setOnCancelListener { handler.cancel() }
+            .show()
     }
 
     /**

@@ -119,6 +119,9 @@
     <string name="dlg_clear_msg">Delete browsing history, cookies and cache?</string>
     <string name="btn_delete">Delete</string>
     <string name="btn_cancel">Cancel</string>
+    <string name="ssl_error_title">Connection security warning</string>
+    <string name="ssl_error_msg">This site\'s security certificate has a problem. Continuing may expose your information to attackers.</string>
+    <string name="ssl_error_continue">Proceed anyway</string>
     <string name="btn_ok">OK</string>
     <string name="dlg_adblock_host">Domain to block</string>
     <string name="btn_add">Add</string>

@@ -41,6 +41,10 @@ object AdBlocker {
     private val exceptionRegexes = ArrayList<Regex>()  // 기타 @@ 예외
     private val hideSelectors = ArrayList<String>()    // ## 요소 숨김
 
+    /** 문자열 규칙의 3-gram 인덱스 (규칙이 많을 때 contains() 전수 스캔 대신 프리필터) */
+    private val ruleTrigrams = HashSet<Int>()
+    private const val TRIGRAM_THRESHOLD = 200
+
     /** 사용자가 추가한 단일 규칙 원문 (화면 표시용) */
     private val customRules = LinkedHashSet<String>()
 
@@ -121,7 +125,22 @@ object AdBlocker {
                 }
             }
         }
+        rebuildTrigrams()
     }
+
+    /** 문자열 규칙이 3글자 이상이면 첫 3-gram을 미리 수집해 둠.
+     *  요청 URL에 그 3-gram이 없으면 해당 규칙은 절대 매칭되지 않으므로 contains()를 건 넘어간다. */
+    private fun rebuildTrigrams() {
+        ruleTrigrams.clear()
+        if (substrings.size <= TRIGRAM_THRESHOLD) return
+        substrings.forEach { f ->
+            if (f.length >= 3) {
+                for (i in 0..f.length - 3) ruleTrigrams.add(tri(f, i))
+            }
+        }
+    }
+
+    private fun tri(s: String, i: Int): Int = (s[i].code * 31 + s[i + 1].code) * 31 + s[i + 2].code
 
     // ---------------- URL 필터 관리 ----------------
 
@@ -392,9 +411,19 @@ object AdBlocker {
             }
         }
 
-        // 4) 문자열/와일드카드 필터
-        for (f in substrings) {
-            if (u.contains(f)) return true
+        // 4) 문자열/와일드카드 필터 (규칙이 많으면 3-gram 프리필터로 빠르게 거름)
+        if (substrings.isNotEmpty()) {
+            if (ruleTrigrams.isEmpty() || u.length < 3) {
+                for (f in substrings) if (u.contains(f)) return true
+            } else {
+                // f가 u에 포함되려면 f의 모든 3-gram이 URL에 있어야 함 → 첫 3-gram으로 즉시 탈락
+                val grams = HashSet<Int>(u.length)
+                for (i in 0..u.length - 3) grams.add(tri(u, i))
+                for (f in substrings) {
+                    if (f.length >= 3 && grams.isNotEmpty() && tri(f, 0) !in grams) continue
+                    if (u.contains(f)) return true
+                }
+            }
         }
         return false
     }

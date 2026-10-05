@@ -105,7 +105,7 @@ class VideoJsBridge(private val owner: WebView? = null) {
       }
     }catch(e){}
   }
-  setInterval(collect, 1500);
+  setInterval(collect, 3000);
   collect();
 
   /* 1-1) Soul 스타일: 동영상 길게 누르기 감지 + 네이티브 제어용 헬퍼 노출 */
@@ -165,7 +165,7 @@ class VideoJsBridge(private val owner: WebView? = null) {
       }
     }catch(e){}
   }
-  setInterval(collectImages, 2500);
+  setInterval(collectImages, 5000);
   collectImages();
 
   /* 1-3) SPA 대응: 주소만 바뀌는 페이지 전환 감지 (최상위 창만) */
