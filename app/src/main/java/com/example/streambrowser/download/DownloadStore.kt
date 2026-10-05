@@ -15,7 +15,8 @@ data class DlItem(
     var doneBytes: Long = 0,
     var totalDurationMs: Long = -1,
     var file: File? = null,
-    var currentTimeMs: Long = 0
+    var currentTimeMs: Long = 0,
+    var speedBps: Long = 0
 )
 
 /** 다운로드 상태 저장소 (앱 전역) */

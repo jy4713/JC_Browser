@@ -139,4 +139,12 @@
     <string name="player_title">Player</string>
     <string name="menu_action">Open menu</string>
     <string name="vm_speed">Speed</string>
+
+    <!-- 다운로드 설정 -->
+    <string name="group_dl_settings">Download settings</string>
+    <string name="menu_fast_dl">Fast download (segmented parallel)</string>
+    <string name="menu_dl_split">Segments per file (%d)</string>
+    <string name="menu_dl_conn">Simultaneous connections (%d)</string>
+    <string name="dlg_split_title">Segments per file</string>
+    <string name="dlg_conn_title">Simultaneous connections</string>
 </resources>

@@ -137,4 +137,12 @@
     <string name="player_title">플레이어</string>
     <string name="menu_action">메뉴 열기</string>
     <string name="vm_speed">배속</string>
+
+    <!-- 다운로드 설정 -->
+    <string name="group_dl_settings">다운로드 설정</string>
+    <string name="menu_fast_dl">고속 다운로드 (분할 병렬)</string>
+    <string name="menu_dl_split">한 파일 분할 수 (%d)</string>
+    <string name="menu_dl_conn">동시 연결 수 (%d)</string>
+    <string name="dlg_split_title">한 파일 분할 수</string>
+    <string name="dlg_conn_title">동시 연결 수</string>
 </resources>

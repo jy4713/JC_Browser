@@ -333,15 +333,14 @@
                 android:layout_gravity="top|end"
                 android:layout_marginTop="1dp"
                 android:layout_marginEnd="1dp"
-                android:background="@drawable/bg_badge"
+                android:background="@drawable/bg_badge_tab"
                 android:gravity="center"
                 android:minWidth="18dp"
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:text="1"
-                android:textColor="#FFFFFF"
-                android:textSize="10sp"
-                android:textStyle="bold" />
+                android:textColor="#202124"
+                android:textSize="10sp" />
         </FrameLayout>
 
         <ImageButton

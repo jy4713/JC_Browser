@@ -167,14 +167,15 @@ class DownloadsActivity : Activity() {
                 }
                 DlStatus.RUNNING -> {
                     val mb = item.doneBytes / 1048576.0
+                    val spd = item.speedBps / 1048576.0
                     holder.status.text = if (item.totalDurationMs > 0 && item.currentTimeMs > 0) {
                         val p = (item.currentTimeMs * 100 / item.totalDurationMs).coerceIn(0, 100).toInt()
                         holder.progress.visibility = View.VISIBLE
                         holder.progress.progress = p
-                        String.format("%d%%  ·  %.1f MB", p, mb)
+                        String.format("%d%%  ·  %.1f MB  ·  %.1f MB/s", p, mb, spd)
                     } else {
                         holder.progress.visibility = View.GONE
-                        String.format("%.1f MB 받는 중…", mb)
+                        String.format("%.1f MB  ·  %.1f MB/s", mb, spd)
                     }
                     holder.btnPlay.visibility = View.GONE
                     holder.btnCancel.visibility = View.VISIBLE

@@ -39,6 +39,7 @@ class VideoDownloadService : Service() {
 
         fun cancel(id: Long) {
             sessions[id]?.cancel()
+            FastVideoDownloader.cancel(id)
         }
     }
 
@@ -65,8 +66,39 @@ class VideoDownloadService : Service() {
         startForeground(notifBase + (id % 500).toInt(), buildNotification(item.name, getString(com.example.streambrowser.R.string.notif_preparing), indeterminate = true))
 
         Thread {
+            val headers = buildHeaders(page)
+
+            // Soul 스타일 고속 분할 병렬 다운로드 시도 (HLS는 세그먼트 병렬, 직접 파일은 Range 분할)
+            if (sp.getBoolean("fast_dl", true)) {
+                val canFast = item.kind == "HLS" || ".m3u8" in item.url ||
+                        runCatching { FastVideoDownloader.isRangeSupported(item.url, headers) }.getOrDefault(false)
+                if (canFast) {
+                    when (
+                        FastVideoDownloader.download(
+                            this, item, headers,
+                            split = sp.getInt("dl_split", 8),
+                            conn = sp.getInt("dl_conn", 4)
+                        )
+                    ) {
+                        FastVideoDownloader.Result.DONE -> {
+                            if (folderPublic) item.file?.let { runCatching { copyToPublicDownloads(it) } }
+                            notifyFinished(item, notifyOn, startId)
+                            return@Thread
+                        }
+                        FastVideoDownloader.Result.CANCELED -> {
+                            item.status = DlStatus.CANCELED
+                            DownloadStore.upsert(item)
+                            notifyFinished(item, notifyOn, startId)
+                            return@Thread
+                        }
+                        FastVideoDownloader.Result.FAILED -> {
+                            // ffmpeg 경로로 폴파
+                        }
+                    }
+                }
+            }
+
             runCatching {
-                val headers = buildHeaders(page)
                 if (item.kind == "HLS") {
                     item.totalDurationMs = measureHlsDuration(item.url, headers)
                     DownloadStore.upsert(item)
@@ -115,6 +147,7 @@ class VideoDownloadService : Service() {
                     { stats ->
                         item.doneBytes = stats.size
                         item.currentTimeMs = stats.time.toLong()
+                        item.speedBps = stats.bitrate.toLong() * 1000L / 8
                         DownloadStore.upsert(item)
                         if (notifyOn) {
                             val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -138,12 +171,30 @@ class VideoDownloadService : Service() {
 
     private fun progressText(item: DlItem): String {
         val mb = item.doneBytes / 1048576.0
+        val spd = item.speedBps / 1048576.0
         return if (item.totalDurationMs > 0 && item.currentTimeMs > 0) {
             val p = (item.currentTimeMs * 100 / item.totalDurationMs).coerceAtMost(100)
-            String.format("%d%% · %.1f MB", p, mb)
+            String.format("%d%% · %.1f MB · %.1f MB/s", p, mb, spd)
         } else {
-            String.format("%.1f MB 받는 중…", mb)
+            String.format("%.1f MB · %.1f MB/s", mb, spd)
         }
+    }
+
+    private fun notifyFinished(item: DlItem, notifyOn: Boolean, startId: Int) {
+        if (notifyOn) {
+            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            val fname = item.file?.name ?: item.name
+            val msg = when (item.status) {
+                DlStatus.DONE -> "${getString(R.string.notif_done)}: $fname"
+                DlStatus.CANCELED -> "${getString(R.string.notif_canceled)}: $fname"
+                else -> "${getString(R.string.notif_failed)}: $fname"
+            }
+            nm.notify(
+                notifBase + (item.id % 500).toInt(),
+                buildNotification(item.name, msg, indeterminate = false)
+            )
+        }
+        if (!DownloadStore.hasRunning()) stopSelf(startId)
     }
 
     private fun buildHeaders(page: String): String {
