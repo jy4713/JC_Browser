@@ -72,15 +72,19 @@ class VideoDownloadService : Service() {
                 val canFast = item.kind == "HLS" || ".m3u8" in item.url ||
                         runCatching { FastVideoDownloader.isRangeSupported(item.url, headers) }.getOrDefault(false)
                 if (canFast) {
-                    when (
+                    val result = runCatching {
                         FastVideoDownloader.download(
                             this, item, headers,
                             split = sp.getInt("dl_split", 8),
                             conn = sp.getInt("dl_conn", 4)
                         )
-                    ) {
+                    }.getOrElse {
+                        android.util.Log.e("VideoDownloadService", "fast download error", it)
+                        FastVideoDownloader.Result.FAILED
+                    }
+                    when (result) {
                         FastVideoDownloader.Result.DONE -> {
-                            item.file?.let { DownloadFolder.export(this, it, "video/mp4") }
+                            runCatching { item.file?.let { DownloadFolder.export(this, it, "video/mp4") } }
                             notifyFinished(item, notifyOn, startId)
                             return@Thread
                         }

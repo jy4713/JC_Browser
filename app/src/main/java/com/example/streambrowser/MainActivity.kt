@@ -50,6 +50,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.SeekBar
+import android.widget.Spinner
+import android.widget.ArrayAdapter
 import android.widget.TextView
 import android.widget.Toast
 import androidx.recyclerview.widget.GridLayoutManager
@@ -231,11 +233,7 @@ class MainActivity : Activity() {
             current()?.web?.loadUrl(prefs.getString("home_url", HOME) ?: HOME)
         }
         findViewById<ImageButton>(R.id.btnNavBookmark).setOnClickListener {
-            val url = current()?.web?.url
-            if (!url.isNullOrEmpty()) {
-                BookmarkRepo.add(this, current()?.web?.title ?: url, url)
-                Toast.makeText(this, getString(R.string.bookmark_added), Toast.LENGTH_SHORT).show()
-            }
+            showAddBookmarkDialog()
         }
         btnNavTabs.setOnClickListener { showTabDialog() }
         findViewById<ImageButton>(R.id.btnNavMenu).setOnClickListener { showMainMenu() }
@@ -769,11 +767,7 @@ class MainActivity : Activity() {
                 menuDialog?.dismiss()
             },
             ShortcutSpec(R.drawable.ic_bookmark_add, R.string.menu_add_bookmark) {
-                val url = current()?.web?.url
-                if (!url.isNullOrEmpty()) {
-                    BookmarkRepo.add(this, current()?.web?.title ?: url, url)
-                    Toast.makeText(this, s(R.string.bookmark_added), Toast.LENGTH_SHORT).show()
-                }
+                showAddBookmarkDialog()
                 menuDialog?.dismiss()
             },
             ShortcutSpec(R.drawable.ic_bookmark, R.string.menu_bookmarks) {
@@ -991,6 +985,67 @@ class MainActivity : Activity() {
             prefs.edit().putInt("dl_conn", v).apply()
             rebuildMenu()
         }
+    }
+
+    /** 즐겨찾기 추가: 이름 수정 + 저장 퐔더 선택 가능 */
+    private fun showAddBookmarkDialog() {
+        val web = current()?.web ?: return
+        val url = web.url
+        if (url.isNullOrEmpty()) return
+        val pageTitle = web.title ?: url
+
+        class Opt(val label: String, val folderId: Long)
+        val opts = mutableListOf<Opt>()
+        opts += Opt(getString(R.string.dlg_bookmark_root), 0L)
+        BookmarkRepo.list(this, 0).filter { it.isFolder }.forEach { opts += Opt(it.title, it.id) }
+        opts += Opt(getString(R.string.dlg_bookmark_new_folder), -1L)
+
+        val density = resources.displayMetrics.density
+        val padH = (20 * density).toInt()
+        val nameInput = EditText(this).apply {
+            hint = getString(R.string.dlg_bookmark_name)
+            setText(pageTitle)
+            setSelection(pageTitle.length)
+        }
+        val spinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, opts.map { it.label })
+        }
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(padH, (12 * density).toInt(), padH, 0)
+            addView(nameInput, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+            addView(spinner, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = (8 * density).toInt()
+            })
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.menu_add_bookmark)
+            .setView(layout)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val custom = nameInput.text.toString().trim()
+                val finalName = if (custom.isEmpty()) pageTitle else custom
+                var parentId = opts[spinner.selectedItemPosition].folderId
+                if (parentId == -1L) {
+                    val folderInput = EditText(this).apply { hint = getString(R.string.dlg_folder_hint) }
+                    AlertDialog.Builder(this)
+                        .setTitle(R.string.dlg_new_folder)
+                        .setView(folderInput)
+                        .setPositiveButton(R.string.action_create) { _, _ ->
+                            val fname = folderInput.text.toString().trim()
+                            if (fname.isNotEmpty()) {
+                                parentId = BookmarkRepo.addFolder(this, fname, 0)
+                                BookmarkRepo.add(this, finalName, url, parentId)
+                            }
+                        }
+                        .setNegativeButton(R.string.action_cancel, null)
+                        .show()
+                } else {
+                    BookmarkRepo.add(this, finalName, url, parentId)
+                }
+            }
+            .setNegativeButton(R.string.action_cancel, null)
+            .show()
     }
 
     private fun showHomeDialog() {

@@ -35,6 +35,17 @@
     <string name="menu_new_incognito">New incognito tab</string>
     <string name="menu_close_tab">Close current tab</string>
     <string name="menu_add_bookmark">Add bookmark</string>
+    <string name="dlg_bookmark_name">Name</string>
+    <string name="dlg_bookmark_folder">Folder</string>
+    <string name="dlg_bookmark_root">Default (top level)</string>
+    <string name="dlg_bookmark_new_folder">＋ Create new folder</string>
+    <string name="dlg_new_folder">New folder</string>
+    <string name="dlg_folder_hint">Folder name</string>
+    <string name="action_create">Create</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="video_dl_started">Video download started</string>
+    <string name="btn_import_html">Import HTML</string>
+    <string name="btn_export_html">Export HTML</string>
     <string name="menu_bookmarks">Bookmarks</string>
     <string name="menu_history">History</string>
     <string name="menu_downloads">Downloads</string>

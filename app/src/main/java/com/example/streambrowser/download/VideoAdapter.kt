@@ -14,6 +14,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.TextView
+import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import com.example.streambrowser.MainActivity
 import com.example.streambrowser.R
@@ -168,6 +169,7 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
             putExtra(VideoDownloadService.EXTRA_EXT, ext)
         }
         ctx.startForegroundService(i)
+        Toast.makeText(ctx, ctx.getString(R.string.video_dl_started), Toast.LENGTH_SHORT).show()
         notifyDataSetChanged()
     }
 
