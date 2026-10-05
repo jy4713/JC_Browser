@@ -93,6 +93,11 @@
     <string name="item_open_incognito">시크릿 탭으로 열기</string>
     <string name="item_copy_link">링크 복사</string>
     <string name="item_share">공유</string>
+    <string name="item_info">정보</string>
+    <string name="dlg_video_info">동영상 정보</string>
+    <string name="info_type">유형</string>
+    <string name="info_link">전체 긌링</string>
+    <string name="info_page">페이지</string>
     <string name="item_preview">미리보기</string>
     <string name="item_download">다운로드</string>
 

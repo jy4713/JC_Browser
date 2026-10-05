@@ -124,6 +124,7 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
             pm.menu.add(0, 2, 1, ctx.getString(R.string.item_open_incognito))
             pm.menu.add(0, 3, 2, ctx.getString(R.string.item_copy_link))
             pm.menu.add(0, 4, 3, ctx.getString(R.string.item_share))
+            pm.menu.add(0, 5, 4, ctx.getString(R.string.item_info))
             pm.setOnMenuItemClickListener { mi ->
                 when (mi.itemId) {
                     1 -> (ctx as? MainActivity)?.openInNewTab(v.url, false)
@@ -136,11 +137,54 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
                         }
                         runCatching { ctx.startActivity(Intent.createChooser(i, null)) }
                     }
+                    5 -> showInfoDialog(ctx, v)
                 }
                 true
             }
             pm.show()
         }
+    }
+
+    /** 동영상 상세 정보: 종류/풀 링크/페이지 표시 + 링크 복사 (여러 링크 구분용) */
+    private fun showInfoDialog(ctx: Context, v: DetectedVideo) {
+        val density = ctx.resources.displayMetrics.density
+        fun dp(x: Int) = (x * density).toInt()
+        val box = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = dp(20)
+            setPadding(pad, dp(10), pad, 0)
+        }
+        fun row(label: String, value: String) {
+            val l = TextView(ctx).apply {
+                text = label
+                setTextColor(0xFF5F6368.toInt())
+                textSize = 12f
+            }
+            val t = TextView(ctx).apply {
+                text = value
+                setTextColor(0xFF202124.toInt())
+                textSize = 14f
+                setTextIsSelectable(true)
+            }
+            box.addView(l)
+            box.addView(t)
+            val sp = View(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(12))
+            }
+            box.addView(sp)
+        }
+        row(ctx.getString(R.string.info_type), v.kind)
+        row(ctx.getString(R.string.info_link), v.url)
+        if (v.page.isNotEmpty()) row(ctx.getString(R.string.info_page), v.page)
+
+        AlertDialog.Builder(ctx)
+            .setTitle(R.string.dlg_video_info)
+            .setView(box)
+            .setPositiveButton(android.R.string.copy) { _, _ ->
+                (ctx as? MainActivity)?.copyTextPublic(v.url, ctx.getString(R.string.link_copied))
+            }
+            .setNegativeButton(R.string.close, null)
+            .show()
     }
 
     /** 이름 + 확장자 입력 다이얼로그. 기본값 자동 추천, 둘 다 수정 가능 */

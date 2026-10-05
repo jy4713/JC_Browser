@@ -25,11 +25,20 @@ import java.security.MessageDigest
  */
 object AdBlocker {
 
+    /** 기본 제공 필터 세트 (최초 실행 시 자동 다운로드). 모바일/한국 사이트/추적기 중심 */
+    val DEFAULT_FILTERS = listOf(
+        "AdGuard Mobile Ads" to "https://filters.adtidy.org/extension/chromium/filters/11.txt",
+        "AdGuard Tracking Protection" to "https://filters.adtidy.org/extension/chromium/filters/3.txt",
+        "List-KR (Korean sites)" to "https://raw.githubusercontent.com/List-KR/List-KR/master/filter.txt"
+    )
+    private const val PREFS_DEFAULTS_DONE = "default_filters_added"
+
     private val hosts = HashSet<String>()
     private val allowHosts = HashSet<String>()         // per-site ad allowlist
     private val substrings = ArrayList<String>()       // 단순 문자열 필터
-    private val domainRules = ArrayList<DomainRule>()  // ||도메인 규칙
-    private val exceptions = ArrayList<Regex>()        // @@ 예외
+    private val domainRuleMap = HashMap<String, MutableList<DomainRule>>()  // key: 도메인 (상위 도메인 suffix 조회)
+    private val exceptionDomains = HashSet<String>()   // @@||도메인^ 예외
+    private val exceptionRegexes = ArrayList<Regex>()  // 기타 @@ 예외
     private val hideSelectors = ArrayList<String>()    // ## 요소 숨김
 
     /** 사용자가 추가한 단일 규칙 원문 (화면 표시용) */
@@ -54,13 +63,33 @@ object AdBlocker {
         prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         enabled = prefs?.getBoolean("adblock", true) ?: true
         reload()
+        ensureDefaultFilters()
+    }
+
+    /** 기본 필터 세트 등록(최초 1회) + 파일 없는 활성 필터 백그라운드 다운로드 */
+    private fun ensureDefaultFilters() {
+        if (prefs?.getBoolean(PREFS_DEFAULTS_DONE, false) != true) {
+            val list = urlFilters().toMutableList()
+            DEFAULT_FILTERS.forEach { (name, url) ->
+                if (list.none { it.url == url }) list += UrlFilter(name, url, true, 0)
+            }
+            saveUrlFilters(list)
+            prefs?.edit()?.putBoolean(PREFS_DEFAULTS_DONE, true)?.apply()
+        }
+        kotlin.concurrent.thread {
+            urlFilters().filter { it.enabled }.forEach { f ->
+                val file = filterFile(f.url)
+                if (file == null || !file.exists()) addUrlFilter(f.url, f.name)
+            }
+        }
     }
 
     /** 자산 + 커스텀 규칙 + 활성화된 URL 필터 전부 다시 로드 */
+    @Synchronized
     fun reload() {
         val ctx = appCtx ?: return
-        hosts.clear(); substrings.clear(); domainRules.clear()
-        exceptions.clear(); hideSelectors.clear(); customRules.clear()
+        hosts.clear(); substrings.clear(); domainRuleMap.clear()
+        exceptionDomains.clear(); exceptionRegexes.clear(); hideSelectors.clear(); customRules.clear()
 
         runCatching {
             ctx.assets.open("hosts.txt").bufferedReader().useLines { lines ->
@@ -199,8 +228,10 @@ object AdBlocker {
     }
 
     /** 기본 제공 + 커스텀 규칙 수 (화면 표시용) */
-    fun ruleCounts(): Triple<Int, Int, Int> =
-        Triple(hosts.size, substrings.size + domainRules.size + hideSelectors.size, customRules.size)
+    fun ruleCounts(): Triple<Int, Int, Int> {
+        val domainRules = domainRuleMap.values.sumOf { it.size }
+        return Triple(hosts.size, substrings.size + domainRules + hideSelectors.size, customRules.size)
+    }
 
     // ---------------- 차단 로직 ----------------
 
@@ -231,12 +262,16 @@ object AdBlocker {
     private fun parseRule(line: String) {
         if (line.isEmpty() || line.startsWith("#") || line.startsWith("[")) return
         if (line.startsWith("!")) return
+        // 지원 안 하는 고급 화장 규칙은 건드리지 않음 (오작동 방지)
+        if ("#@#" in line || "#?#" in line || ":-abp-" in line) return
 
-        // 요소 숨김: ##선택자 (예: ##.adsbygoogle)
+        // 요소 숨김: ##선택자 — :has()/:contains() 등 복합 선택자는 제외
         val cosIdx = line.indexOf("##")
         if (cosIdx >= 0) {
             val sel = line.substring(cosIdx + 2).trim()
-            if (sel.isNotEmpty() && sel.length < 200) hideSelectors.add(sel)
+            if (sel.isNotEmpty() && sel.length < 200 &&
+                !sel.contains(":has(") && !sel.contains(":contains") && !sel.contains("[-abp-")
+            ) hideSelectors.add(sel)
             return
         }
 
@@ -247,8 +282,17 @@ object AdBlocker {
             r = r.removePrefix("@@")
         }
 
-        // $옵션 제거 (domain= / third-party 등 단순 무시)
-        r = r.substringBefore("$").trim()
+        // $옵션: 페이지 한정(domain=)이나 복합 옵션은 규칙 자체를 스킵 (전역 적용 시 오작동 방지)
+        val optIdx = r.indexOf('$')
+        if (optIdx >= 0) {
+            val opts = r.substring(optIdx + 1).lowercase()
+            r = r.substring(0, optIdx).trim()
+            val skip = opts.split(',').any {
+                it.startsWith("domain=") || it.startsWith("sitekey") ||
+                        "generichide" in it || "genericblock" in it || "elemhide" in it
+            }
+            if (skip || r.isEmpty()) return
+        }
         if (r.isEmpty()) return
 
         if (r.startsWith("||")) {
@@ -262,12 +306,12 @@ object AdBlocker {
             }
             d = d.removeSuffix("^").lowercase()
             if (d.isEmpty()) return
-            val rule = DomainRule(d, path?.lowercase())
-            if (isException) exceptions.add(domainExceptionRegex(d)) else domainRules.add(rule)
+            if (isException) exceptionDomains.add(d)
+            else domainRuleMap.getOrPut(d) { mutableListOf() }.add(DomainRule(d, path?.lowercase()))
         } else if (r.startsWith("|http") || r.startsWith("|https")) {
             // |http://... 고정 접두 규칙 → 접두 매치
             val prefix = r.removePrefix("|")
-            if (isException) exceptions.add(Regex("^" + Regex.escape(prefix.lowercase())))
+            if (isException) exceptionRegexes.add(Regex("^" + Regex.escape(prefix.lowercase())))
             else substrings.add(prefix.lowercase())
         } else if (r.contains("*")) {
             // 와일드카드 → 정규식 (실패 시 무시)
@@ -278,10 +322,10 @@ object AdBlocker {
                         .replace("?", "\\?")
                         .replace("*", ".*")
                 )
-                if (isException) exceptions.add(re) else substrings.add(r.lowercase())
+                if (isException) exceptionRegexes.add(re) else substrings.add(r.lowercase())
             }
         } else {
-            if (isException) exceptions.add(Regex(Regex.escape(r.lowercase())))
+            if (isException) exceptionRegexes.add(Regex(Regex.escape(r.lowercase())))
             else substrings.add(r.lowercase())
         }
     }
@@ -298,32 +342,57 @@ object AdBlocker {
         prefs?.edit()?.putStringSet("custom_hosts", cur)?.apply()
     }
 
+    @Synchronized
     fun isBlocked(host: String, url: String): Boolean {
         if (!enabled) return false
         val u = url.lowercase()
+        val h = host.lowercase()
 
-        // 0) 예외 규칙이 먼저 매치되면 무조건 통과
-        for (e in exceptions) {
+        // 0) 예외 규칙: @@||도메인^ (상위 도메인 suffix 조회) + 기타 @@ 정규식
+        if (exceptionDomains.isNotEmpty()) {
+            var cur = h
+            while (true) {
+                if (cur in exceptionDomains) return false
+                val dot = cur.indexOf('.')
+                if (dot < 0) break
+                cur = cur.substring(dot + 1)
+            }
+        }
+        for (e in exceptionRegexes) {
             if (e.containsMatchIn(u)) return false
         }
 
         // 1) 사이트별 허용 목록이면 통과
         if (isHostAllowed(host)) return false
 
-        // 2) 호스트 차단
-        val h = host.lowercase()
-        for (b in hosts) {
-            if (h == b || h.endsWith("." + b)) return true
-        }
-
-        // 2) ||도메인 규칙
-        for (r in domainRules) {
-            if (h == r.domain || h.endsWith("." + r.domain)) {
-                if (r.path == null || u.contains(r.path)) return true
+        // 2) 호스트 차단 (상위 도메인 suffix 조회)
+        if (hosts.isNotEmpty()) {
+            var cur = h
+            while (true) {
+                if (cur in hosts) return true
+                val dot = cur.indexOf('.')
+                if (dot < 0) break
+                cur = cur.substring(dot + 1)
             }
         }
 
-        // 3) 문자열/와일드카드 필터
+        // 3) ||도메인 규칙 (도메인 키 맵 + suffix 조회)
+        if (domainRuleMap.isNotEmpty()) {
+            var cur = h
+            while (true) {
+                val rules = domainRuleMap[cur]
+                if (rules != null) {
+                    for (r in rules) {
+                        if (r.path == null || u.contains(r.path)) return true
+                    }
+                }
+                val dot = cur.indexOf('.')
+                if (dot < 0) break
+                cur = cur.substring(dot + 1)
+            }
+        }
+
+        // 4) 문자열/와일드카드 필터
         for (f in substrings) {
             if (u.contains(f)) return true
         }
@@ -331,9 +400,11 @@ object AdBlocker {
     }
 
     /** 요소 숨김용 CSS (##규칙). 페이지 로드 후 주입 */
+    @Synchronized
     fun hideCss(): String {
         if (!enabled || hideSelectors.isEmpty()) return ""
-        return hideSelectors.joinToString(",") + "{display:none!important}"
+        // 지나치게 크면 페이지 로딩이 느려지므로 상한 적용
+        return hideSelectors.take(5000).joinToString(",") + "{display:none!important}"
     }
 
     fun emptyResponse(): WebResourceResponse =

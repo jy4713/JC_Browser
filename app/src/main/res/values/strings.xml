@@ -95,6 +95,11 @@
     <string name="item_open_incognito">Open in incognito tab</string>
     <string name="item_copy_link">Copy link</string>
     <string name="item_share">Share</string>
+    <string name="item_info">Info</string>
+    <string name="dlg_video_info">Video info</string>
+    <string name="info_type">Type</string>
+    <string name="info_link">Full link</string>
+    <string name="info_page">Page</string>
     <string name="item_preview">Preview</string>
     <string name="item_download">Download</string>
 
