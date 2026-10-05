@@ -490,6 +490,12 @@ class MainActivity : Activity() {
         editUrl.setText(current()?.web?.url ?: "")
         badgeTabs.text = tabs.size.toString()
         updateNavButtons()
+        // 백그라운드 탭은 정지 → 스캐너 JS 수집/미디어 재생 중단 (크롬 방식)
+        tabs.forEachIndexed { i, t ->
+            runCatching { if (i == current) t.web.onResume() else t.web.onPause() }
+        }
+        // 미디어 목록은 현재 페이지 것만 표시
+        VideoStore.clear()
     }
 
     private fun updateNavButtons() {

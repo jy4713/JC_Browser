@@ -42,6 +42,12 @@ class VideoJsBridge {
         onVideoLongPress?.invoke()
     }
 
+    /** SPA 등에서 주소만 바뀌는 페이지 전환 감지 → 목록 리셋 */
+    @JavascriptInterface
+    fun pageChanged() {
+        VideoStore.clear()
+    }
+
     /** JS -> 네이티브 상태 전달 (전체화면 등) */
     @JavascriptInterface
     fun videoFsChanged(on: Boolean) {
@@ -159,6 +165,20 @@ class VideoJsBridge {
   }
   setInterval(collectImages, 2500);
   collectImages();
+
+  /* 1-3) SPA 대응: 주소만 바뀌는 페이지 전환 감지 (최상위 창만) */
+  try{
+    var __sbLastUrl = location.href;
+    setInterval(function(){
+      try{
+        if (window.top !== window) return;
+        if (location.href !== __sbLastUrl){
+          __sbLastUrl = location.href;
+          window.StreamBrowser.pageChanged();
+        }
+      }catch(e){}
+    }, 1000);
+  }catch(e){}
 
   /* 2) XHR 응답 본문에서 미디어 URL 추출 */
   var XOpen = XMLHttpRequest.prototype.open;
