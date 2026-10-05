@@ -83,7 +83,7 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
                     holder.btnDownload.textSize = 11f
                     holder.btnDownload.isEnabled = true
                     holder.btnDownload.setOnClickListener {
-                        Toast.makeText(holder.itemView.context, R.string.already_downloading, Toast.LENGTH_SHORT).show()
+                        com.example.streambrowser.util.JcToast.show(holder.itemView.context, R.string.already_downloading)
                     }
                 }
                 DlStatus.DONE -> {
@@ -236,7 +236,7 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
             putExtra(VideoDownloadService.EXTRA_EXT, ext)
         }
         ctx.startForegroundService(i)
-        Toast.makeText(ctx, ctx.getString(R.string.video_dl_started), Toast.LENGTH_SHORT).show()
+        com.example.streambrowser.util.JcToast.show(ctx, ctx.getString(R.string.video_dl_started))
         notifyDataSetChanged()
     }
 

@@ -121,7 +121,7 @@ class BookmarksActivity : Activity() {
                     1 -> {
                         BookmarkRepo.remove(this, e.id)
                         reload()
-                        Toast.makeText(this, "삭제되었습니다.", Toast.LENGTH_SHORT).show()
+                        com.example.streambrowser.util.JcToast.show(this, "삭제되었습니다.")
                     }
                 }
             }
@@ -136,7 +136,7 @@ class BookmarksActivity : Activity() {
             type = "*/*"
         }
         runCatching { startActivityForResult(i, 3) }.onFailure {
-            Toast.makeText(this, "파일 선택을 지원하지 않습니다.", Toast.LENGTH_SHORT).show()
+            com.example.streambrowser.util.JcToast.show(this, "파일 선택을 지원하지 않습니다.")
         }
     }
 
@@ -154,9 +154,9 @@ class BookmarksActivity : Activity() {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             runCatching { startActivity(Intent.createChooser(share, "즐겨찾기 내보내기")) }
-            Toast.makeText(this, "저장됨: ${f.absolutePath}", Toast.LENGTH_LONG).show()
+            com.example.streambrowser.util.JcToast.show(this, "저장됨: ${f.absolutePath}", long = true)
         }.onFailure {
-            Toast.makeText(this, "내보내기 실패", Toast.LENGTH_SHORT).show()
+            com.example.streambrowser.util.JcToast.show(this, "내보내기 실패")
         }
     }
 
@@ -169,11 +169,11 @@ class BookmarksActivity : Activity() {
                         val html = input.readBytes().toString(Charsets.UTF_8)
                         val n = BookmarkRepo.importHtml(this, html)
                         reload()
-                        Toast.makeText(this, "$n 개 항목을 가져왔습니다.", Toast.LENGTH_SHORT).show()
+                        com.example.streambrowser.util.JcToast.show(this, "$n 개 항목을 가져왔습니다.")
                     }
                 }
             }.onFailure {
-                Toast.makeText(this, "가져오기 실패", Toast.LENGTH_SHORT).show()
+                com.example.streambrowser.util.JcToast.show(this, "가져오기 실패")
             }
         }
     }

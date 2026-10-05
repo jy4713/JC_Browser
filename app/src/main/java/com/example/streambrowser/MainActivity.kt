@@ -384,7 +384,7 @@ class MainActivity : Activity() {
     private fun downloadSelectedImages() {
         val sel = imageAdapter.selectedItems()
         if (sel.isEmpty()) {
-            Toast.makeText(this, getString(R.string.dl_selected, 0), Toast.LENGTH_SHORT).show()
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.dl_selected, 0))
             return
         }
         for ((idx, v) in sel.withIndex()) {
@@ -394,7 +394,7 @@ class MainActivity : Activity() {
             val ext = Regex("\\.([A-Za-z0-9]{2,5})$").find(seg)?.groupValues?.get(1) ?: "jpg"
             ImageDownloader.download(this, v.url, v.page, name, ext)
         }
-        Toast.makeText(this, getString(R.string.image_dl_started), Toast.LENGTH_SHORT).show()
+        com.example.streambrowser.util.JcToast.show(this, getString(R.string.image_dl_started))
         imageAdapter.clearSelection()
     }
 
@@ -540,7 +540,7 @@ class MainActivity : Activity() {
                 if (WebCleaner.popupEnabled && !isUserGesture) {
                     val openerHost = runCatching { Uri.parse(view.url ?: "").host ?: "" }.getOrDefault("")
                     if (openerHost.isEmpty() || !WebCleaner.isPopupAllowed(openerHost)) {
-                        Toast.makeText(this@MainActivity, R.string.popup_blocked, Toast.LENGTH_SHORT).show()
+                        com.example.streambrowser.util.JcToast.show(this@MainActivity, R.string.popup_blocked)
                         return false
                     }
                 }
@@ -596,7 +596,7 @@ class MainActivity : Activity() {
 
     private fun closeTab(index: Int) {
         if (tabs.size <= 1) {
-            Toast.makeText(this, getString(R.string.last_tab), Toast.LENGTH_SHORT).show()
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.last_tab))
             return
         }
         tabs[index].web.destroy()
@@ -670,7 +670,7 @@ class MainActivity : Activity() {
             tabs.add(idx.coerceAtMost(tabs.size), nt)
             current = idx.coerceAtMost(tabs.size - 1)
             showCurrent()
-            Toast.makeText(this, getString(R.string.render_recovered), Toast.LENGTH_SHORT).show()
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.render_recovered))
         }
     }
 
@@ -807,7 +807,7 @@ class MainActivity : Activity() {
             },
             ShortcutSpec(R.drawable.ic_incognito, R.string.menu_new_incognito) {
                 createTab(HOME, incognito = true)
-                Toast.makeText(this, s(R.string.incognito_on), Toast.LENGTH_SHORT).show()
+                com.example.streambrowser.util.JcToast.show(this, s(R.string.incognito_on))
                 menuDialog?.dismiss()
             },
             ShortcutSpec(R.drawable.ic_bookmark_add, R.string.menu_add_bookmark) {
@@ -869,59 +869,59 @@ class MainActivity : Activity() {
         val s = fun(res: Int) = getString(res)
         val currentHost = runCatching { Uri.parse(current()?.web?.url ?: "").host ?: "" }.getOrDefault("")
         return listOf(
-            MenuGroup(R.string.group_cleaner, R.drawable.ic_check_circle, listOf(
-                MenuEntry(s(R.string.menu_adblock), R.drawable.ic_check_circle, "adblock") {
+            MenuGroup(R.string.group_cleaner, R.drawable.ic_shield, listOf(
+                MenuEntry(s(R.string.menu_adblock), R.drawable.ic_adblock, "adblock") {
                     val on = !prefs.getBoolean("adblock", true)
                     prefs.edit().putBoolean("adblock", on).apply()
                     AdBlocker.enabled = on
                 },
-                MenuEntry(s(R.string.menu_ad_filters), R.drawable.ic_menu_vert, null) {
+                MenuEntry(s(R.string.menu_ad_filters), R.drawable.ic_filter_list, null) {
                     startActivity(Intent(this, com.example.streambrowser.ui.AdFiltersActivity::class.java))
                 },
-                MenuEntry(s(R.string.menu_ad_whitelist), R.drawable.ic_bookmark, null) {
+                MenuEntry(s(R.string.menu_ad_whitelist), R.drawable.ic_check_circle, null) {
                     startActivity(Intent(this, com.example.streambrowser.ui.HostListActivity::class.java)
                         .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_TITLE, s(R.string.menu_ad_whitelist))
                         .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_PREF, "ad_allow_hosts")
                         .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_CURRENT, currentHost))
                 },
-                MenuEntry(s(R.string.menu_overlay_block), R.drawable.ic_check_circle, "overlay_block") {
+                MenuEntry(s(R.string.menu_overlay_block), R.drawable.ic_layers, "overlay_block") {
                     val on = !prefs.getBoolean("overlay_block", true)
                     prefs.edit().putBoolean("overlay_block", on).apply()
                     WebCleaner.overlayEnabled = on
                 },
-                MenuEntry(s(R.string.menu_overlay_whitelist), R.drawable.ic_bookmark, null) {
+                MenuEntry(s(R.string.menu_overlay_whitelist), R.drawable.ic_check_circle, null) {
                     startActivity(Intent(this, com.example.streambrowser.ui.HostListActivity::class.java)
                         .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_TITLE, s(R.string.menu_overlay_whitelist))
                         .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_PREF, "overlay_allow_hosts")
                         .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_CURRENT, currentHost))
                 },
-                MenuEntry(s(R.string.menu_popup_block), R.drawable.ic_check_circle, "popup_block") {
+                MenuEntry(s(R.string.menu_popup_block), R.drawable.ic_open_in_new, "popup_block") {
                     val on = !prefs.getBoolean("popup_block", true)
                     prefs.edit().putBoolean("popup_block", on).apply()
                     WebCleaner.popupEnabled = on
                 },
-                MenuEntry(getString(R.string.menu_popup_mode) + ": " + s(if (WebCleaner.popupBlockAll) R.string.popup_mode_all else R.string.popup_mode_ad), R.drawable.ic_expand_more, null) {
+                MenuEntry(getString(R.string.menu_popup_mode) + ": " + s(if (WebCleaner.popupBlockAll) R.string.popup_mode_all else R.string.popup_mode_ad), R.drawable.ic_tune, null) {
                     showPopupModeDialog()
                 },
-                MenuEntry(s(R.string.menu_popup_whitelist), R.drawable.ic_bookmark, null) {
+                MenuEntry(s(R.string.menu_popup_whitelist), R.drawable.ic_check_circle, null) {
                     startActivity(Intent(this, com.example.streambrowser.ui.HostListActivity::class.java)
                         .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_TITLE, s(R.string.menu_popup_whitelist))
                         .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_PREF, "popup_allow_hosts")
                         .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_CURRENT, currentHost))
                 },
-                MenuEntry(s(R.string.menu_js_block), R.drawable.ic_check_circle, "js_block") {
+                MenuEntry(s(R.string.menu_js_block), R.drawable.ic_code, "js_block") {
                     val on = !prefs.getBoolean("js_block", false)
                     prefs.edit().putBoolean("js_block", on).apply()
                     WebCleaner.jsBlockEnabled = on
                     current()?.web?.reload()
                 },
-                MenuEntry(s(R.string.menu_js_block_sites), R.drawable.ic_bookmark, null) {
+                MenuEntry(s(R.string.menu_js_block_sites), R.drawable.ic_check_circle, null) {
                     startActivity(Intent(this, com.example.streambrowser.ui.HostListActivity::class.java)
                         .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_TITLE, s(R.string.menu_js_block_sites))
                         .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_PREF, "js_block_hosts")
                         .putExtra(com.example.streambrowser.ui.HostListActivity.EXTRA_CURRENT, currentHost))
                 },
-                MenuEntry(s(R.string.menu_app_block), R.drawable.ic_check_circle, "app_block") {
+                MenuEntry(s(R.string.menu_app_block), R.drawable.ic_block, "app_block") {
                     val on = !prefs.getBoolean("app_block", true)
                     prefs.edit().putBoolean("app_block", on).apply()
                     WebCleaner.appBlockEnabled = on
@@ -971,7 +971,7 @@ class MainActivity : Activity() {
                         type = "*/*"
                     }
                     runCatching { startActivityForResult(i, 3) }
-                        .onFailure { Toast.makeText(this, s(R.string.bookmark_import_failed), Toast.LENGTH_SHORT).show() }
+                        .onFailure { com.example.streambrowser.util.JcToast.show(this, s(R.string.bookmark_import_failed)) }
                 },
                 MenuEntry(s(R.string.menu_export_bookmarks), R.drawable.ic_bookmark_add, null) {
                     val i = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
@@ -980,7 +980,7 @@ class MainActivity : Activity() {
                         putExtra(Intent.EXTRA_TITLE, "jc_browser_bookmarks.html")
                     }
                     runCatching { startActivityForResult(i, 4) }
-                        .onFailure { Toast.makeText(this, s(R.string.bookmark_export_failed), Toast.LENGTH_SHORT).show() }
+                        .onFailure { com.example.streambrowser.util.JcToast.show(this, s(R.string.bookmark_export_failed)) }
                 },
                 MenuEntry(s(R.string.menu_language), R.drawable.ic_menu_vert, null) {
                     showLanguageDialog()
@@ -1178,7 +1178,7 @@ class MainActivity : Activity() {
                 if (u.isNotEmpty()) {
                     if (!u.startsWith("http://") && !u.startsWith("https://")) u = "https://$u"
                     prefs.edit().putString("home_url", u).apply()
-                    Toast.makeText(this, getString(R.string.menu_home_saved), Toast.LENGTH_SHORT).show()
+                    com.example.streambrowser.util.JcToast.show(this, getString(R.string.menu_home_saved))
                     rebuildMenu()
                 }
             }
@@ -1247,6 +1247,11 @@ class MainActivity : Activity() {
                 }
                 is MenuRow.Quick, is MenuRow.Child -> {
                     h.group?.visibility = View.GONE
+                    // 하위 메뉴(Child)는 상위 그룹보다 들여쓰기 — 단계 구분이 한눈에 보이도록
+                    val indentDp = if (r is MenuRow.Child) 26 else 0
+                    h.itemView.setPaddingRelative(
+                        (indentDp * resources.displayMetrics.density).toInt(), 0, 0, 0
+                    )
                     val e = (r as? MenuRow.Quick)?.entry ?: (r as MenuRow.Child).entry
                     h.icon?.setImageResource(e.iconRes)
                     h.title?.text = e.title
@@ -1304,7 +1309,7 @@ class MainActivity : Activity() {
                     val i = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
                     runCatching { startActivityForResult(i, 5) }
                         .onFailure {
-                            Toast.makeText(this, getString(R.string.folder_pick_failed), Toast.LENGTH_SHORT).show()
+                            com.example.streambrowser.util.JcToast.show(this, getString(R.string.folder_pick_failed))
                         }
                     d.dismiss()
                 } else {
@@ -1510,9 +1515,9 @@ class MainActivity : Activity() {
             val dir = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "JC Browser").apply { mkdirs() }
             val f = File(dir, "capture_${System.currentTimeMillis()}.png")
             f.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            Toast.makeText(this, getString(R.string.capture_saved, f.absolutePath), Toast.LENGTH_LONG).show()
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.capture_saved, f.absolutePath), long = true)
         }.onFailure {
-            Toast.makeText(this, getString(R.string.capture_failed), Toast.LENGTH_SHORT).show()
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.capture_failed))
         }
     }
 
@@ -1526,7 +1531,7 @@ class MainActivity : Activity() {
     private fun toggleAllowAds() {
         val host = currentHost()
         if (host.isNullOrEmpty()) {
-            Toast.makeText(this, getString(R.string.invalid_page), Toast.LENGTH_SHORT).show()
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.invalid_page))
             return
         }
         AdBlocker.toggleAllowHost(this, host)
@@ -1542,7 +1547,7 @@ class MainActivity : Activity() {
                 WebStorage.getInstance().deleteAllData()
                 CookieManager.getInstance().removeAllCookies(null)
                 tabs.forEach { it.web.clearCache(true) }
-                Toast.makeText(this, getString(R.string.clear_done), Toast.LENGTH_SHORT).show()
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.clear_done))
             }
             .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
@@ -1622,7 +1627,7 @@ class MainActivity : Activity() {
                         val name = seg.substringBeforeLast(".").ifBlank { "image_" + System.currentTimeMillis() }
                         val ext = Regex("\\.([A-Za-z0-9]{2,5})$").find(seg)?.groupValues?.get(1) ?: "jpg"
                         ImageDownloader.download(this, imgUrl, page, name, ext)
-                        Toast.makeText(this, getString(R.string.image_dl_started), Toast.LENGTH_SHORT).show()
+                        com.example.streambrowser.util.JcToast.show(this, getString(R.string.image_dl_started))
                     }
                     2 -> copyText(imgUrl, getString(R.string.image_copied))
                 }
@@ -1633,14 +1638,14 @@ class MainActivity : Activity() {
     private fun copyText(text: String, msg: String) {
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         cm.setPrimaryClip(ClipData.newPlainText("text", text))
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        com.example.streambrowser.util.JcToast.show(this, msg)
     }
 
     private fun showBackHistory(): Boolean {
         val wv = current()?.web ?: return false
         val stack = runCatching { wv.copyBackForwardList() }.getOrNull() ?: return false
         if (stack.size == 0) {
-            Toast.makeText(this, getString(R.string.history_empty), Toast.LENGTH_SHORT).show()
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.history_empty))
             return true
         }
         val cur = stack.currentIndex
@@ -1661,7 +1666,7 @@ class MainActivity : Activity() {
 
     private fun enterPipManual() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            Toast.makeText(this, getString(R.string.pip_unsupported), Toast.LENGTH_SHORT).show()
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.pip_unsupported))
             return
         }
         runCatching {
@@ -1670,7 +1675,7 @@ class MainActivity : Activity() {
                 .build()
             enterPictureInPictureMode(params)
         }.onFailure {
-            Toast.makeText(this, getString(R.string.pip_failed), Toast.LENGTH_SHORT).show()
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.pip_failed))
         }
     }
 
@@ -1734,11 +1739,11 @@ class MainActivity : Activity() {
                     contentResolver.openInputStream(uri)?.use { input ->
                         val html = input.readBytes().toString(Charsets.UTF_8)
                         val n = BookmarkRepo.importHtml(this, html)
-                        Toast.makeText(this, getString(R.string.bookmark_imported, n), Toast.LENGTH_SHORT).show()
+                        com.example.streambrowser.util.JcToast.show(this, getString(R.string.bookmark_imported, n))
                     }
                 }
             }.onFailure {
-                Toast.makeText(this, getString(R.string.bookmark_import_failed), Toast.LENGTH_SHORT).show()
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.bookmark_import_failed))
             }
         }
         // 즐겨찾기 HTML 내보내기
@@ -1748,10 +1753,10 @@ class MainActivity : Activity() {
                     contentResolver.openOutputStream(uri)?.use { out ->
                         out.write(BookmarkRepo.exportHtml(this).toByteArray(Charsets.UTF_8))
                     }
-                    Toast.makeText(this, getString(R.string.bookmark_exported), Toast.LENGTH_SHORT).show()
+                    com.example.streambrowser.util.JcToast.show(this, getString(R.string.bookmark_exported))
                 }
             }.onFailure {
-                Toast.makeText(this, getString(R.string.bookmark_export_failed), Toast.LENGTH_SHORT).show()
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.bookmark_export_failed))
             }
         }
         // 사용자 지정 다운로드 폴터 (SAF 트리)
@@ -1763,10 +1768,10 @@ class MainActivity : Activity() {
                         Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                     )
                     prefs.edit().putString("dl_folder", "custom").putString("dl_folder_tree", uri.toString()).apply()
-                    Toast.makeText(this, getString(R.string.dl_folder_saved), Toast.LENGTH_SHORT).show()
+                    com.example.streambrowser.util.JcToast.show(this, getString(R.string.dl_folder_saved))
                 }
             }.onFailure {
-                Toast.makeText(this, getString(R.string.folder_pick_failed), Toast.LENGTH_SHORT).show()
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.folder_pick_failed))
             }
         }
     }

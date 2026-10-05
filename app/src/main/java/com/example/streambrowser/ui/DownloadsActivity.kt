@@ -70,7 +70,7 @@ class DownloadsActivity : Activity() {
             onPlay = { item -> playFile(item) },
             onCancel = { item ->
                 VideoDownloadService.cancel(item.id)
-                Toast.makeText(this, "취소 요청됨", Toast.LENGTH_SHORT).show()
+                com.example.streambrowser.util.JcToast.show(this, "취소 요청됨")
             },
             onRename = { item -> renameItem(item) },
             onDelete = { item -> deleteItem(item) }
@@ -131,7 +131,7 @@ class DownloadsActivity : Activity() {
     private fun playFile(item: DlItem) {
         val f = item.file
         if (f == null || !f.exists()) {
-            Toast.makeText(this, "파일이 없습니다.", Toast.LENGTH_SHORT).show()
+            com.example.streambrowser.util.JcToast.show(this, "파일이 없습니다.")
             return
         }
         val uri: Uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", f)
@@ -141,7 +141,7 @@ class DownloadsActivity : Activity() {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         runCatching { startActivity(i) }.onFailure {
-            Toast.makeText(this, "재생할 앱이 없습니다.", Toast.LENGTH_SHORT).show()
+            com.example.streambrowser.util.JcToast.show(this, "재생할 앱이 없습니다.")
         }
     }
 

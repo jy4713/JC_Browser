@@ -111,11 +111,7 @@ class SniffingWebViewClient(
                             host != pageHost && !host.endsWith("." + pageHost) && !pageHost.endsWith("." + host)
                 }
                 if (blocked && !WebCleaner.isPopupAllowed(pageHost)) {
-                    android.widget.Toast.makeText(
-                        view.context,
-                        com.example.streambrowser.R.string.popup_blocked,
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
+                    com.example.streambrowser.util.JcToast.show(view.context, com.example.streambrowser.R.string.popup_blocked)
                     return true
                 }
             }
@@ -123,11 +119,7 @@ class SniffingWebViewClient(
         }
         // 앱 실행 차단 (intent://, market://, android-app:// 등)
         if (WebCleaner.appBlockEnabled && scheme in setOf("intent", "market", "android-app", "mailto", "tel")) {
-            android.widget.Toast.makeText(
-                view.context,
-                com.example.streambrowser.R.string.app_blocked,
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
+            com.example.streambrowser.util.JcToast.show(view.context, com.example.streambrowser.R.string.app_blocked)
             return true
         }
         return openExternal(view, url)
@@ -187,11 +179,7 @@ class SniffingWebViewClient(
         callback: android.webkit.SafeBrowsingResponse
     ) {
         runCatching { callback.backToSafety(false) }
-        android.widget.Toast.makeText(
-            view.context,
-            view.context.getString(com.example.streambrowser.R.string.blocked_warning),
-            android.widget.Toast.LENGTH_LONG
-        ).show()
+        com.example.streambrowser.util.JcToast.show(view.context, view.context.getString(com.example.streambrowser.R.string.blocked_warning), long = true)
     }
 
     override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {

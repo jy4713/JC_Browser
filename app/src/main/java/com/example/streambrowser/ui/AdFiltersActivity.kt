@@ -44,7 +44,7 @@ class AdFiltersActivity : Activity() {
         findViewById<Button>(R.id.btnAddFilter).setOnClickListener {
             val url = findViewById<EditText>(R.id.inputFilterUrl).text.toString().trim()
             if (!url.startsWith("http")) {
-                Toast.makeText(this, R.string.filter_url_invalid, Toast.LENGTH_SHORT).show()
+                com.example.streambrowser.util.JcToast.show(this, R.string.filter_url_invalid)
                 return@setOnClickListener
             }
             it.isEnabled = false
@@ -53,11 +53,11 @@ class AdFiltersActivity : Activity() {
                 runOnUiThread {
                     it.isEnabled = true
                     if (count != null) {
-                        Toast.makeText(this, getString(R.string.filter_added_fmt, count), Toast.LENGTH_SHORT).show()
+                        com.example.streambrowser.util.JcToast.show(this, getString(R.string.filter_added_fmt, count))
                         findViewById<EditText>(R.id.inputFilterUrl).setText("")
                         reload()
                     } else {
-                        Toast.makeText(this, R.string.filter_add_failed, Toast.LENGTH_SHORT).show()
+                        com.example.streambrowser.util.JcToast.show(this, R.string.filter_add_failed)
                     }
                 }
             }
@@ -143,11 +143,7 @@ class AdFiltersActivity : Activity() {
                         val ok = AdBlocker.updateUrlFilter(f.url)
                         runOnUiThread {
                             it.isEnabled = true
-                            Toast.makeText(
-                                this@AdFiltersActivity,
-                                if (ok) R.string.filter_updated else R.string.filter_add_failed,
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            com.example.streambrowser.util.JcToast.show(this@AdFiltersActivity, if (ok) R.string.filter_updated else R.string.filter_add_failed)
                             reload()
                         }
                     }

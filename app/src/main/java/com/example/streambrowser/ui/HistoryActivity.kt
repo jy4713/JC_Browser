@@ -78,7 +78,7 @@ class HistoryActivity : Activity() {
             .setPositiveButton("삭제") { _, _ ->
                 HistoryRepo.clear(this)
                 reload()
-                Toast.makeText(this, "삭제되었습니다.", Toast.LENGTH_SHORT).show()
+                com.example.streambrowser.util.JcToast.show(this, "삭제되었습니다.")
             }
             .setNegativeButton("취소", null)
             .show()
