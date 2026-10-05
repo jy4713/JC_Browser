@@ -202,6 +202,10 @@
     <string name="action_add">추가</string>
     <string name="action_remove">삭제</string>
     <string name="action_update">업데이트</string>
+    <string name="action_updating">업데이트 중…</string>
+    <string name="action_pause">일시 중지</string>
+    <string name="dl_paused">일시 중지됨</string>
+    <string name="notif_paused">다운로드 일시 중지</string>
     <string name="list_empty">목록이 이비어있습니다</string>
     <string name="filter_url_hint">필터 주소 (https://…/filter.txt)</string>
     <string name="filter_url_invalid">올바른 주소를 입력하세요</string>

@@ -139,10 +139,10 @@ class AdFiltersActivity : Activity() {
                 textSize = 12f
                 setOnClickListener {
                     it.isEnabled = false
+                    (it as Button).setText(R.string.action_updating)
                     thread {
                         val ok = AdBlocker.updateUrlFilter(f.url)
                         runOnUiThread {
-                            it.isEnabled = true
                             com.example.streambrowser.util.JcToast.show(this@AdFiltersActivity, if (ok) R.string.filter_updated else R.string.filter_add_failed)
                             reload()
                         }

@@ -52,6 +52,17 @@
             android:tint="#1A73E8" />
 
         <ImageButton
+            android:id="@+id/btnPause"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="@string/action_pause"
+            android:padding="9dp"
+            android:src="@drawable/ic_pause"
+            android:tint="#F9AB00" />
+
+        <ImageButton
             android:id="@+id/btnCopy"
             android:layout_width="40dp"
             android:layout_height="40dp"

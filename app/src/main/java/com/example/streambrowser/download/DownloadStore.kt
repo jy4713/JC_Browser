@@ -4,7 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import java.io.File
 
-enum class DlStatus { PENDING, RUNNING, DONE, FAILED, CANCELED }
+enum class DlStatus { PENDING, RUNNING, PAUSED, DONE, FAILED, CANCELED }
 
 data class DlItem(
     val id: Long,

@@ -21,13 +21,22 @@ import java.util.concurrent.atomic.AtomicLong
  */
 object FastVideoDownloader {
 
-    enum class Result { DONE, CANCELED, FAILED }
+    enum class Result { DONE, CANCELED, PAUSED, FAILED }
 
     private val cancelFlags = ConcurrentHashMap<Long, AtomicBoolean>()
+    private val pauseFlags = ConcurrentHashMap<Long, AtomicBoolean>()
 
     fun cancel(id: Long) {
         cancelFlags[id]?.set(true)
     }
+
+    /** 일시 중지: 워커 중단 플래그 세팅 (부분 파일은 보존 → 이어받기 가능) */
+    fun pause(id: Long) {
+        pauseFlags[id]?.set(true)
+        cancelFlags[id]?.set(true)
+    }
+
+    fun isPaused(id: Long) = pauseFlags[id]?.get() == true
 
     private fun isCanceled(id: Long) = cancelFlags[id]?.get() == true
 
@@ -42,6 +51,7 @@ object FastVideoDownloader {
     }.getOrDefault(false)
 
     fun download(ctx: Context, item: DlItem, headers: String, split: Int, conn: Int): Result {
+        pauseFlags.remove(item.id)   // 재개 시 이전 중지 플래그 제거
         cancelFlags[item.id] = AtomicBoolean(false)
         val r = runCatching {
             if (item.kind == "HLS" || ".m3u8" in item.url) downloadHls(ctx, item, headers, conn)
@@ -94,7 +104,17 @@ object FastVideoDownloader {
                 if (isCanceled(item.id) || fail.get()) return@submit
                 val ok = runCatching {
                     val p = File(partsDir, "$idx.part")
-                    if (p.length() <= 0L) downloadTo(url, headers, p)
+                    if (p.length() <= 0L) {
+                        // 임시 파일에 받고 완료 시에만 .part로 이동 (중간 중단된 조각이 완료로 오인 방지)
+                        val tmp = File(partsDir, "$idx.part.dl")
+                        tmp.delete()
+                        downloadTo(url, headers, tmp)
+                        if (isCanceled(item.id)) {
+                            tmp.delete()
+                        } else if (tmp.length() > 0L) {
+                            tmp.renameTo(p)
+                        }
+                    }
                     p.length() > 0L
                 }.getOrDefault(false)
                 if (!ok) { fail.set(true); return@submit }
@@ -111,6 +131,8 @@ object FastVideoDownloader {
         }
 
         if (isCanceled(item.id)) {
+            // 일시 중지면 부분 세그먼트를 보존해 이어받기 가능하게 함
+            if (isPaused(item.id)) return Result.PAUSED
             partsDir.deleteRecursively(); out.delete()
             return Result.CANCELED
         }
@@ -185,6 +207,8 @@ object FastVideoDownloader {
         while (!pool.awaitTermination(300, TimeUnit.MILLISECONDS)) { }
 
         if (isCanceled(item.id)) {
+            // 일시 중지면 부분 조각을 보존해 이어받기 가능하게 함
+            if (isPaused(item.id)) return Result.PAUSED
             partsDir.deleteRecursively(); out.delete()
             return Result.CANCELED
         }

@@ -204,6 +204,10 @@
     <string name="action_add">Add</string>
     <string name="action_remove">Remove</string>
     <string name="action_update">Update</string>
+    <string name="action_updating">Updating…</string>
+    <string name="action_pause">Pause</string>
+    <string name="dl_paused">Paused</string>
+    <string name="notif_paused">Download paused</string>
     <string name="list_empty">List is empty</string>
     <string name="filter_url_hint">Filter list URL (https://…/filter.txt)</string>
     <string name="filter_url_invalid">Enter a valid http(s) URL</string>

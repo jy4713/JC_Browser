@@ -77,7 +77,9 @@ class DownloadsActivity : Activity() {
             },
             onRename = { item -> renameItem(item) },
             onDelete = { item -> deleteItem(item) },
-            onCopy = { item -> copyUrl(item) }
+            onCopy = { item -> copyUrl(item) },
+            onPause = { item -> VideoDownloadService.pause(item.id) },
+            onResume = { item -> resumeDl(item) }
         )
         list.adapter = adapter
 
@@ -104,7 +106,7 @@ class DownloadsActivity : Activity() {
         val all = DownloadStore.items.sortedByDescending { it.id }
         val shown = when (filter) {
             Filter.ALL -> all
-            Filter.RUNNING -> all.filter { it.status == DlStatus.PENDING || it.status == DlStatus.RUNNING }
+            Filter.RUNNING -> all.filter { it.status == DlStatus.PENDING || it.status == DlStatus.RUNNING || it.status == DlStatus.PAUSED }
             Filter.DONE -> all.filter { it.status == DlStatus.DONE }
             Filter.CANCELED -> all.filter { it.status == DlStatus.CANCELED || it.status == DlStatus.FAILED }
         }
@@ -180,6 +182,9 @@ class DownloadsActivity : Activity() {
             VideoDownloadService.cancel(item.id)
         }
         item.file?.delete()
+        // 일시 중지된 분할 다운로드의 부분 파일 정리
+        File(cacheDir, "hls_${item.id}").deleteRecursively()
+        File(cacheDir, "split_${item.id}").deleteRecursively()
         DownloadStore.remove(item.id)
     }
 
@@ -189,6 +194,22 @@ class DownloadsActivity : Activity() {
         com.example.streambrowser.util.JcToast.show(this, R.string.link_copied)
     }
 
+    /** 일시 중지된 다운로드 이어받기: 같은 항목으로 서비스 재시작 (고속 경로는 부분 파일 이어서 받음) */
+    private fun resumeDl(item: DlItem) {
+        item.status = DlStatus.PENDING
+        item.speedBps = 0
+        DownloadStore.upsert(item)
+        val i = Intent(this, VideoDownloadService::class.java).apply {
+            putExtra(VideoDownloadService.EXTRA_ID, item.id)
+            putExtra(VideoDownloadService.EXTRA_URL, item.url)
+            putExtra(VideoDownloadService.EXTRA_PAGE, item.page)
+            putExtra(VideoDownloadService.EXTRA_KIND, item.kind)
+            putExtra(VideoDownloadService.EXTRA_NAME, item.name)
+            putExtra(VideoDownloadService.EXTRA_EXT, item.ext)
+        }
+        startForegroundService(i)
+    }
+
     // ---------------- 어댑터 ----------------
 
     class DlAdapter(
@@ -196,7 +217,9 @@ class DownloadsActivity : Activity() {
         private val onCancel: (DlItem) -> Unit,
         private val onRename: (DlItem) -> Unit,
         private val onDelete: (DlItem) -> Unit,
-        private val onCopy: (DlItem) -> Unit
+        private val onCopy: (DlItem) -> Unit,
+        private val onPause: (DlItem) -> Unit,
+        private val onResume: (DlItem) -> Unit
     ) : RecyclerView.Adapter<DlAdapter.VH>() {
 
         private var items = listOf<DlItem>()
@@ -211,6 +234,7 @@ class DownloadsActivity : Activity() {
             val status: TextView = v.findViewById(R.id.dlStatus)
             val progress: ProgressBar = v.findViewById(R.id.dlProgress)
             val btnPlay: ImageButton = v.findViewById(R.id.btnPlay)
+            val btnPause: ImageButton = v.findViewById(R.id.btnPause)
             val btnCancel: ImageButton = v.findViewById(R.id.btnCancel)
             val btnCopy: ImageButton = v.findViewById(R.id.btnCopy)
             val btnDelete: ImageButton = v.findViewById(R.id.btnDelete)
@@ -230,6 +254,7 @@ class DownloadsActivity : Activity() {
                     holder.status.text = "대기 중…"
                     holder.progress.visibility = View.GONE
                     holder.btnPlay.visibility = View.GONE
+                    holder.btnPause.visibility = View.GONE
                     holder.btnCancel.visibility = View.VISIBLE
                     holder.btnCopy.visibility = View.GONE
                     holder.btnDelete.visibility = View.GONE
@@ -244,15 +269,33 @@ class DownloadsActivity : Activity() {
                         holder.progress.visibility = View.GONE
                     }
                     holder.btnPlay.visibility = View.GONE
+                    holder.btnPause.visibility = View.VISIBLE
                     holder.btnCancel.visibility = View.VISIBLE
                     holder.btnCopy.visibility = View.GONE
                     holder.btnDelete.visibility = View.GONE
+                }
+                DlStatus.PAUSED -> {
+                    holder.status.text = holder.itemView.context.getString(R.string.dl_paused) + " · " + DlFormat.progress(item)
+                    if (item.totalDurationMs > 0) {
+                        val p = (item.currentTimeMs * 100 / item.totalDurationMs).coerceIn(0, 100).toInt()
+                        holder.progress.visibility = View.VISIBLE
+                        holder.progress.progress = p
+                    } else {
+                        holder.progress.visibility = View.GONE
+                    }
+                    // 재생 버튼을 이어받기(재개)로 사용
+                    holder.btnPlay.visibility = View.VISIBLE
+                    holder.btnPause.visibility = View.GONE
+                    holder.btnCancel.visibility = View.GONE
+                    holder.btnCopy.visibility = View.VISIBLE
+                    holder.btnDelete.visibility = View.VISIBLE
                 }
                 DlStatus.DONE -> {
                     val sz = (item.file?.length() ?: 0) / 1048576.0
                     holder.status.text = String.format("완료 · %.1f MB", sz)
                     holder.progress.visibility = View.GONE
                     holder.btnPlay.visibility = View.VISIBLE
+                    holder.btnPause.visibility = View.GONE
                     holder.btnCancel.visibility = View.GONE
                     holder.btnCopy.visibility = View.VISIBLE
                     holder.btnDelete.visibility = View.VISIBLE
@@ -261,6 +304,7 @@ class DownloadsActivity : Activity() {
                     holder.status.text = "취소됨"
                     holder.progress.visibility = View.GONE
                     holder.btnPlay.visibility = View.GONE
+                    holder.btnPause.visibility = View.GONE
                     holder.btnCancel.visibility = View.GONE
                     holder.btnCopy.visibility = View.VISIBLE
                     holder.btnDelete.visibility = View.VISIBLE
@@ -269,13 +313,18 @@ class DownloadsActivity : Activity() {
                     holder.status.text = "실패"
                     holder.progress.visibility = View.GONE
                     holder.btnPlay.visibility = View.GONE
+                    holder.btnPause.visibility = View.GONE
                     holder.btnCancel.visibility = View.GONE
                     holder.btnCopy.visibility = View.VISIBLE
                     holder.btnDelete.visibility = View.VISIBLE
                 }
             }
 
-            holder.btnPlay.setOnClickListener { onPlay(item) }
+            holder.btnPlay.setOnClickListener {
+                // 일시 중지 상태면 이어받기, 완료 상태면 파일 재생
+                if (item.status == DlStatus.PAUSED) onResume(item) else onPlay(item)
+            }
+            holder.btnPause.setOnClickListener { onPause(item) }
             holder.btnCancel.setOnClickListener { onCancel(item) }
             holder.btnCopy.setOnClickListener { onCopy(item) }
             holder.btnDelete.setOnClickListener { onDelete(item) }

@@ -86,6 +86,15 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
                         com.example.streambrowser.util.JcToast.show(holder.itemView.context, R.string.already_downloading)
                     }
                 }
+                DlStatus.PAUSED -> {
+                    holder.btnDownload.text = holder.itemView.context.getString(R.string.dl_paused)
+                    holder.btnDownload.textSize = 12f
+                    holder.btnDownload.isEnabled = true
+                    holder.btnDownload.setOnClickListener {
+                        val ctx = holder.itemView.context
+                        ctx.startActivity(Intent(ctx, com.example.streambrowser.ui.DownloadsActivity::class.java))
+                    }
+                }
                 DlStatus.DONE -> {
                     holder.btnDownload.text = holder.itemView.context.getString(R.string.btn_done)
                     holder.btnDownload.textSize = 12f

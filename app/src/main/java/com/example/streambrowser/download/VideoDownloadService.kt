@@ -41,6 +41,12 @@ class VideoDownloadService : Service() {
             sessions[id]?.cancel()
             FastVideoDownloader.cancel(id)
         }
+
+        /** 일시 중지: ffmpeg 세션 + 고속 다운로더 중지 (부분 파일 보존) */
+        fun pause(id: Long) {
+            sessions[id]?.cancel()
+            FastVideoDownloader.pause(id)
+        }
     }
 
     private val notifBase = 2000
@@ -107,6 +113,12 @@ class VideoDownloadService : Service() {
                             notifyFinished(item, notifyOn, startId)
                             return@Thread
                         }
+                        FastVideoDownloader.Result.PAUSED -> {
+                            item.status = DlStatus.PAUSED
+                            DownloadStore.upsert(item)
+                            notifyFinished(item, notifyOn, startId)
+                            return@Thread
+                        }
                         FastVideoDownloader.Result.FAILED -> {
                             // ffmpeg 경로로 폴파
                         }
@@ -137,12 +149,15 @@ class VideoDownloadService : Service() {
                     { s ->
                         sessions.remove(id)
                         val code = s.returnCode
+                        val paused = FastVideoDownloader.isPaused(id)
                         item.status = when {
+                            paused -> DlStatus.PAUSED
                             code != null && code.isValueSuccess -> DlStatus.DONE
                             code != null && code.isValueCancel -> DlStatus.CANCELED
                             else -> DlStatus.FAILED
                         }
-                        if (item.status == DlStatus.CANCELED) out.delete()
+                        // 취소/일시 중지 시 부분 파일 삭제 (ffmpeg 경로는 재개 시 처음부터 다시 받음)
+                        if (item.status == DlStatus.CANCELED || paused) out.delete()
                         // 공용 다운로드 폴더 모드: 완료 파일을 Download/JC Browser로 복사
                         if (item.status == DlStatus.DONE) {
                                     DownloadFolder.export(this, out, "video/mp4")
@@ -153,6 +168,7 @@ class VideoDownloadService : Service() {
                             val msg = when (item.status) {
                                 DlStatus.DONE -> "${getString(com.example.streambrowser.R.string.notif_done)}: ${out.name}"
                                 DlStatus.CANCELED -> "${getString(com.example.streambrowser.R.string.notif_canceled)}: ${out.name}"
+                                DlStatus.PAUSED -> "${getString(com.example.streambrowser.R.string.notif_paused)}: ${out.name}"
                                 else -> "${getString(com.example.streambrowser.R.string.notif_failed)}: ${out.name}"
                             }
                             nm.notify(notifBase + (id % 500).toInt(), buildNotification(item.name, msg, indeterminate = false))
@@ -203,6 +219,7 @@ class VideoDownloadService : Service() {
             val msg = when (item.status) {
                 DlStatus.DONE -> "${getString(R.string.notif_done)}: $fname"
                 DlStatus.CANCELED -> "${getString(R.string.notif_canceled)}: $fname"
+                DlStatus.PAUSED -> "${getString(R.string.notif_paused)}: $fname"
                 else -> "${getString(R.string.notif_failed)}: $fname"
             }
             nm.notify(
