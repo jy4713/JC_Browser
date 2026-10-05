@@ -27,6 +27,10 @@ import java.io.File
  */
 class BookmarksActivity : Activity() {
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(newBase))
+    }
+
     private var parentId = 0L
     private val pathStack = mutableListOf<Pair<Long, String>>()
     private lateinit var adapter: BmAdapter

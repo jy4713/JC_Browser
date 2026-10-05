@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.os.Build
 import android.os.Environment
 import android.os.IBinder
 import android.webkit.CookieManager
@@ -55,8 +56,13 @@ class VideoDownloadService : Service() {
 
         val item = DownloadStore.get(id) ?: DlItem(id, url, page, kind, name, ext).also { DownloadStore.upsert(it) }
 
+        // 설정: 알림 표시 여부 / 다운로드 위치 (공용 Download 폴터면 완료 후 복사)
+        val sp = getSharedPreferences("settings", MODE_PRIVATE)
+        val notifyOn = sp.getBoolean("dl_notify", true)
+        val folderPublic = sp.getString("dl_folder", "public") == "public"
+
         createChannel()
-        startForeground(notifBase + (id % 500).toInt(), buildNotification(item.name, "다운로드 준비 중…", indeterminate = true))
+        startForeground(notifBase + (id % 500).toInt(), buildNotification(item.name, getString(com.example.streambrowser.R.string.notif_preparing), indeterminate = true))
 
         Thread {
             runCatching {
@@ -89,14 +95,20 @@ class VideoDownloadService : Service() {
                             else -> DlStatus.FAILED
                         }
                         if (item.status == DlStatus.CANCELED) out.delete()
-                        DownloadStore.upsert(item)
-                        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                        val msg = when (item.status) {
-                            DlStatus.DONE -> "완료: ${out.name}"
-                            DlStatus.CANCELED -> "취소됨: ${out.name}"
-                            else -> "실패: ${out.name}"
+                        // 공용 다운로드 폴터 모드: 완료 파일을 Download/JC Browser로 복사
+                        if (item.status == DlStatus.DONE && folderPublic) {
+                            runCatching { copyToPublicDownloads(out) }
                         }
-                        nm.notify(notifBase + (id % 500).toInt(), buildNotification(item.name, msg, indeterminate = false))
+                        DownloadStore.upsert(item)
+                        if (notifyOn) {
+                            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                            val msg = when (item.status) {
+                                DlStatus.DONE -> "${getString(com.example.streambrowser.R.string.notif_done)}: ${out.name}"
+                                DlStatus.CANCELED -> "${getString(com.example.streambrowser.R.string.notif_canceled)}: ${out.name}"
+                                else -> "${getString(com.example.streambrowser.R.string.notif_failed)}: ${out.name}"
+                            }
+                            nm.notify(notifBase + (id % 500).toInt(), buildNotification(item.name, msg, indeterminate = false))
+                        }
                         if (!DownloadStore.hasRunning()) stopSelf(startId)
                     },
                     {},
@@ -104,11 +116,13 @@ class VideoDownloadService : Service() {
                         item.doneBytes = stats.size
                         item.currentTimeMs = stats.time.toLong()
                         DownloadStore.upsert(item)
-                        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                        nm.notify(
-                            notifBase + (id % 500).toInt(),
-                            buildNotification(item.name, progressText(item), indeterminate = true)
-                        )
+                        if (notifyOn) {
+                            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                            nm.notify(
+                                notifBase + (id % 500).toInt(),
+                                buildNotification(item.name, progressText(item), indeterminate = true)
+                            )
+                        }
                     }
                 )
                 sessions[id] = session
@@ -201,10 +215,28 @@ class VideoDownloadService : Service() {
         return f
     }
 
+    /** 완료 파일을 공용 Download/JC Browser 폴터로 복사 (MediaStore, API 29+) */
+    private fun copyToPublicDownloads(src: File) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Downloads.DISPLAY_NAME, src.name)
+            put(android.provider.MediaStore.Downloads.MIME_TYPE, "video/mp4")
+            put(
+                android.provider.MediaStore.Downloads.RELATIVE_PATH,
+                Environment.DIRECTORY_DOWNLOADS + "/JC Browser"
+            )
+        }
+        val uri = contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            ?: return
+        contentResolver.openOutputStream(uri)?.use { out ->
+            src.inputStream().use { it.copyTo(out) }
+        }
+    }
+
     private fun createChannel() {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "영상 다운로드", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(CHANNEL_ID, getString(com.example.streambrowser.R.string.notif_channel), NotificationManager.IMPORTANCE_LOW)
         )
     }
 

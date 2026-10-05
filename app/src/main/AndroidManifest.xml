@@ -42,6 +42,11 @@
         <activity
             android:name=".ui.DownloadsActivity"
             android:exported="false" />
+        <activity
+            android:name=".ui.PlayerActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+            android:exported="false"
+            android:label="@string/player_title" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -27,6 +27,10 @@ import java.util.Locale
 /** 방문 기록 화면: 검색 필터 + 전체 삭제 + 도메인 아바타 목록 (Chrome 스타일) */
 class HistoryActivity : Activity() {
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(newBase))
+    }
+
     private lateinit var adapter: HistoryAdapter
     private var all = listOf<Triple<String, String, Long>>()
 

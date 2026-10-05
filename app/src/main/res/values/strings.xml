@@ -1,4 +1,142 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">JC Browser</string>
+
+    <!-- 주소창 -->
+    <string name="hint_url">Search or type URL</string>
+    <string name="cd_videos">Videos</string>
+    <string name="cd_images">Images</string>
+    <string name="show_blocked">Show unavailable items (%d)</string>
+    <string name="hide_blocked">Hide unavailable items</string>
+    <string name="dl_selected">Download selected (%d)</string>
+    <string name="select_all">Select all</string>
+
+    <!-- 메뉴 그룹 -->
+    <string name="group_tabs">Tabs</string>
+    <string name="group_data">Bookmarks &amp; History</string>
+    <string name="group_display">Display</string>
+    <string name="group_tools">Tools</string>
+    <string name="group_app">App</string>
+
+    <!-- 메뉴 항목 -->
+    <string name="menu_new_tab">New tab</string>
+    <string name="menu_new_incognito">New incognito tab</string>
+    <string name="menu_close_tab">Close current tab</string>
+    <string name="menu_add_bookmark">Add bookmark</string>
+    <string name="menu_bookmarks">Bookmarks</string>
+    <string name="menu_history">History</string>
+    <string name="menu_downloads">Downloads</string>
+    <string name="menu_find">Find in page</string>
+    <string name="menu_desktop">Desktop site</string>
+    <string name="menu_dark">Dark mode</string>
+    <string name="menu_text_size">Text size</string>
+    <string name="menu_capture">Screenshot</string>
+    <string name="menu_pip">Picture-in-picture</string>
+    <string name="menu_auto_pip">Auto PIP (on Home)</string>
+    <string name="menu_adblock">Ad blocking</string>
+    <string name="menu_restore_tabs">Restore tabs on start</string>
+    <string name="menu_dl_notify">Download progress in notification</string>
+    <string name="menu_dl_folder">Download location</string>
+    <string name="menu_share">Share</string>
+    <string name="menu_copy_url">Copy URL</string>
+    <string name="menu_add_adblock_rule">Block ads on this site</string>
+    <string name="menu_clear_data">Clear history &amp; cache</string>
+    <string name="menu_language">Language</string>
+    <string name="menu_about">About</string>
+    <string name="menu_exit">Exit</string>
+    <string name="on_state">ON</string>
+
+    <!-- 동영상 길게 누르기 메뉴 (Soul 스타일) -->
+    <string name="vm_title">Video options</string>
+    <string name="vm_fs_on">Fullscreen</string>
+    <string name="vm_fs_off">Exit fullscreen</string>
+    <string name="vm_landscape">Lock landscape</string>
+    <string name="vm_portrait">Lock portrait</string>
+    <string name="vm_auto_rotate">Auto-rotate</string>
+    <string name="vm_play">Play</string>
+    <string name="vm_pause">Pause</string>
+    <string name="vm_speed_1">Speed 1.0x</string>
+    <string name="vm_speed_15">Speed 1.5x</string>
+    <string name="vm_speed_2">Speed 2.0x</string>
+
+    <!-- 항목 메뉴 -->
+    <string name="item_open_tab">Open in new tab</string>
+    <string name="item_open_incognito">Open in incognito tab</string>
+    <string name="item_copy_link">Copy link</string>
+    <string name="item_share">Share</string>
+    <string name="item_preview">Preview</string>
+    <string name="item_download">Download</string>
+
+    <!-- 다이얼로그 -->
+    <string name="dlg_language">Language</string>
+    <string name="lang_system">System default</string>
+    <string name="lang_ko">한국어</string>
+    <string name="lang_en">English</string>
+    <string name="dlg_dl_folder">Download location</string>
+    <string name="folder_public">Downloads folder (recommended)</string>
+    <string name="folder_app">App folder (private)</string>
+    <string name="dlg_text_size">Text size</string>
+    <string name="dlg_clear_title">Clear history &amp; cache</string>
+    <string name="dlg_clear_msg">Delete browsing history, cookies and cache?</string>
+    <string name="btn_delete">Delete</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_ok">OK</string>
+    <string name="dlg_adblock_host">Domain to block</string>
+    <string name="btn_add">Add</string>
+    <string name="dlg_tabs_close">Close current tab</string>
+    <string name="dlg_new_tab">+ New tab</string>
+    <string name="dlg_tabs_count">Tabs</string>
+    <string name="last_tab">Cannot close the last tab</string>
+
+    <!-- 알림 -->
+    <string name="notif_channel">Video download</string>
+    <string name="notif_preparing">Preparing download…</string>
+    <string name="notif_done">Complete</string>
+    <string name="notif_canceled">Canceled</string>
+    <string name="notif_failed">Failed</string>
+
+    <!-- 기타 -->
+    <string name="blob_unavailable">Unavailable</string>
+    <string name="dlg_name_ext_title">Download (name / extension)</string>
+    <string name="dlg_image_title">Image download (name / extension)</string>
+    <string name="hint_filename">File name</string>
+    <string name="hint_ext">Extension (e.g. mp4, mkv)</string>
+    <string name="btn_download">Download</string>
+    <string name="btn_started">Started</string>
+    <string name="no_player">No app can play this</string>
+    <string name="no_viewer">No app can open this</string>
+    <string name="pip_unsupported">PIP requires Android 8.0+</string>
+    <string name="pip_failed">Cannot start PIP</string>
+    <string name="auto_pip_on">Auto PIP enabled</string>
+    <string name="auto_pip_off">Auto PIP disabled</string>
+    <string name="auto_pip_legacy"> (enters on Home button)</string>
+    <string name="link_copied">Link copied</string>
+    <string name="image_copied">Image address copied</string>
+    <string name="url_copied">URL copied</string>
+    <string name="bookmark_added">Bookmark added</string>
+    <string name="incognito_on">Incognito tab opened (no history)</string>
+    <string name="dark_on">Dark mode on</string>
+    <string name="dark_off">Dark mode off</string>
+    <string name="adblock_on">Ad blocking on</string>
+    <string name="adblock_off">Ad blocking off</string>
+    <string name="restore_on">Tab restore on</string>
+    <string name="restore_off">Tab restore off</string>
+    <string name="render_recovered">Renderer stopped — page reloaded</string>
+    <string name="blocked_warning">Blocked: phishing or malware detected</string>
+    <string name="webview_error_title">WebView error</string>
+    <string name="webview_error_msg">Your device\'s Android System WebView has a problem and the browser cannot start.\n\n1. Update \'Android System WebView\' from Play Store\n2. Update Chrome\n3. Settings > Apps > Android System WebView > Storage > Clear cache\n\nThen restart.</string>
+    <string name="btn_exit">Exit</string>
+    <string name="history_empty">No history to navigate</string>
+    <string name="dlg_history_stack">This tab\'s history</string>
+    <string name="no_app">No app available</string>
+    <string name="image_dl_started">Image download started</string>
+    <string name="adblock_added">Added to block list</string>
+    <string name="clear_done">Cleared</string>
+    <string name="invalid_page">Not a valid page</string>
+    <string name="capture_saved">Screenshot saved: %s</string>
+    <string name="capture_failed">Capture failed</string>
+    <string name="about_version">Version %s</string>
+    <string name="player_title">Player</string>
+    <string name="menu_action">Open menu</string>
+    <string name="vm_speed">Speed</string>
 </resources>

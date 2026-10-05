@@ -28,6 +28,10 @@ import java.io.File
 /** 다운로드 관리 화면: 진행률/%/크기, 취소, 재생, 이름 변경, 삭제 */
 class DownloadsActivity : Activity() {
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(newBase))
+    }
+
     private lateinit var adapter: DlAdapter
     private val handler = Handler(Looper.getMainLooper())
     private var ticker: Runnable? = null

@@ -31,7 +31,30 @@ class VideoJsBridge {
         VideoStore.add(DetectedVideo(url = url, page = page, kind = "IMG"))
     }
 
+    @JavascriptInterface
+    fun addPoster(videoUrl: String, poster: String) {
+        VideoStore.addPoster(videoUrl, poster)
+    }
+
+    /** Soul 브라우저 스타일: 동영상 길게 누르기 → 네이티브 메뉴 호출 */
+    @JavascriptInterface
+    fun videoLongPress() {
+        onVideoLongPress?.invoke()
+    }
+
+    /** JS -> 네이티브 상태 전달 (전체화면 등) */
+    @JavascriptInterface
+    fun videoFsChanged(on: Boolean) {
+        onVideoFsChange?.invoke(on)
+    }
+
     companion object {
+        @Volatile
+        var onVideoLongPress: (() -> Unit)? = null
+
+        @Volatile
+        var onVideoFsChange: ((Boolean) -> Unit)? = null
+
         /**
          * 페이지에 주입할 스캐너 스크립트.
          * HTML <head>에 삽입되므로 플레이어 스크립트보다 먼저 실행되어 XHR/fetch를 훅할 수 있다.
@@ -62,6 +85,8 @@ class VideoJsBridge {
         var el = els[i];
         var src = el.currentSrc || el.src;
         if (src) window.StreamBrowser.addVideo(src, el.tagName, location.href);
+        var p = el.poster;
+        if (src && p) window.StreamBrowser.addPoster(src, p);
         var ch = el.children;
         for (var j=0; j<ch.length; j++){
           if (ch[j].tagName === 'SOURCE'){
@@ -74,6 +99,50 @@ class VideoJsBridge {
   }
   setInterval(collect, 1500);
   collect();
+
+  /* 1-1) Soul 스타일: 동영상 길게 누르기 감지 + 네이티브 제어용 헬퍼 노출 */
+  (function(){
+    var lpTimer = null;
+    function clearLp(){ if (lpTimer){ clearTimeout(lpTimer); lpTimer = null; } }
+    document.addEventListener('touchstart', function(e){
+      clearLp();
+      var t = e.target;
+      var v = (t && t.closest) ? t.closest('video') : null;
+      if (!v) return;
+      lpTimer = setTimeout(function(){
+        try{ window.StreamBrowser.videoLongPress(); }catch(x){}
+      }, 600);
+    }, {passive:true});
+    document.addEventListener('touchend', clearLp, {passive:true});
+    document.addEventListener('touchmove', clearLp, {passive:true});
+    document.addEventListener('touchcancel', clearLp, {passive:true});
+  })();
+
+  /* 1-2) 전체화면 강제 적용/해제 (일부 사이트의 전체화면 버튼 미동작 대응) */
+  window.__sbBigVideo = function(){
+    var vs = document.querySelectorAll('video');
+    var best = null, bestArea = 0;
+    for (var i=0;i<vs.length;i++){
+      var r = vs[i].getBoundingClientRect();
+      var a = r.width * r.height;
+      if (a > bestArea){ bestArea = a; best = vs[i]; }
+    }
+    return best;
+  };
+  window.__sbFsOn = function(){
+    var v = window.__sbBigVideo();
+    if (!v) return false;
+    v.__sbfs = v.getAttribute('style') || '';
+    v.setAttribute('style','position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;z-index:2147483647!important;background:#000!important;object-fit:contain!important;');
+    try{ if (v.paused) v.play(); }catch(e){}
+    return true;
+  };
+  window.__sbFsOff = function(){
+    var vs = document.querySelectorAll('video');
+    for (var i=0;i<vs.length;i++){
+      if (vs[i].__sbfs !== undefined){ vs[i].setAttribute('style', vs[i].__sbfs); delete vs[i].__sbfs; }
+    }
+  };
 
   /* 1-2) 큰 이미지 수집 (300px 미만 아이콘/배너 제외) */
   function collectImages(){

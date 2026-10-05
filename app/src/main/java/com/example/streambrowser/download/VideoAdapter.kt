@@ -10,113 +10,126 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.TextView
-import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import com.example.streambrowser.MainActivity
 import com.example.streambrowser.R
 import com.example.streambrowser.browser.DetectedVideo
 import com.example.streambrowser.browser.VideoStore
+import com.example.streambrowser.ui.PlayerActivity
 
 /**
- * 감지된 미디어 목록 어댑터: 영상(HLS/MP4/...) + 이미지(IMG)
- * - 미리보기: 외부 플레이어/뷰어로 확인
- * - 받기: 이름 + 확장자 지정 다이얼로그 (기본값 자동 추천, 수정 가능)
+ * 감지된 동영상 목록 어댑터.
+ * - 썸네일(poster > 페이지 스냅샷), 낭부 플레이어 재생, 이름/확장자 지정 다운로드
+ * - BLOB 등 불가 항목은 기본 숨김 (상단 토글로 표시 가능)
+ * - 햄버거 메뉴: 새 탭/시크릿 탭/링크 복사/공유
  */
 class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
 
+    /** 다운로드 불가 항목 표시 여부 */
+    var showBlocked = false
+
     class VH(v: View) : RecyclerView.ViewHolder(v) {
+        val thumb: ImageView = v.findViewById(R.id.videoThumb)
+        val kind: TextView = v.findViewById(R.id.txtVideoKind)
         val info: TextView = v.findViewById(R.id.txtVideoInfo)
         val btnDownload: Button = v.findViewById(R.id.btnDownload)
         val btnPreview: ImageButton = v.findViewById(R.id.btnPreview)
+        val btnMenu: ImageButton = v.findViewById(R.id.btnItemMenu)
     }
+
+    /** 현재 표시 대상 목록 (불가 항목 제외 규칙 적용) */
+    private fun items(): List<DetectedVideo> =
+        VideoStore.videos.filter { showBlocked || !it.unavailable }
+
+    fun blockedCount(): Int = VideoStore.videos.count { it.unavailable }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
         VH(LayoutInflater.from(parent.context).inflate(R.layout.item_video, parent, false))
 
-    override fun getItemCount(): Int = VideoStore.videos.size
+    override fun getItemCount(): Int = items().size
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        val v = VideoStore.videos[position]
-        holder.info.text = "[${v.kind}] ${v.url}"
+        val v = items()[position]
+        holder.kind.text = v.kind
+        holder.info.text = v.url
 
-        if (v.url.startsWith("blob:")) {
-            holder.btnDownload.text = "불가"
+        // 썸네일: poster URL 로드, 실패/없으면 페이지 스냅샷
+        val poster = VideoStore.posterByUrl[v.url]
+        if (poster != null) {
+            ThumbLoader.load(poster, holder.thumb, ThumbLoader.PageSnapshot.bitmap)
+        } else {
+            holder.thumb.setImageBitmap(ThumbLoader.PageSnapshot.bitmap)
+        }
+
+        if (v.unavailable) {
+            holder.btnDownload.text = holder.itemView.context.getString(R.string.blob_unavailable)
             holder.btnDownload.isEnabled = false
-            holder.btnPreview.visibility = View.GONE
-            holder.btnDownload.setOnClickListener(null)
-            holder.btnPreview.setOnClickListener(null)
-            return
+        } else {
+            holder.btnDownload.text = holder.itemView.context.getString(R.string.item_download)
+            holder.btnDownload.isEnabled = true
         }
 
-        val isImage = v.kind == "IMG"
-
-        // 미리보기: 외부 앱으로 재생/표시해 어떤 미디어인지 확인
-        holder.btnPreview.visibility = View.VISIBLE
+        // 재생: 낭부 HTML 플레이어 팝업 (외부 앱 미사용)
         holder.btnPreview.setOnClickListener {
-            val mime = if (isImage) "image/*" else "video/*"
-            val i = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(Uri.parse(v.url), mime)
-            }
-            runCatching { holder.btnPreview.context.startActivity(i) }.onFailure {
-                Toast.makeText(
-                    holder.btnPreview.context,
-                    if (isImage) "이미지를 볼 앱이 없습니다." else "재생 가능한 앱이 없습니다 (VLC 등 설치).",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
+            val ctx = holder.itemView.context
+            ctx.startActivity(
+                Intent(ctx, PlayerActivity::class.java)
+                    .putExtra(PlayerActivity.EXTRA_URL, v.url)
+                    .putExtra(PlayerActivity.EXTRA_PAGE, v.page)
+            )
         }
 
-        holder.btnDownload.text = "받기"
-        holder.btnDownload.isEnabled = true
         holder.btnDownload.setOnClickListener {
-            val ctx = holder.btnDownload.context
-            showNameExtDialog(ctx, v, isImage) { name, ext ->
-                if (isImage) {
-                    ImageDownloader.download(ctx, v.url, v.page, name, ext)
-                } else {
-                    val id = System.currentTimeMillis()
-                    DownloadStore.upsert(DlItem(id, v.url, v.page, v.kind, name, ext))
-                    val i = Intent(ctx, VideoDownloadService::class.java).apply {
-                        putExtra(VideoDownloadService.EXTRA_ID, id)
-                        putExtra(VideoDownloadService.EXTRA_URL, v.url)
-                        putExtra(VideoDownloadService.EXTRA_PAGE, v.page)
-                        putExtra(VideoDownloadService.EXTRA_KIND, v.kind)
-                        putExtra(VideoDownloadService.EXTRA_NAME, name)
-                        putExtra(VideoDownloadService.EXTRA_EXT, ext)
+            if (!v.unavailable) showNameExtDialog(holder.itemView.context, v)
+        }
+
+        // 햄버거 메뉴
+        holder.btnMenu.setOnClickListener { anchor ->
+            val ctx = anchor.context
+            val pm = PopupMenu(ctx, anchor)
+            pm.menu.add(0, 1, 0, ctx.getString(R.string.item_open_tab))
+            pm.menu.add(0, 2, 1, ctx.getString(R.string.item_open_incognito))
+            pm.menu.add(0, 3, 2, ctx.getString(R.string.item_copy_link))
+            pm.menu.add(0, 4, 3, ctx.getString(R.string.item_share))
+            pm.setOnMenuItemClickListener { mi ->
+                when (mi.itemId) {
+                    1 -> (ctx as? MainActivity)?.openInNewTab(v.url, false)
+                    2 -> (ctx as? MainActivity)?.openInNewTab(v.url, true)
+                    3 -> (ctx as? MainActivity)?.copyTextPublic(v.url, ctx.getString(R.string.link_copied))
+                    4 -> {
+                        val i = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, v.url)
+                        }
+                        runCatching { ctx.startActivity(Intent.createChooser(i, null)) }
                     }
-                    ctx.startForegroundService(i)
                 }
-                holder.btnDownload.text = "시작됨"
-                holder.btnDownload.isEnabled = false
+                true
             }
+            pm.show()
         }
     }
 
     /** 이름 + 확장자 입력 다이얼로그. 기본값 자동 추천, 둘 다 수정 가능 */
-    private fun showNameExtDialog(
-        ctx: Context,
-        v: DetectedVideo,
-        isImage: Boolean,
-        onOk: (name: String, ext: String) -> Unit
-    ) {
-        // 기본 이름: 탭 제목 > 페이지 제목 > 호스트
+    private fun showNameExtDialog(ctx: Context, v: DetectedVideo) {
         val suggested = ((ctx as? MainActivity)?.currentTabTitle() ?: "")
             .replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
-            .ifEmpty { (if (isImage) "image_" else "video_") + System.currentTimeMillis() }
-        // 기본 확장자: URL 경로의 확장자 > 종류별 기본값
-        val defaultExt = defaultExt(v, isImage)
+            .ifEmpty { "video_" + System.currentTimeMillis() }
+        val defaultExt = defaultExt(v)
 
         val input = EditText(ctx).apply {
             setText(suggested)
             setSingleLine()
-            hint = "파일 이름"
+            hint = ctx.getString(R.string.hint_filename)
         }
         val extInput = EditText(ctx).apply {
             setText(defaultExt)
             setSingleLine()
-            hint = "확장자 (예: ${if (isImage) "jpg, png" else "mp4, mkv"})"
+            hint = ctx.getString(R.string.hint_ext)
         }
         val box = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
@@ -126,27 +139,38 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
             addView(extInput)
         }
         AlertDialog.Builder(ctx)
-            .setTitle(if (isImage) "이미지 다운로드 (이름/확장자 지정)" else "다운로드 (이름/확장자 지정)")
+            .setTitle(ctx.getString(R.string.dlg_name_ext_title))
             .setView(box)
-            .setPositiveButton("다운로드") { _, _ ->
+            .setPositiveButton(ctx.getString(R.string.btn_download)) { _, _ ->
                 val name = input.text.toString().trim().ifEmpty { suggested }
                 val ext = extInput.text.toString().trim()
                     .removePrefix(".").ifEmpty { defaultExt }
-                onOk(name, ext)
+                startDownload(ctx, v, name, ext)
             }
-            .setNegativeButton("취소", null)
+            .setNegativeButton(ctx.getString(R.string.btn_cancel), null)
             .show()
     }
 
-    private fun defaultExt(v: DetectedVideo, isImage: Boolean): String {
+    private fun startDownload(ctx: Context, v: DetectedVideo, name: String, ext: String) {
+        val id = System.currentTimeMillis()
+        DownloadStore.upsert(DlItem(id, v.url, v.page, v.kind, name, ext))
+        val i = Intent(ctx, VideoDownloadService::class.java).apply {
+            putExtra(VideoDownloadService.EXTRA_ID, id)
+            putExtra(VideoDownloadService.EXTRA_URL, v.url)
+            putExtra(VideoDownloadService.EXTRA_PAGE, v.page)
+            putExtra(VideoDownloadService.EXTRA_KIND, v.kind)
+            putExtra(VideoDownloadService.EXTRA_NAME, name)
+            putExtra(VideoDownloadService.EXTRA_EXT, ext)
+        }
+        ctx.startForegroundService(i)
+        notifyDataSetChanged()
+    }
+
+    private fun defaultExt(v: DetectedVideo): String {
         val fromUrl = Regex("\\.([A-Za-z0-9]{2,5})(?:\\?.*)?$")
             .find(Uri.parse(v.url).path ?: "")
             ?.groupValues?.get(1)?.lowercase()
         return when {
-            isImage -> when (fromUrl) {
-                "jpg", "jpeg", "png", "gif", "webp", "bmp" -> fromUrl
-                else -> "jpg"
-            }
             v.url.startsWith("blob:") -> "mp4"
             v.kind == "HLS" -> "mp4"
             else -> fromUrl ?: "mp4"

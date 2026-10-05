@@ -26,7 +26,7 @@
             android:drawableStart="@drawable/ic_search"
             android:drawablePadding="10dp"
             android:drawableTint="#9AA0A6"
-            android:hint="검색 또는 URL 입력"
+            android:hint="@string/hint_url"
             android:imeOptions="actionGo"
             android:inputType="textUri"
             android:paddingStart="16dp"
@@ -47,13 +47,48 @@
                 android:layout_height="44dp"
                 android:layout_gravity="center"
                 android:background="@drawable/bg_btn_ripple"
-                android:contentDescription="영상"
+                android:contentDescription="@string/cd_videos"
                 android:padding="11dp"
                 android:src="@drawable/ic_video"
                 android:tint="@color/icon_tint" />
 
             <TextView
                 android:id="@+id/badgeVideos"
+                android:layout_width="wrap_content"
+                android:layout_height="18dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="1dp"
+                android:layout_marginEnd="1dp"
+                android:background="@drawable/bg_badge"
+                android:gravity="center"
+                android:minWidth="18dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:text="0"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="2dp">
+
+            <ImageButton
+                android:id="@+id/btnImages"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_btn_ripple"
+                android:contentDescription="@string/cd_images"
+                android:padding="11dp"
+                android:src="@drawable/ic_image"
+                android:tint="@color/icon_tint" />
+
+            <TextView
+                android:id="@+id/badgeImages"
                 android:layout_width="wrap_content"
                 android:layout_height="18dp"
                 android:layout_gravity="top|end"
@@ -138,12 +173,86 @@
             android:tint="@color/icon_tint" />
     </LinearLayout>
 
-    <!-- 감지된 영상 목록 -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/videoList"
+    <!-- 미디어 패널: 동영상 목록 / 이미지 목록 -->
+    <LinearLayout
+        android:id="@+id/mediaPanel"
         android:layout_width="match_parent"
-        android:layout_height="180dp"
-        android:visibility="gone" />
+        android:layout_height="280dp"
+        android:background="#FFFFFF"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- 패널 헤더 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp">
+
+            <TextView
+                android:id="@+id/txtMediaHeader"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#202124"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/txtToggleBlocked"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:background="@drawable/bg_btn_ripple"
+                android:gravity="center"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:textColor="#1A73E8"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/btnSelectAll"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:background="@drawable/bg_btn_ripple"
+                android:gravity="center"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="@string/select_all"
+                android:textColor="#1A73E8"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnDlSelected"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_btn_primary"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="@string/dl_selected"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/videoList"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:visibility="gone" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/imageGrid"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <!-- 하단 툴팁 (둥근 모서리 카드 스타일) -->
     <LinearLayout
