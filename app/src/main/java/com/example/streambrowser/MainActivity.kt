@@ -64,6 +64,8 @@ import com.example.streambrowser.browser.VideoJsBridge
 import com.example.streambrowser.browser.VideoStore
 import com.example.streambrowser.db.BookmarkRepo
 import com.example.streambrowser.db.HistoryRepo
+import com.example.streambrowser.download.DownloadStore
+import com.example.streambrowser.download.DlStatus
 import com.example.streambrowser.download.ImageAdapter
 import com.example.streambrowser.download.ImageDownloader
 import com.example.streambrowser.download.ThumbLoader
@@ -155,6 +157,7 @@ class MainActivity : Activity() {
         txtToggleBlocked = findViewById(R.id.txtToggleBlocked)
         btnSelectAll = findViewById(R.id.btnSelectAll)
         btnDlSelected = findViewById(R.id.btnDlSelected)
+        findViewById<ImageButton>(R.id.btnClosePanel).setOnClickListener { closePanels() }
         topBar = findViewById(R.id.topBar)
         bottomBar = findViewById(R.id.bottomBar)
 
@@ -263,6 +266,21 @@ class MainActivity : Activity() {
                 }
             }
         }
+
+        // 지난 다운로드 이력 로드
+        DownloadStore.init(this)
+
+        // 다운로드 진행 중이면 동영상 리스트 버튼 진행률 0.5초 간격 갱신
+        mainHandler.post(object : Runnable {
+            override fun run() {
+                if (mediaPanel.visibility == View.VISIBLE &&
+                    DownloadStore.items.any { it.status == DlStatus.PENDING || it.status == DlStatus.RUNNING }
+                ) {
+                    videoAdapter.notifyDataSetChanged()
+                }
+                mainHandler.postDelayed(this, 500)
+            }
+        })
 
         // Soul 스타일 동영상 길게 누르기 메뉴 (JS 다리)
         VideoJsBridge.onVideoLongPress = { runOnUiThread { showVideoMenu() } }

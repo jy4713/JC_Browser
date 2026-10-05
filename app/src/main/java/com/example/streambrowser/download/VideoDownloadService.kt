@@ -48,6 +48,7 @@ class VideoDownloadService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        DownloadStore.init(this)
         val id = intent?.getLongExtra(EXTRA_ID, System.currentTimeMillis()) ?: System.currentTimeMillis()
         val url = intent?.getStringExtra(EXTRA_URL) ?: run { stopSelf(); return START_NOT_STICKY }
         val page = intent.getStringExtra(EXTRA_PAGE) ?: ""
@@ -62,7 +63,19 @@ class VideoDownloadService : Service() {
         val notifyOn = sp.getBoolean("dl_notify", true)
 
         createChannel()
-        startForeground(notifBase + (id % 500).toInt(), buildNotification(item.name, getString(com.example.streambrowser.R.string.notif_preparing), indeterminate = true))
+        val notifId = notifBase + (id % 500).toInt()
+        startForeground(notifId, buildNotification(item.name, getString(com.example.streambrowser.R.string.notif_preparing), indeterminate = true))
+
+        // 진행 중 1초 간격으로 노티 갱신 (fast/ffmpeg 양 경로 공통, preparing 정적 문구 대체)
+        Thread {
+            while (item.status == DlStatus.PENDING || item.status == DlStatus.RUNNING) {
+                Thread.sleep(1000)
+                runCatching {
+                    val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                    nm.notify(notifId, buildNotification(item.name, DlFormat.progress(item), indeterminate = true))
+                }
+            }
+        }.start()
 
         Thread {
             val headers = buildHeaders(page)

@@ -75,8 +75,35 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
             holder.btnDownload.text = holder.itemView.context.getString(R.string.blob_unavailable)
             holder.btnDownload.isEnabled = false
         } else {
-            holder.btnDownload.text = holder.itemView.context.getString(R.string.item_download)
-            holder.btnDownload.isEnabled = true
+            // 동일 URL 다운로드 상태 반영: 진행 중이면 버튼이 진행률로 변경
+            val dl = DownloadStore.byUrl(v.url)
+            when (dl?.status) {
+                DlStatus.PENDING, DlStatus.RUNNING -> {
+                    holder.btnDownload.text = DlFormat.progress(dl)
+                    holder.btnDownload.textSize = 11f
+                    holder.btnDownload.isEnabled = true
+                    holder.btnDownload.setOnClickListener {
+                        Toast.makeText(holder.itemView.context, R.string.already_downloading, Toast.LENGTH_SHORT).show()
+                    }
+                }
+                DlStatus.DONE -> {
+                    holder.btnDownload.text = holder.itemView.context.getString(R.string.btn_done)
+                    holder.btnDownload.textSize = 12f
+                    holder.btnDownload.isEnabled = true
+                    holder.btnDownload.setOnClickListener {
+                        val ctx = holder.itemView.context
+                        ctx.startActivity(Intent(ctx, com.example.streambrowser.ui.DownloadsActivity::class.java))
+                    }
+                }
+                else -> {
+                    holder.btnDownload.text = holder.itemView.context.getString(R.string.item_download)
+                    holder.btnDownload.textSize = 12f
+                    holder.btnDownload.isEnabled = true
+                    holder.btnDownload.setOnClickListener {
+                        showNameExtDialog(holder.itemView.context, v)
+                    }
+                }
+            }
         }
 
         // 재생: 낭부 HTML 플레이어 팝업 (외부 앱 미사용)
@@ -87,10 +114,6 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
                     .putExtra(PlayerActivity.EXTRA_URL, v.url)
                     .putExtra(PlayerActivity.EXTRA_PAGE, v.page)
             )
-        }
-
-        holder.btnDownload.setOnClickListener {
-            if (!v.unavailable) showNameExtDialog(holder.itemView.context, v)
         }
 
         // 햄버거 메뉴

@@ -43,7 +43,15 @@
     <string name="dlg_folder_hint">Folder name</string>
     <string name="action_create">Create</string>
     <string name="action_cancel">Cancel</string>
+    <string name="close">Close</string>
     <string name="video_dl_started">Video download started</string>
+    <string name="tab_all">All</string>
+    <string name="tab_running">In progress</string>
+    <string name="tab_done">Completed</string>
+    <string name="tab_canceled">Canceled</string>
+    <string name="already_downloading">Already downloading</string>
+    <string name="btn_done">Done</string>
+    <string name="no_downloads">No items</string>
     <string name="btn_import_html">Import HTML</string>
     <string name="btn_export_html">Export HTML</string>
     <string name="menu_bookmarks">Bookmarks</string>

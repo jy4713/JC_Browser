@@ -19,6 +19,7 @@ import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.streambrowser.R
+import com.example.streambrowser.download.DlFormat
 import com.example.streambrowser.download.DlItem
 import com.example.streambrowser.download.DlStatus
 import com.example.streambrowser.download.DownloadStore
@@ -36,11 +37,32 @@ class DownloadsActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private var ticker: Runnable? = null
 
+    private enum class Filter { ALL, RUNNING, DONE, CANCELED }
+    private var filter = Filter.ALL
+
+    private lateinit var chipAll: TextView
+    private lateinit var chipRunning: TextView
+    private lateinit var chipDone: TextView
+    private lateinit var chipCanceled: TextView
+    private lateinit var txtEmpty: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_downloads)
 
+        DownloadStore.init(this)
+
         findViewById<ImageButton>(R.id.btnBack).setOnClickListener { finish() }
+
+        chipAll = findViewById(R.id.chipAll)
+        chipRunning = findViewById(R.id.chipRunning)
+        chipDone = findViewById(R.id.chipDone)
+        chipCanceled = findViewById(R.id.chipCanceled)
+        txtEmpty = findViewById(R.id.txtEmpty)
+        chipAll.setOnClickListener { setFilter(Filter.ALL) }
+        chipRunning.setOnClickListener { setFilter(Filter.RUNNING) }
+        chipDone.setOnClickListener { setFilter(Filter.DONE) }
+        chipCanceled.setOnClickListener { setFilter(Filter.CANCELED) }
 
         val list = findViewById<RecyclerView>(R.id.list)
         list.layoutManager = LinearLayoutManager(this)
@@ -55,8 +77,8 @@ class DownloadsActivity : Activity() {
         )
         list.adapter = adapter
 
-        DownloadStore.listener = { runOnUiThread { adapter.submit(DownloadStore.items) } }
-        adapter.submit(DownloadStore.items)
+        DownloadStore.listener = { runOnUiThread { applyFilter() } }
+        applyFilter()
 
         // 진행 중 0.5초 간격 갱신
         ticker = object : Runnable {
@@ -66,6 +88,38 @@ class DownloadsActivity : Activity() {
             }
         }
         ticker?.let { handler.post(it) }
+    }
+
+    private fun setFilter(f: Filter) {
+        filter = f
+        applyFilter()
+    }
+
+    /** 선택한 탭에 따라 목록 필터링 + 빈 화면/칩 스타일 갱신 */
+    private fun applyFilter() {
+        val all = DownloadStore.items.sortedByDescending { it.id }
+        val shown = when (filter) {
+            Filter.ALL -> all
+            Filter.RUNNING -> all.filter { it.status == DlStatus.PENDING || it.status == DlStatus.RUNNING }
+            Filter.DONE -> all.filter { it.status == DlStatus.DONE }
+            Filter.CANCELED -> all.filter { it.status == DlStatus.CANCELED || it.status == DlStatus.FAILED }
+        }
+        adapter.submit(shown)
+        txtEmpty.visibility = if (shown.isEmpty()) View.VISIBLE else View.GONE
+        txtEmpty.text = getString(R.string.no_downloads)
+        refreshChips()
+    }
+
+    private fun refreshChips() {
+        fun style(chip: TextView, selected: Boolean) {
+            chip.setBackgroundResource(if (selected) R.drawable.bg_btn_soft else android.R.color.transparent)
+            chip.setTextColor(if (selected) 0xFF1A73E8.toInt() else 0xFF5F6368.toInt())
+            chip.setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+        }
+        style(chipAll, filter == Filter.ALL)
+        style(chipRunning, filter == Filter.RUNNING)
+        style(chipDone, filter == Filter.DONE)
+        style(chipCanceled, filter == Filter.CANCELED)
     }
 
     override fun onDestroy() {
@@ -166,16 +220,13 @@ class DownloadsActivity : Activity() {
                     holder.btnCancel.visibility = View.VISIBLE
                 }
                 DlStatus.RUNNING -> {
-                    val mb = item.doneBytes / 1048576.0
-                    val spd = item.speedBps / 1048576.0
-                    holder.status.text = if (item.totalDurationMs > 0 && item.currentTimeMs > 0) {
+                    holder.status.text = DlFormat.progress(item)
+                    if (item.totalDurationMs > 0 && item.currentTimeMs > 0) {
                         val p = (item.currentTimeMs * 100 / item.totalDurationMs).coerceIn(0, 100).toInt()
                         holder.progress.visibility = View.VISIBLE
                         holder.progress.progress = p
-                        String.format("%d%%  ·  %.1f MB  ·  %.1f MB/s", p, mb, spd)
                     } else {
                         holder.progress.visibility = View.GONE
-                        String.format("%.1f MB  ·  %.1f MB/s", mb, spd)
                     }
                     holder.btnPlay.visibility = View.GONE
                     holder.btnCancel.visibility = View.VISIBLE

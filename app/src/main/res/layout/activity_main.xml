@@ -237,6 +237,17 @@
                 android:textColor="#FFFFFF"
                 android:textSize="12sp"
                 android:visibility="gone" />
+
+            <ImageButton
+                android:id="@+id/btnClosePanel"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_btn_ripple"
+                android:contentDescription="@string/close"
+                android:padding="8dp"
+                android:src="@drawable/ic_close"
+                android:tint="@color/icon_tint" />
         </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
