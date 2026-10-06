@@ -25,10 +25,12 @@ import java.security.MessageDigest
  */
 object AdBlocker {
 
-    /** 기본 제공 필터 세트 (최초 실행 시 자동 다운로드). 모바일/한국 사이트/추적기 중심 */
+    /** 기본 제공 필터 세트 (자동 다운로드). 모바일/한국/추적기 + 범용 광고 필터 포함 */
     val DEFAULT_FILTERS = listOf(
         "AdGuard Mobile Ads" to "https://filters.adtidy.org/extension/chromium/filters/11.txt",
         "AdGuard Tracking Protection" to "https://filters.adtidy.org/extension/chromium/filters/3.txt",
+        "AdGuard Base filter" to "https://filters.adtidy.org/extension/chromium/filters/2.txt",
+        "EasyList" to "https://easylist.to/easylist/easylist.txt",
         "List-KR (Korean sites)" to "https://raw.githubusercontent.com/List-KR/List-KR/master/filter.txt"
     )
     private const val PREFS_DEFAULTS_DONE = "default_filters_added"
@@ -44,6 +46,13 @@ object AdBlocker {
     /** 문자열 규칙의 3-gram 인덱스 (규칙이 많을 때 contains() 전수 스캔 대신 프리필터) */
     private val ruleTrigrams = HashSet<Int>()
     private const val TRIGRAM_THRESHOLD = 200
+
+    /** 보안 인증 위젯 호스트 (차단 금지 — 체크박스 미표시 방지) */
+    private val SECURITY_WIDGET_HOSTS = setOf(
+        "challenges.cloudflare.com",
+        "hcaptcha.com",
+        "recaptcha.net"
+    )
 
     /** 사용자가 추가한 단일 규칙 원문 (화면 표시용) */
     private val customRules = LinkedHashSet<String>()
@@ -70,16 +79,18 @@ object AdBlocker {
         ensureDefaultFilters()
     }
 
-    /** 기본 필터 세트 등록(최초 1회) + 파일 없는 활성 필터 백그라운드 다운로드 */
+    /** 기본 필터 세트 등록(누락분만 추가 — 업데이트로 필터가 늘어도 기존 사용자에게도 반영) + 파일 없는 활성 필터 백그라운드 다운로드 */
     private fun ensureDefaultFilters() {
-        if (prefs?.getBoolean(PREFS_DEFAULTS_DONE, false) != true) {
-            val list = urlFilters().toMutableList()
-            DEFAULT_FILTERS.forEach { (name, url) ->
-                if (list.none { it.url == url }) list += UrlFilter(name, url, true, 0)
+        val list = urlFilters().toMutableList()
+        var changed = false
+        DEFAULT_FILTERS.forEach { (name, url) ->
+            if (list.none { it.url == url }) {
+                list += UrlFilter(name, url, true, 0)
+                changed = true
             }
-            saveUrlFilters(list)
-            prefs?.edit()?.putBoolean(PREFS_DEFAULTS_DONE, true)?.apply()
         }
+        if (changed) saveUrlFilters(list)
+        prefs?.edit()?.putBoolean(PREFS_DEFAULTS_DONE, true)?.apply()
         kotlin.concurrent.thread {
             urlFilters().filter { it.enabled }.forEach { f ->
                 val file = filterFile(f.url)
@@ -366,6 +377,16 @@ object AdBlocker {
         if (!enabled) return false
         val u = url.lowercase()
         val h = host.lowercase()
+
+        // 0-1) 보안 인증 위젯(Cloudflare Turnstile / hCaptcha / reCAPTCHA)은 절대 차단하지 않음
+        //      — 차단하면 "보안 검증" 체크박스가 표시되지 않음
+        var safe = h
+        while (true) {
+            if (safe in SECURITY_WIDGET_HOSTS) return false
+            val dot = safe.indexOf('.')
+            if (dot < 0) break
+            safe = safe.substring(dot + 1)
+        }
 
         // 0) 예외 규칙: @@||도메인^ (상위 도메인 suffix 조회) + 기타 @@ 정규식
         if (exceptionDomains.isNotEmpty()) {

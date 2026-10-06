@@ -224,4 +224,5 @@
     <string name="menu_dl_conn">동시 연결 수 (%d)</string>
     <string name="dlg_split_title">한 파일 분할 수</string>
     <string name="dlg_conn_title">동시 연결 수</string>
+    <string name="no_video_playing">재샽 중인 동영상이없습니다</string>
 </resources>

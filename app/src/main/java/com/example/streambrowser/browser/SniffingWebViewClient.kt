@@ -55,6 +55,10 @@ class SniffingWebViewClient(
     private fun injectScanner(view: WebView, request: WebResourceRequest): WebResourceResponse? {
         val urlStr = request.url.toString()
         if (urlStr.startsWith("data:") || urlStr.startsWith("about:")) return null
+        val host = request.url.host ?: ""
+        // 보안 인증(Cloudflare Turnstile/hCaptcha/reCAPTCHA) 관련 페이지에는 주입하지 않음
+        // (JS 훅이 챌린지를 감지해 체크박스가 나타나지 않는 문제 방지)
+        if (isSecurityChallengeHost(host)) return null
         return runCatching {
             val conn = URL(urlStr).openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
@@ -79,6 +83,8 @@ class SniffingWebViewClient(
 
             val cs = runCatching { charset(charset) }.getOrElse { Charsets.UTF_8 }
             var html = String(data, cs)
+            // 챌린지 페이지면 원본 그대로 둔다 (인증 스크립트가 주입을 감지하지 않게)
+            if (isSecurityChallengePage(html)) return null
             if ("__sbScanner" !in html) {
                 val script = "<script>${VideoJsBridge.SCANNER_JS}</script>"
                 val m = Regex("(?i)<head[^>]*>").find(html)
@@ -222,6 +228,31 @@ class SniffingWebViewClient(
             ".flv" in pathOnly -> "FLV"
             ".mov" in pathOnly -> "MP4"
             else -> null
+        }
+    }
+
+    companion object {
+        /** 보안 인증(봇 체크) 관련 호스트 — 스캐너 주입/차단 제외 대상 */
+        private val CHALLENGE_HOST_PARTS = listOf("cloudflare", "hcaptcha", "recaptcha", "turnstile")
+
+        fun isSecurityChallengeHost(host: String): Boolean {
+            val h = host.lowercase()
+            return CHALLENGE_HOST_PARTS.any { it in h }
+        }
+
+        /** HTML 내용이 보안 인증 챌린지 페이지인지 */
+        fun isSecurityChallengePage(html: String): Boolean {
+            val t = html.lowercase()
+            return "challenges.cloudflare.com" in t || "__cf_chl" in t ||
+                    "cdn-cgi/challenge" in t || "cf-turnstile" in t ||
+                    "hcaptcha.com" in t || "recaptcha" in t
+        }
+
+        /** URL이 보안 인증 절차를 거치는 중인지 (페이지 로드 완료 후 주입 스킵용) */
+        fun isSecurityChallengeUrl(url: String): Boolean {
+            val u = url.lowercase()
+            return "__cf_chl" in u || "cdn-cgi/challenge" in u ||
+                    runCatching { isSecurityChallengeHost(Uri.parse(url).host ?: "") }.getOrDefault(false)
         }
     }
 }

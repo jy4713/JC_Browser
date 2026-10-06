@@ -115,6 +115,10 @@ class MainActivity : Activity() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    /** 현재 탭에서 동영상이 재생 중인지 (JS 브리지가 갱신) — PIP 진입 조건에 사용 */
+    @Volatile
+    private var videoPlaying = false
+
     private val HOME = "https://www.google.com"
     private val UA_MOBILE =
         "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
@@ -143,6 +147,16 @@ class MainActivity : Activity() {
         }
 
         container = findViewById(R.id.webContainer)
+        // 아래로 당겨서 새로고침
+        findViewById<com.example.streambrowser.ui.PullRefreshLayout>(R.id.webContainer).apply {
+            indicator = findViewById(R.id.pullProgress)
+            atTop = {
+                fullscreenView == null &&
+                    mediaPanel.visibility != View.VISIBLE &&
+                    (current()?.web?.canScrollVertically(-1) == false)
+            }
+            onRefresh = { current()?.web?.reload() }
+        }
         editUrl = findViewById(R.id.editUrl)
         btnVideos = findViewById(R.id.btnVideos)
         btnImages = findViewById(R.id.btnImages)
@@ -286,6 +300,14 @@ class MainActivity : Activity() {
 
         // Soul 스타일 동영상 길게 누르기 메뉴 (JS 다리)
         VideoJsBridge.onVideoLongPress = { runOnUiThread { showVideoMenu() } }
+
+        // 동영상 재생 상태 추적 (PIP 자동 진입 여부 판단용)
+        VideoJsBridge.onVideoStateChange = { playing ->
+            runOnUiThread {
+                videoPlaying = playing
+                updatePipParams()
+            }
+        }
 
         // WebView 사용 불가 기기 방어
         val webViewAvailable = runCatching {
@@ -511,6 +533,8 @@ class MainActivity : Activity() {
                             runCatching { HistoryRepo.add(this, view.title ?: "", url) }
                         }
                     }
+                    // 보안 인증(Cloudflare 등) 페이지에는 주입 건 넘어감 — 인증 스크립트가 훅을 감지해 체크가 안 나타나는 문제 방지
+                    if (com.example.streambrowser.browser.SniffingWebViewClient.isSecurityChallengeUrl(url)) return@runOnUiThread
                     runCatching { view.evaluateJavascript(VideoJsBridge.SCANNER_JS, null) }
                     // Brave 스타일 요소 숨김 (##규칙 CSS 주입)
                     val css = AdBlocker.hideCss()
@@ -1673,13 +1697,30 @@ class MainActivity : Activity() {
             com.example.streambrowser.util.JcToast.show(this, getString(R.string.pip_unsupported))
             return
         }
-        runCatching {
-            val params = PictureInPictureParams.Builder()
-                .setAspectRatio(Rational(16, 9))
-                .build()
-            enterPictureInPictureMode(params)
-        }.onFailure {
-            com.example.streambrowser.util.JcToast.show(this, getString(R.string.pip_failed))
+        // 동영상 재생 중일 때만 PIP 진입. 재생 상태를 직접 확인 (JS 브리지 상태가 오래됐을 수 있음)
+        val wv = current()?.web
+        if (wv == null) {
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.no_video_playing))
+            return
+        }
+        wv.evaluateJavascript(
+            "(function(){var v=document.querySelector('video');return !!(v && !v.paused && !v.ended);})()"
+        ) { res ->
+            runOnUiThread {
+                val playing = res?.trim() == "true"
+                if (!playing) {
+                    com.example.streambrowser.util.JcToast.show(this, getString(R.string.no_video_playing))
+                    return@runOnUiThread
+                }
+                runCatching {
+                    val params = PictureInPictureParams.Builder()
+                        .setAspectRatio(Rational(16, 9))
+                        .build()
+                    enterPictureInPictureMode(params)
+                }.onFailure {
+                    com.example.streambrowser.util.JcToast.show(this, getString(R.string.pip_failed))
+                }
+            }
         }
     }
 
@@ -1688,7 +1729,7 @@ class MainActivity : Activity() {
             runCatching {
                 val params = PictureInPictureParams.Builder()
                     .setAspectRatio(Rational(16, 9))
-                    .setAutoEnterEnabled(prefs.getBoolean("auto_pip", false))
+                    .setAutoEnterEnabled(prefs.getBoolean("auto_pip", false) && videoPlaying)
                     .build()
                 setPictureInPictureParams(params)
             }
@@ -1697,8 +1738,9 @@ class MainActivity : Activity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
+        // 자동 PIP도 동영상 재생 중일 때만
         if (Build.VERSION.SDK_INT in Build.VERSION_CODES.O..Build.VERSION_CODES.R &&
-            prefs.getBoolean("auto_pip", false)
+            prefs.getBoolean("auto_pip", false) && videoPlaying
         ) {
             runCatching {
                 enterPictureInPictureMode(
@@ -1729,6 +1771,10 @@ class MainActivity : Activity() {
             u = if (u.contains(".") && !u.contains(" ")) "https://$u" else "https://www.google.com/search?q=$u"
         }
         current()?.web?.loadUrl(u)
+        // 엔터 입력 후 키보드 내리고 포커스 해제
+        editUrl.clearFocus()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+        imm.hideSoftInputFromWindow(editUrl.windowToken, 0)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

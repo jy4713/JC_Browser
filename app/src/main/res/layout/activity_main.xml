@@ -107,12 +107,24 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- 웹뷰 -->
-    <FrameLayout
+    <!-- 웹뷰 (아래로 당겨서 새로고침) -->
+    <com.example.streambrowser.ui.PullRefreshLayout
         android:id="@+id/webContainer"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1">
+
+        <ProgressBar
+            android:id="@+id/pullProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:layout_gravity="top"
+            android:max="100"
+            android:progress="0"
+            android:progressTint="#1A73E8"
+            android:visibility="gone" />
+    </com.example.streambrowser.ui.PullRefreshLayout>
 
     <!-- 페이지 내 찾기 바 -->
     <LinearLayout

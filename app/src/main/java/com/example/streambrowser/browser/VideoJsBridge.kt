@@ -56,12 +56,21 @@ class VideoJsBridge(private val owner: WebView? = null) {
         onVideoFsChange?.invoke(on)
     }
 
+    /** 동영상 재생/일시정지 상태 전달 (PIP 등에서 사용) */
+    @JavascriptInterface
+    fun videoState(playing: Boolean) {
+        onVideoStateChange?.invoke(playing)
+    }
+
     companion object {
         @Volatile
         var onVideoLongPress: (() -> Unit)? = null
 
         @Volatile
         var onVideoFsChange: ((Boolean) -> Unit)? = null
+
+        @Volatile
+        var onVideoStateChange: ((Boolean) -> Unit)? = null
 
         /**
          * 페이지에 주입할 스캐너 스크립트.
@@ -107,6 +116,19 @@ class VideoJsBridge(private val owner: WebView? = null) {
   }
   setInterval(collect, 3000);
   collect();
+
+  /* 1-0) 동영상 재생 상태를 네이티브에 전달 (PIP 자동 진입 여부 판단용) */
+  try{
+    document.addEventListener('play', function(e){
+      try{ if (e.target && e.target.tagName === 'VIDEO') window.StreamBrowser.videoState(true); }catch(x){}
+    }, true);
+    document.addEventListener('pause', function(e){
+      try{ if (e.target && e.target.tagName === 'VIDEO') window.StreamBrowser.videoState(false); }catch(x){}
+    }, true);
+    document.addEventListener('ended', function(e){
+      try{ if (e.target && e.target.tagName === 'VIDEO') window.StreamBrowser.videoState(false); }catch(x){}
+    }, true);
+  }catch(e){}
 
   /* 1-1) Soul 스타일: 동영상 길게 누르기 감지 + 네이티브 제어용 헬퍼 노출 */
   (function(){
