@@ -71,13 +71,19 @@ class PlayerActivity : Activity() {
         }
 
         val escaped = url.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;")
+        val isHls = ".m3u8" in url.lowercase()
+        // m3u8은 WebView <video> 네이티브 미지원(code=4) → hls.js(MSE) 인라인 주입
+        val hlsJs: String = if (isHls) runCatching {
+            assets.open("hls.min.js").use { it.readBytes() }.toString(Charsets.UTF_8)
+        }.getOrDefault("") else ""
+        val urlJs = org.json.JSONObject.quote(url)
         val html = """<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>html,body{margin:0;padding:0;background:#000;height:100%;overflow:hidden}
 video{width:100vw;height:100vh;object-fit:contain;background:#000}
 #sbErr{display:none;position:fixed;left:8px;right:8px;bottom:8px;background:rgba(60,0,0,.85);color:#fff;font:12px monospace;padding:10px;border-radius:6px;white-space:pre-wrap;word-break:break-all;z-index:9}</style>
 </head><body>
-<video controls autoplay playsinline webkit-playsinline src="$escaped"></video>
+<video controls autoplay playsinline webkit-playsinline ${if (isHls) "" else "src=\"$escaped\""}></video>
 <div id="sbErr"></div>
 <script>
 var v=document.querySelector('video'),e=document.getElementById('sbErr');
@@ -86,11 +92,26 @@ v.addEventListener('error',function(){
   var c=v.error?v.error.code:'?';
   show('VIDEO ERROR code='+c+' network='+v.networkState+'\n'+(v.currentSrc||v.src));
 });
-document.addEventListener('error',function(ev){
-  var t=ev&&ev.target;
-  if(t&&t.tagName==='SOURCE')show('SOURCE ERROR network='+v.networkState+'\n'+(t.src||''));
-},true);
 </script>
+${if (isHls) """<script>$hlsJs</script>
+<script>
+(function(){
+  var SRC=$urlJs;
+  try{
+    if (window.Hls &amp;&amp; Hls.isSupported()) {
+      var h=new Hls({enableWorker:false});
+      h.loadSource(SRC); h.attachMedia(v);
+      h.on(Hls.Events.ERROR,function(ev,data){
+        if(data &amp;&amp; data.fatal) show('HLS.JS FATAL: '+data.type+'/'+data.details);
+      });
+    } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+      v.src=SRC;
+    } else {
+      show('HLS not supported on this device');
+    }
+  }catch(x){show('HLS init error: '+x.message);}
+})();
+</script>""" else ""}
 </body></html>"""
         if (url.startsWith("file://")) {
             // 로컬 파일(토렌트 순차 재생 등): 같은 폴터에 플레이어 HTML을 쓰고 file://로 로드

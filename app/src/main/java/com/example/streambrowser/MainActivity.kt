@@ -1818,7 +1818,8 @@ class MainActivity : Activity() {
 
     /** magnet/.torrent 링크 진입점 — 설정에 따라 토렌트 재생 또는 일반 다운로드 */
     private fun handleTorrentLink(url: String) {
-        if (prefs.getBoolean("torrent_play", false)) {
+        // 마그넷은 파일 다운로드가 불가하므로 토렌트 화면을 항상 연다 (토글은 .torrent 파일에만 적용)
+        if (url.startsWith("magnet:") || prefs.getBoolean("torrent_play", false)) {
             runCatching {
                 startActivity(Intent(this, com.example.streambrowser.ui.TorrentActivity::class.java)
                     .putExtra(com.example.streambrowser.ui.TorrentActivity.EXTRA_URL, url))
