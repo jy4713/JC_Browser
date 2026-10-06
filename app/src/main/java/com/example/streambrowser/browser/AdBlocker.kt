@@ -31,7 +31,14 @@ object AdBlocker {
         "AdGuard Tracking Protection" to "https://filters.adtidy.org/extension/chromium/filters/3.txt",
         "AdGuard Base filter" to "https://filters.adtidy.org/extension/chromium/filters/2.txt",
         "EasyList" to "https://easylist.to/easylist/easylist.txt",
-        "List-KR (Korean sites)" to "https://raw.githubusercontent.com/List-KR/List-KR/master/filter.txt"
+        // List-KR 저장소 재구성(2024~)으로 기존 raw 주소 404 — 공식 CDN 주소로 교체
+        "List-KR (Korean sites)" to "https://cdn.jsdelivr.net/npm/@list-kr/filterslists@latest/dist/filterslist-AdGuard.txt"
+    )
+
+    /** 구버전에 저장된 죽은 필터 URL → 새 URL (기존 사용자 자동 마이그레이션) */
+    private val MIGRATED_URLS = mapOf(
+        "https://raw.githubusercontent.com/List-KR/List-KR/master/filter.txt" to
+            "https://cdn.jsdelivr.net/npm/@list-kr/filterslists@latest/dist/filterslist-AdGuard.txt"
     )
     private const val PREFS_DEFAULTS_DONE = "default_filters_added"
 
@@ -83,6 +90,16 @@ object AdBlocker {
     private fun ensureDefaultFilters() {
         val list = urlFilters().toMutableList()
         var changed = false
+        // 죽은 URL → 새 URL 마이그레이션 (List-KR 등)
+        for (i in list.indices) {
+            val newUrl = MIGRATED_URLS[list[i].url]
+            if (newUrl != null) {
+                filterFile(list[i].url)?.delete()   // 옛 캐시 파일 제거
+                val old = list[i]
+                list[i] = UrlFilter(old.name, newUrl, old.enabled, 0)
+                changed = true
+            }
+        }
         DEFAULT_FILTERS.forEach { (name, url) ->
             if (list.none { it.url == url }) {
                 list += UrlFilter(name, url, true, 0)
