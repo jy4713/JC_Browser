@@ -126,11 +126,12 @@ class MainActivity : Activity() {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(LocaleHelper.wrap(newBase))
+        super.attachBaseContext(LocaleHelper.wrap(com.example.streambrowser.util.ThemeHelper.wrap(newBase)))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.example.streambrowser.util.ThemeHelper.apply(this)
         setContentView(R.layout.activity_main)
 
         prefs = getSharedPreferences("settings", MODE_PRIVATE)
@@ -863,12 +864,6 @@ class MainActivity : Activity() {
                 menuDialog?.dismiss()
             },
             // ON/OFF toggles (state shown as blue tint, no toasts)
-            ShortcutSpec(R.drawable.ic_dark, R.string.menu_dark, { prefs.getBoolean("dark", false) }) {
-                val on = !prefs.getBoolean("dark", false)
-                prefs.edit().putBoolean("dark", on).apply()
-                tabs.forEach { applyDarkMode(it.web.settings) }
-                rebuildMenu()
-            },
             ShortcutSpec(R.drawable.ic_desktop, R.string.menu_desktop, { prefs.getBoolean("desktop", false) }) {
                 val on = !prefs.getBoolean("desktop", false)
                 prefs.edit().putBoolean("desktop", on).apply()
@@ -982,6 +977,9 @@ class MainActivity : Activity() {
                 }
             )),
             MenuGroup(R.string.group_general, R.drawable.ic_settings, listOf(
+                MenuEntry(getString(R.string.menu_theme) + ": " + themeModeLabel(), R.drawable.ic_dark, null) {
+                    showThemeDialog()
+                },
                 MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
                     showTextSizeDialog()
                 },
@@ -1067,7 +1065,7 @@ class MainActivity : Activity() {
 
     /** 각 설정의 실제 동작 기본값 (메뉴 ON 표시와 일치시키기 위함) */
     private fun prefDefault(key: String): Boolean = when (key) {
-        "desktop", "dark", "auto_pip", "js_block" -> false
+        "desktop", "auto_pip", "js_block" -> false
         "adblock" -> AdBlocker.enabled
         else -> true // restore_tabs, fast_dl, dl_notify, overlay_block, popup_block, app_block
     }
@@ -1511,14 +1509,53 @@ class MainActivity : Activity() {
     // ------------------------------------------------------- 기타 헬퍼
 
     private fun applyDarkMode(settings: WebSettings) {
-        val on = prefs.getBoolean("dark", false)
+        // 테마 설정(다크/라이트/시스템) 기준으로 WebView 다크닝 적용.
+        // API 33+: forceDark는 무효이고 algorithmic darkening은 '앱 테마가 다크'일 때만 동작하므로
+        // 테마 변경 시 액티비티 recreate로 테마까지 함께 바뀐 뒤 여기서 허용 여부만 제어한다.
+        val dark = com.example.streambrowser.util.ThemeHelper.isDark(this)
         if (Build.VERSION.SDK_INT >= 33) {
-            runCatching { settings.setAlgorithmicDarkeningAllowed(on) }
+            runCatching { settings.setAlgorithmicDarkeningAllowed(dark) }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             runCatching {
-                settings.forceDark = if (on) WebSettings.FORCE_DARK_ON else WebSettings.FORCE_DARK_OFF
+                settings.forceDark = if (dark) WebSettings.FORCE_DARK_ON else WebSettings.FORCE_DARK_OFF
             }
         }
+    }
+
+    // ------------------------------------------------------- 테마 (다크/라이트/시스템)
+
+    private fun themeModeLabel(): String = when (com.example.streambrowser.util.ThemeHelper.mode(this)) {
+        com.example.streambrowser.util.ThemeHelper.MODE_DARK -> getString(R.string.theme_dark)
+        com.example.streambrowser.util.ThemeHelper.MODE_LIGHT -> getString(R.string.theme_light)
+        else -> getString(R.string.theme_system)
+    }
+
+    /** 테마 선택: 시스템 / 어두움 / 밝음 — 적용을 위해 액티비티를 다시 생성한다 */
+    private fun showThemeDialog() {
+        val modes = arrayOf(
+            getString(R.string.theme_system),
+            getString(R.string.theme_dark),
+            getString(R.string.theme_light)
+        )
+        val values = arrayOf(
+            com.example.streambrowser.util.ThemeHelper.MODE_SYSTEM,
+            com.example.streambrowser.util.ThemeHelper.MODE_DARK,
+            com.example.streambrowser.util.ThemeHelper.MODE_LIGHT
+        )
+        val current = values.indexOf(com.example.streambrowser.util.ThemeHelper.mode(this)).coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.menu_theme)
+            .setSingleChoiceItems(modes, current) { dlg, which ->
+                dlg.dismiss()
+                menuDialog?.dismiss()
+                val m = values[which]
+                if (m != com.example.streambrowser.util.ThemeHelper.mode(this)) {
+                    com.example.streambrowser.util.ThemeHelper.setMode(this, m)
+                    recreate()
+                }
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
     }
 
     private fun showTextSizeDialog() {

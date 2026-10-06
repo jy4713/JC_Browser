@@ -58,6 +58,10 @@
     <string name="menu_find">페이지에서 찾기</string>
     <string name="menu_desktop">데스크톱 사이트</string>
     <string name="menu_dark">어두운 모드</string>
+    <string name="menu_theme">테마</string>
+    <string name="theme_system">시스템 기본</string>
+    <string name="theme_dark">어두움</string>
+    <string name="theme_light">밝음</string>
     <string name="menu_text_size">글자 크기</string>
     <string name="menu_capture">화면 캡처</string>
     <string name="menu_pip">PIP 모드 (화면 속 화면)</string>

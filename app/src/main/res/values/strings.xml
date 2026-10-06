@@ -60,6 +60,10 @@
     <string name="menu_find">Find in page</string>
     <string name="menu_desktop">Desktop site</string>
     <string name="menu_dark">Dark mode</string>
+    <string name="menu_theme">Theme</string>
+    <string name="theme_system">System default</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_light">Light</string>
     <string name="menu_text_size">Text size</string>
     <string name="menu_capture">Screenshot</string>
     <string name="menu_pip">Picture-in-picture</string>

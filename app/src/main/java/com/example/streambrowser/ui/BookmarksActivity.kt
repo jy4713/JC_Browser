@@ -28,7 +28,7 @@ import java.io.File
 class BookmarksActivity : Activity() {
 
     override fun attachBaseContext(newBase: android.content.Context) {
-        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(newBase))
+        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(com.example.streambrowser.util.ThemeHelper.wrap(newBase)))
     }
 
     private var parentId = 0L
@@ -38,6 +38,7 @@ class BookmarksActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.example.streambrowser.util.ThemeHelper.apply(this)
         setContentView(R.layout.activity_bookmarks)
         txtTitle = findViewById(R.id.txtTitle)
 

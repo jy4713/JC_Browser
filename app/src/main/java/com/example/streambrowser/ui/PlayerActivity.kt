@@ -27,11 +27,12 @@ class PlayerActivity : Activity() {
     private var fsCallback: WebChromeClient.CustomViewCallback? = null
 
     override fun attachBaseContext(newBase: android.content.Context) {
-        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(newBase))
+        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(com.example.streambrowser.util.ThemeHelper.wrap(newBase)))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.example.streambrowser.util.ThemeHelper.apply(this)
         setContentView(R.layout.activity_player)
         root = findViewById(R.id.playerRoot)
         web = findViewById(R.id.playerWeb)

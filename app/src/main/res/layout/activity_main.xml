@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
+    android:background="?android:attr/colorBackground"
     android:orientation="vertical">
 
     <!-- 상단: 둥근 주소창 + 영상 버튼(배지) -->
@@ -190,7 +190,7 @@
         android:id="@+id/mediaPanel"
         android:layout_width="match_parent"
         android:layout_height="280dp"
-        android:background="#FFFFFF"
+        android:background="?android:attr/colorBackground"
         android:orientation="vertical"
         android:visibility="gone">
 

@@ -28,7 +28,7 @@ import java.util.Locale
 class HistoryActivity : Activity() {
 
     override fun attachBaseContext(newBase: android.content.Context) {
-        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(newBase))
+        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(com.example.streambrowser.util.ThemeHelper.wrap(newBase)))
     }
 
     private lateinit var adapter: HistoryAdapter
@@ -36,6 +36,7 @@ class HistoryActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.example.streambrowser.util.ThemeHelper.apply(this)
         setContentView(R.layout.activity_history)
 
         findViewById<ImageButton>(R.id.btnBack).setOnClickListener { finish() }

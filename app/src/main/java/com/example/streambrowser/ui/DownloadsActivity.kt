@@ -33,7 +33,7 @@ import java.io.File
 class DownloadsActivity : Activity() {
 
     override fun attachBaseContext(newBase: android.content.Context) {
-        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(newBase))
+        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(com.example.streambrowser.util.ThemeHelper.wrap(newBase)))
     }
 
     private lateinit var adapter: DlAdapter
@@ -51,6 +51,7 @@ class DownloadsActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.example.streambrowser.util.ThemeHelper.apply(this)
         setContentView(R.layout.activity_downloads)
 
         DownloadStore.init(this)

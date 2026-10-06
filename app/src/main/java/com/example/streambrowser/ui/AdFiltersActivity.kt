@@ -29,11 +29,12 @@ class AdFiltersActivity : Activity() {
     private lateinit var ruleList: LinearLayout
 
     override fun attachBaseContext(newBase: android.content.Context) {
-        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(newBase))
+        super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(com.example.streambrowser.util.ThemeHelper.wrap(newBase)))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.example.streambrowser.util.ThemeHelper.apply(this)
         setContentView(R.layout.activity_adfilters)
 
         findViewById<ImageButton>(R.id.btnBack).setOnClickListener { finish() }
