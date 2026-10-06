@@ -27,19 +27,19 @@
 
         <ImageButton
             android:id="@+id/menuIcon"
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            android:layout_marginStart="10dp"
-            android:layout_marginTop="11dp"
-            android:layout_marginBottom="11dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginTop="13dp"
+            android:layout_marginBottom="13dp"
             android:background="@android:color/transparent"
-            android:tint="#5F6368" />
+            android:tint="@color/text_primary" />
 
         <TextView
             android:id="@+id/menuTitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="14dp"
+            android:layout_marginStart="16dp"
             android:layout_weight="1"
             android:textColor="@color/text_primary"
             android:textSize="15sp" />

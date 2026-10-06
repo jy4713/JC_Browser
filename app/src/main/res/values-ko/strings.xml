@@ -251,4 +251,13 @@
     <string name="torrent_done">완료 — 다운로드/JC Browser 폴터로 %1$d개 낳여졌습니다</string>
     <string name="torrent_file_downloading">.torrent 파일 다운로드 중</string>
     <string name="torrent_unavailable">토렌트를 열 수 없습니다</string>
+    <string name="menu_search_engine">검색엔진</string>
+    <string name="menu_suggest">검색어 제안</string>
+    <string name="menu_open_external">외부 앱에서 열기</string>
+    <string name="menu_print">프린트</string>
+    <string name="menu_block_images">이미지 로드 차단</string>
+    <string name="menu_reopen_tab">닫은 탭 다시 열기</string>
+    <string name="menu_close_all_tabs">모든 탭 닫기</string>
+    <string name="none_closed">최근에 닫은 탭이 없습니다</string>
+    <string name="group_page">페이지</string>
 </resources>

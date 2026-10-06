@@ -253,4 +253,13 @@
     <string name="torrent_done">Done — exported %1$d file(s) to Downloads/JC Browser</string>
     <string name="torrent_file_downloading">Downloading .torrent file</string>
     <string name="torrent_unavailable">Cannot open torrent</string>
+    <string name="menu_search_engine">Search engine</string>
+    <string name="menu_suggest">Search suggestions</string>
+    <string name="menu_open_external">Open in app</string>
+    <string name="menu_print">Print</string>
+    <string name="menu_block_images">Block images</string>
+    <string name="menu_reopen_tab">Reopen closed tab</string>
+    <string name="menu_close_all_tabs">Close all tabs</string>
+    <string name="none_closed">No recently closed tabs</string>
+    <string name="group_page">Page</string>
 </resources>

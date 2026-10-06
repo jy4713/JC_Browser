@@ -200,6 +200,23 @@ class MainActivity : Activity() {
             if (actionId == EditorInfo.IME_ACTION_GO) { loadUrl(); true } else false
         }
 
+        // 크롬/엣지 스타일 검색어 자동완성 제안 (DuckDuckGo suggest API)
+        editUrl.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                mainHandler.removeCallbacks(suggestRunnable)
+                suggestPopup?.dismiss()
+                val q = s?.toString()?.trim() ?: ""
+                // URL처럼 보이는 입력(도메인, 프로토콜)이면 제안 안 함
+                val looksLikeUrl = q.startsWith("http") || (q.contains(".") && !q.contains(" "))
+                if (q.length < 2 || looksLikeUrl || !prefs.getBoolean("suggest", true)) return
+                suggestQuery = q
+                mainHandler.postDelayed(suggestRunnable, 250)
+            }
+        })
+        editUrl.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) suggestPopup?.dismiss() }
+
         // Chrome 제스처: 주소창 좌우 스와이프로 탭 전환
         val tabFling = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
@@ -503,6 +520,7 @@ class MainActivity : Activity() {
             useWideViewPort = true
             userAgentString = if (prefs.getBoolean("desktop", false)) UA_DESKTOP else UA_MOBILE
             textZoom = prefs.getInt("text_zoom", 100)
+            blockNetworkImage = prefs.getBoolean("block_images", false)
             setSupportMultipleWindows(true)
             applyDarkMode(this)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -638,7 +656,10 @@ class MainActivity : Activity() {
             com.example.streambrowser.util.JcToast.show(this, getString(R.string.last_tab))
             return
         }
-        tabs[index].web.destroy()
+        val t = tabs[index]
+        t.web.url?.let { if (it.isNotEmpty()) closedTabs.addLast(it to t.incognito) }
+        while (closedTabs.size > 10) closedTabs.removeFirst()
+        t.web.destroy()
         tabs.removeAt(index)
         if (current >= tabs.size) current = tabs.size - 1
         showCurrent()
@@ -914,6 +935,12 @@ class MainActivity : Activity() {
         val s = fun(res: Int) = getString(res)
         val currentHost = runCatching { Uri.parse(current()?.web?.url ?: "").host ?: "" }.getOrDefault("")
         return listOf(
+            MenuGroup(R.string.group_page, R.drawable.ic_share, listOf(
+                MenuEntry(s(R.string.menu_share), R.drawable.ic_share, null) { sharePage() },
+                MenuEntry(s(R.string.menu_copy_url), R.drawable.ic_copy, null) { copyCurrentUrl() },
+                MenuEntry(s(R.string.menu_open_external), R.drawable.ic_open_in_new, null) { openInExternalApp() },
+                MenuEntry(s(R.string.menu_print), R.drawable.ic_list, null) { printPage() }
+            )),
             MenuGroup(R.string.group_cleaner, R.drawable.ic_shield, listOf(
                 MenuEntry(s(R.string.menu_adblock), R.drawable.ic_adblock, "adblock") {
                     val on = !prefs.getBoolean("adblock", true)
@@ -997,11 +1024,24 @@ class MainActivity : Activity() {
                 }
             )),
             MenuGroup(R.string.group_privacy, R.drawable.ic_incognito, listOf(
+                MenuEntry(s(R.string.menu_block_images), R.drawable.ic_image, "block_images") {
+                    val on = !prefs.getBoolean("block_images", false)
+                    prefs.edit().putBoolean("block_images", on).apply()
+                    tabs.forEach { runCatching { it.web.settings.blockNetworkImage = on } }
+                },
                 MenuEntry(s(R.string.menu_clear_data), R.drawable.ic_close, null) {
                     confirmClearData()
                 }
             )),
             MenuGroup(R.string.group_general, R.drawable.ic_settings, listOf(
+                MenuEntry(getString(R.string.menu_search_engine) + ": " + searchEngineLabel(), R.drawable.ic_search, null) {
+                    showSearchEngineDialog()
+                },
+                MenuEntry(s(R.string.menu_suggest), R.drawable.ic_search, "suggest") {
+                    val on = !prefs.getBoolean("suggest", true)
+                    prefs.edit().putBoolean("suggest", on).apply()
+                    if (!on) suggestPopup?.dismiss()
+                },
                 MenuEntry(getString(R.string.menu_theme) + ": " + themeModeLabel(), R.drawable.ic_dark, null) {
                     showThemeDialog()
                 },
@@ -1013,6 +1053,12 @@ class MainActivity : Activity() {
                 },
                 MenuEntry(s(R.string.menu_torrent_open), R.drawable.ic_download, null) {
                     showTorrentOpenDialog()
+                },
+                MenuEntry(s(R.string.menu_reopen_tab), R.drawable.ic_history, null) {
+                    reopenClosedTab()
+                },
+                MenuEntry(s(R.string.menu_close_all_tabs), R.drawable.ic_close, null) {
+                    closeAllTabs()
                 },
                 MenuEntry(s(R.string.menu_restore_tabs), R.drawable.ic_tabs, "restore_tabs") {
                     val on = !prefs.getBoolean("restore_tabs", true)
@@ -1068,9 +1114,9 @@ class MainActivity : Activity() {
 
     /** 각 설정의 실제 동작 기본값 (메뉴 ON 표시와 일치시키기 위함) */
     private fun prefDefault(key: String): Boolean = when (key) {
-        "desktop", "auto_pip", "js_block", "torrent_play" -> false
+        "desktop", "auto_pip", "js_block", "torrent_play", "block_images" -> false
         "adblock" -> AdBlocker.enabled
-        else -> true // restore_tabs, fast_dl, dl_notify, overlay_block, popup_block, app_block
+        else -> true // restore_tabs, fast_dl, dl_notify, overlay_block, popup_block, app_block, suggest
     }
 
     /** 팝업 차단 방식: 모든 팝업 / 광고 의심만 (Soul 스타일) */
@@ -1251,8 +1297,9 @@ class MainActivity : Activity() {
                         iconV.setImageResource(spec.iconRes)
                         labelV.text = getString(spec.labelRes)
                         if (spec.state?.invoke() == true) {
-                            iconV.setColorFilter(Color.parseColor("#1A73E8"))
-                            labelV.setTextColor(Color.parseColor("#1A73E8"))
+                            val accent = resources.getColor(R.color.primary, theme)
+                            iconV.setColorFilter(accent)
+                            labelV.setTextColor(accent)
                         }
                         cell.setOnClickListener { spec.action() }
                         grid.addView(cell)
@@ -1293,7 +1340,7 @@ class MainActivity : Activity() {
                     h.state?.visibility =
                         if ((e.prefKey != null || e.state != null) && checked) View.VISIBLE else View.GONE
                     h.state?.text = getString(R.string.on_state)
-                    h.state?.setTextColor(Color.parseColor("#1A73E8"))
+                    h.state?.setTextColor(resources.getColor(R.color.primary, theme))
                     h.itemView.setOnClickListener {
                         e.action()
                         rebuildMenu()
@@ -1905,13 +1952,171 @@ class MainActivity : Activity() {
         var u = editUrl.text.toString().trim()
         if (u.isEmpty()) return
         if (!u.startsWith("http://") && !u.startsWith("https://")) {
-            u = if (u.contains(".") && !u.contains(" ")) "https://$u" else "https://www.google.com/search?q=$u"
+            u = if (u.contains(".") && !u.contains(" ")) "https://$u" else searchUrl(u)
         }
+        suggestPopup?.dismiss()
         current()?.web?.loadUrl(u)
         // 엔터 입력 후 키보드 내리고 포커스 해제
         editUrl.clearFocus()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
         imm.hideSoftInputFromWindow(editUrl.windowToken, 0)
+    }
+
+    /** 설정된 검색엔진의 검색 URL 생성 */
+    private fun searchUrl(query: String): String {
+        val enc = java.net.URLEncoder.encode(query, "UTF-8")
+        return when (prefs.getString("search_engine", "google")) {
+            "bing" -> "https://www.bing.com/search?q=$enc"
+            "duckduckgo" -> "https://duckduckgo.com/?q=$enc"
+            "naver" -> "https://search.naver.com/search.naver?query=$enc"
+            "daum" -> "https://search.daum.net/search?q=$enc"
+            else -> "https://www.google.com/search?q=$enc"
+        }
+    }
+
+    private fun searchEngineLabel(): String = when (prefs.getString("search_engine", "google")) {
+        "bing" -> "Bing"
+        "duckduckgo" -> "DuckDuckGo"
+        "naver" -> "Naver"
+        "daum" -> "Daum"
+        else -> "Google"
+    }
+
+    private fun showSearchEngineDialog() {
+        val values = arrayOf("google", "bing", "duckduckgo", "naver", "daum")
+        val labels = arrayOf("Google", "Bing", "DuckDuckGo", "Naver", "Daum")
+        val cur = values.indexOf(prefs.getString("search_engine", "google")).coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.menu_search_engine))
+            .setSingleChoiceItems(labels, cur) { d, which ->
+                prefs.edit().putString("search_engine", values[which]).apply()
+                d.dismiss()
+                rebuildMenu()
+            }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
+    }
+
+    /* ---------- 페이지 공통 기능 (Chrome/Edge/Firefox 공통) ---------- */
+
+    private fun sharePage() {
+        val url = current()?.web?.url ?: return
+        val title = current()?.web?.title ?: ""
+        val i = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, url)
+            putExtra(Intent.EXTRA_SUBJECT, title)
+        }
+        runCatching { startActivity(Intent.createChooser(i, getString(R.string.menu_share))) }
+    }
+
+    private fun copyCurrentUrl() {
+        val url = current()?.web?.url ?: return
+        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("url", url))
+        com.example.streambrowser.util.JcToast.show(this, getString(R.string.url_copied))
+    }
+
+    private fun openInExternalApp() {
+        val url = current()?.web?.url ?: return
+        runCatching { Uri.parse(url) }.getOrNull()?.let { uri ->
+            val i = Intent(Intent.ACTION_VIEW, uri)
+            runCatching { startActivity(Intent.createChooser(i, getString(R.string.menu_open_external))) }
+                .onFailure {
+                    com.example.streambrowser.util.JcToast.show(this, getString(R.string.torrent_unavailable))
+                }
+        }
+    }
+
+    private fun printPage() {
+        val web = current()?.web ?: return
+        val pm = getSystemService(Context.PRINT_SERVICE) as android.print.PrintManager
+        runCatching {
+            pm.print("JC Browser", web.createPrintDocumentAdapter("JC Browser"),
+                android.print.PrintAttributes.Builder().build())
+        }
+    }
+
+    /* ---------- 닫은 탭 복구 (Chrome/Firefox 공통) ---------- */
+
+    private val closedTabs = ArrayDeque<Pair<String, Boolean>>() // (url, incognito), 최근 닫은 순
+
+    private fun reopenClosedTab() {
+        while (closedTabs.isNotEmpty()) {
+            val (url, incognito) = closedTabs.removeLast()
+            if (url.isNotEmpty() && url != "about:blank") {
+                createTab(url, incognito)
+                return
+            }
+        }
+        com.example.streambrowser.util.JcToast.show(this, getString(R.string.none_closed))
+    }
+
+    private fun closeAllTabs() {
+        val keep = current()
+        tabs.filter { it != keep }.forEach { it.web.destroy() }
+        tabs.clear()
+        tabs.add(keep!!)
+        current = 0
+        showCurrent()
+    }
+
+    /* ---------- 검색어 자동완성 제안 (Chrome/엣지 스타일) ---------- */
+
+    private var suggestPopup: PopupWindow? = null
+    private var suggestQuery = ""
+    private val suggestRunnable = Runnable { fetchSuggestions(suggestQuery) }
+
+    private fun fetchSuggestions(q: String) {
+        Thread {
+            val list = runCatching {
+                val enc = java.net.URLEncoder.encode(q, "UTF-8")
+                val conn = java.net.URL("https://duckduckgo.com/ac/?q=$enc&type=list")
+                    .openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0")
+                val body = conn.inputStream.use { it.readBytes() }.toString(Charsets.UTF_8)
+                val arr = org.json.JSONArray(body)
+                val out = mutableListOf<String>()
+                if (arr.length() > 1) {
+                    val items = arr.optJSONArray(1) ?: org.json.JSONArray()
+                    for (i in 0 until minOf(items.length(), 6)) {
+                        when (val it = items.opt(i)) {
+                            is String -> out += it
+                            is org.json.JSONObject -> it.optString("phrase").takeIf { p -> p.isNotBlank() }?.let(out::add)
+                        }
+                    }
+                }
+                out
+            }.getOrDefault(emptyList())
+            runOnUiThread {
+                if (editUrl.text.toString().trim() == q) showSuggestions(list)
+            }
+        }.start()
+    }
+
+    private fun showSuggestions(items: List<String>) {
+        if (items.isEmpty() || !editUrl.isFocused) return
+        val listView = android.widget.ListView(this)
+        listView.adapter = ArrayAdapter(this, R.layout.item_suggest, items)
+        val pw = PopupWindow(
+            listView,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        pw.setBackgroundDrawable(ColorDrawable(resources.getColor(R.color.sheet_bg, theme)))
+        pw.elevation = 16f
+        pw.isOutsideTouchable = true
+        listView.setOnItemClickListener { _, _, pos, _ ->
+            pw.dismiss()
+            suggestPopup = null
+            editUrl.setText(items[pos])
+            loadUrl()
+        }
+        pw.showAsDropDown(topBar, 0, 0)
+        suggestPopup = pw
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
