@@ -260,4 +260,13 @@
     <string name="menu_close_all_tabs">모든 탭 닫기</string>
     <string name="none_closed">최근에 닫은 탭이 없습니다</string>
     <string name="group_page">페이지</string>
+    <string name="menu_site_settings">사이트 설정</string>
+    <string name="cd_site_info">사이트 정보</string>
+    <string name="site_js">자바스크립트 허용</string>
+    <string name="site_popup">팝업 허용</string>
+    <string name="site_overlay">오버레이 차단 예외</string>
+    <string name="site_ads">광고 차단 예외</string>
+    <string name="newtab_title">새 탭</string>
+    <string name="newtab_empty">방문 기록이 쌓이면 자주 가는 사이트가 여기에 표시됩니다</string>
+    <string name="js_denied_site">이 사이트는 자바스크립트가 차단되었습니다</string>
 </resources>

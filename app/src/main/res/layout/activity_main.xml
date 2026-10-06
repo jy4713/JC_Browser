@@ -17,6 +17,16 @@
         android:paddingEnd="10dp"
         android:paddingBottom="5dp">
 
+        <ImageButton
+            android:id="@+id/btnSiteInfo"
+            android:layout_width="34dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_btn_ripple"
+            android:contentDescription="@string/cd_site_info"
+            android:padding="8dp"
+            android:src="@drawable/ic_lock"
+            android:tint="@color/icon_tint" />
+
         <EditText
             android:id="@+id/editUrl"
             android:layout_width="0dp"

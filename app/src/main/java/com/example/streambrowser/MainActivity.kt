@@ -153,6 +153,10 @@ class MainActivity : Activity() {
         }
 
         container = findViewById(R.id.webContainer)
+        // 화면 좌/우 가장자리 스와이프 = 뒤로/앞으로
+        attachEdgeSwipe(container)
+        // 주소창 왼쪽 자물쇠 아이콘 = 이 사이트 설정
+        findViewById<ImageButton>(R.id.btnSiteInfo).setOnClickListener { showSiteSettingsDialog() }
         // 아래로 당겨서 새로고침
         findViewById<com.example.streambrowser.ui.PullRefreshLayout>(R.id.webContainer).apply {
             indicator = findViewById(R.id.pullProgress)
@@ -531,11 +535,14 @@ class MainActivity : Activity() {
         // 동의 선택이 저장되지 않아 매번 다시 물어봄 (WebView 기본값: 서드파티 쿠키 차단)
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
-        // 사이트별 JS 차단 초기 적용
+        // 사이트별 JS 차단 초기 적용 (전역 js_block 목록 + 사이트 설정의 독립 차단 목록)
         runCatching {
             val h = Uri.parse(url).host ?: ""
-            if (h.isNotEmpty() && WebCleaner.isJsBlockedFor(h)) wv.settings.javaScriptEnabled = false
+            if (h.isNotEmpty() && (WebCleaner.isJsBlockedFor(h) || WebCleaner.isInSet("js_deny_hosts", h)))
+                wv.settings.javaScriptEnabled = false
         }
+        // Android 자동채우기 프레임워크 활성화 (삼성 패스/비밀번호 관리자가 폼 자동 입력)
+        wv.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             runCatching { wv.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true) }
         }
@@ -543,15 +550,15 @@ class MainActivity : Activity() {
             onPageStartedCb = { view, url ->
                 runOnUiThread {
                     if (view == current()?.web) {
-                        editUrl.setText(url)
+                        editUrl.setText(if (url.contains("jcb.local")) "" else url)
                         updateNavButtons()
                     }
                     // 이 탭의 페이지 이동 → 이 탭의 목록만 리셋
                     VideoStore.clear(view)
-                    // 사이트별 JS 차단 갱신 (다음 로드부터 적용)
+                    // 사이트별 JS 차단 갱신 (다음 로드부터 적용, 전역 목록 + 사이트 설정의 독립 목록)
                     runCatching {
                         val h = Uri.parse(url).host ?: ""
-                        val want = h.isEmpty() || !WebCleaner.isJsBlockedFor(h)
+                        val want = h.isEmpty() || (!WebCleaner.isJsBlockedFor(h) && !WebCleaner.isInSet("js_deny_hosts", h))
                         if (view.settings.javaScriptEnabled != want) view.settings.javaScriptEnabled = want
                     }
                 }
@@ -559,10 +566,12 @@ class MainActivity : Activity() {
             onPageFinishedCb = { view, url ->
                 runOnUiThread {
                     if (view == current()?.web) {
-                        editUrl.setText(url)
+                        editUrl.setText(if (url.contains("jcb.local")) "" else url)
                         updateNavButtons()
                         val tab = tabs.firstOrNull { it.web == view }
-                        if (tab?.incognito != true) {
+                        if (tab?.incognito != true &&
+                            runCatching { Uri.parse(url).host }.getOrNull() != "jcb.local"
+                        ) {
                             runCatching { HistoryRepo.add(this, view.title ?: "", url) }
                         }
                     }
@@ -646,9 +655,151 @@ class MainActivity : Activity() {
         tabs.add(tab)
         current = tabs.size - 1
         runCatching { wv.addJavascriptInterface(VideoJsBridge(wv), "StreamBrowser") }
-        if (url.isNotEmpty()) wv.loadUrl(url)
+        when {
+            url == NEW_TAB_URL -> loadSpeedDial(wv)
+            url.isNotEmpty() -> wv.loadUrl(url)
+        }
         showCurrent()
         return tab
+    }
+
+    /* ---------- ① 속도 다이얼 새 탭 페이지 (Chrome/삼성 스타일) ---------- */
+
+    private val NEW_TAB_URL = "jcb://newtab"
+
+    private fun loadSpeedDial(wv: WebView) {
+        // 방문 기록에서 자주 간 도메인 상위 8개 (검색 결과/속도 다이얼 자체 제외)
+        val seen = LinkedHashMap<String, String>() // 도메인 -> 제목
+        for ((title, url, _) in com.example.streambrowser.db.HistoryRepo.all(this)) {
+            val host = runCatching { Uri.parse(url).host ?: "" }.getOrDefault("")
+            if (host.isEmpty() || host == "jcb.local") continue
+            if ((host.endsWith("google.com") || host == "google.com") && url.contains("/search")) continue
+            if ((host.endsWith("bing.com") || host == "bing.com") && url.contains("/search")) continue
+            val domain = host.removePrefix("www.")
+            if (!seen.containsKey(domain)) seen[domain] = title.ifBlank { domain }
+            if (seen.size >= 8) break
+        }
+        val dark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val bg = if (dark) "#202124" else "#FFFFFF"
+        val fg = if (dark) "#E8EAED" else "#202124"
+        val sub = if (dark) "#9AA0A6" else "#5F6368"
+        val colors = listOf("#1A73E8", "#E8710A", "#188038", "#9334E6", "#D93025", "#009688", "#3F51B5", "#795548")
+        val sb = StringBuilder()
+        sb.append("<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>")
+        sb.append("<style>body{background:$bg;margin:0;font-family:sans-serif;padding:28px 16px}")
+        sb.append("h1{color:$fg;font-size:17px;margin:0 0 24px 4px;font-weight:600}")
+        sb.append(".grid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px 10px;max-width:560px;margin:0 auto}")
+        sb.append(".tile{text-decoration:none;text-align:center;-webkit-tap-highlight-color:transparent}")
+        sb.append(".circ{width:52px;height:52px;border-radius:50%;margin:0 auto;color:#fff;font-size:22px;font-weight:bold;display:flex;align-items:center;justify-content:center}")
+        sb.append(".lbl{color:$sub;font-size:11px;margin:7px auto 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:84px}")
+        sb.append(".empty{color:$sub;font-size:13px;text-align:center;margin-top:40px;line-height:1.6}</style></head><body>")
+        sb.append("<h1>").append(org.json.JSONObject.quote(getString(R.string.newtab_title)).removeSurrounding("\"")).append("</h1>")
+        if (seen.isEmpty()) {
+            sb.append("<div class='empty'>").append(getString(R.string.newtab_empty)).append("</div>")
+        } else {
+            sb.append("<div class='grid'>")
+            seen.entries.forEachIndexed { i, e ->
+                val c = colors[i % colors.size]
+                sb.append("<a class='tile' href='https://").append(e.key).append("'>")
+                sb.append("<div class='circ' style='background:").append(c).append("'>")
+                sb.append(e.value.trimStart().first().uppercaseChar())
+                sb.append("</div><div class='lbl'>").append(e.key).append("</div></a>")
+            }
+            sb.append("</div>")
+        }
+        sb.append("</body></html>")
+        wv.loadDataWithBaseURL("https://jcb.local/newtab", sb.toString(), "text/html", "utf-8", null)
+    }
+
+    /* ---------- ② 화면 가장자리 스와이프 = 뒤로/앞으로 (Chrome/엣지/삼성 스타일) ---------- */
+
+    private fun attachEdgeSwipe(target: View) {
+        val dm = resources.displayMetrics
+        val edgeZone = (26 * dm.density)
+        val threshold = (56 * dm.density)
+        var startX = -1f
+        var startY = -1f
+        var isLeftEdge = false
+        var fired = false
+        target.setOnTouchListener { _, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    fired = false
+                    isLeftEdge = ev.x < edgeZone
+                    if (isLeftEdge || target.width - ev.x < edgeZone) {
+                        startX = ev.x; startY = ev.y
+                    } else startX = -1f
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (startX >= 0f && !fired) {
+                        val dx = ev.x - startX
+                        val dy = ev.y - startY
+                        if (kotlin.math.abs(dx) > threshold && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.2f) {
+                            fired = true
+                            val web = current()?.web
+                            if (isLeftEdge && dx > 0) {
+                                if (web?.canGoBack() == true) web.goBack()
+                            } else if (!isLeftEdge && dx < 0) {
+                                if (web?.canGoForward() == true) web.goForward()
+                            }
+                        }
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> startX = -1f
+            }
+            false
+        }
+    }
+
+    /* ---------- ⑥ 사이트별 설정 (Chrome 자물쇠 아이콘 스타일) ---------- */
+
+    private fun setHostIn(key: String, host: String, member: Boolean) {
+        val cur = WebCleaner.hostsOf(key).toMutableSet()
+        if (member) cur.add(host.lowercase()) else cur.remove(host.lowercase())
+        WebCleaner.setHosts(key, cur)
+    }
+
+    private fun showSiteSettingsDialog() {
+        val web = current()?.web ?: return
+        val url = web.url ?: return
+        val host = runCatching { Uri.parse(url).host }.getOrNull() ?: return
+        val items = arrayOf(
+            getString(R.string.site_js),
+            getString(R.string.site_popup),
+            getString(R.string.site_overlay),
+            getString(R.string.site_ads)
+        )
+        val checked = booleanArrayOf(
+            runCatching { web.settings.javaScriptEnabled }.getOrDefault(true),
+            WebCleaner.isPopupAllowed(host),
+            WebCleaner.isOverlayAllowed(host),
+            AdBlocker.isHostAllowed(host)
+        )
+        AlertDialog.Builder(this)
+            .setTitle(host)
+            .setMultiChoiceItems(items, checked) { _, which, isChecked ->
+                when (which) {
+                    // 자바스크립트: 사이트 설정 전용 독립 목록(js_deny_hosts) — 전역 js_block과 무관
+                    0 -> {
+                        setHostIn("js_deny_hosts", host, !isChecked)
+                        runCatching { web.settings.javaScriptEnabled = isChecked }
+                        if (!isChecked) com.example.streambrowser.util.JcToast.show(this, getString(R.string.js_denied_site))
+                    }
+                    1 -> setHostIn("popup_allow_hosts", host, isChecked)
+                    2 -> setHostIn("overlay_allow_hosts", host, isChecked)
+                    3 -> {
+                        val cur = AdBlocker.adAllowHosts().toMutableSet()
+                        if (isChecked) cur.add(host.lowercase()) else cur.remove(host.lowercase())
+                        AdBlocker.setAllowHosts(cur)
+                    }
+                }
+            }
+            .setPositiveButton(getString(R.string.btn_ok)) { _, _ ->
+                web.reload()
+            }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
     }
 
     private fun closeTab(index: Int) {
@@ -870,11 +1021,11 @@ class MainActivity : Activity() {
         val s = fun(res: Int) = getString(res)
         return listOf(
             ShortcutSpec(R.drawable.ic_tabs, R.string.menu_new_tab) {
-                createTab(HOME)
+                createTab(NEW_TAB_URL)
                 menuDialog?.dismiss()
             },
             ShortcutSpec(R.drawable.ic_incognito, R.string.menu_new_incognito) {
-                createTab(HOME, incognito = true)
+                createTab(NEW_TAB_URL, incognito = true)
                 com.example.streambrowser.util.JcToast.show(this, s(R.string.incognito_on))
                 menuDialog?.dismiss()
             },

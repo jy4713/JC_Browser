@@ -262,4 +262,13 @@
     <string name="menu_close_all_tabs">Close all tabs</string>
     <string name="none_closed">No recently closed tabs</string>
     <string name="group_page">Page</string>
+    <string name="menu_site_settings">Site settings</string>
+    <string name="cd_site_info">Site info</string>
+    <string name="site_js">Allow JavaScript</string>
+    <string name="site_popup">Allow popups</string>
+    <string name="site_overlay">Exclude from overlay blocking</string>
+    <string name="site_ads">Exclude from ad blocking</string>
+    <string name="newtab_title">New tab</string>
+    <string name="newtab_empty">Frequently visited sites will appear here as you browse</string>
+    <string name="js_denied_site">JavaScript blocked on this site</string>
 </resources>
