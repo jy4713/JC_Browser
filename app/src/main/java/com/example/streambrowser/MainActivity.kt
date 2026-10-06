@@ -138,6 +138,11 @@ class MainActivity : Activity() {
         AdBlocker.init(this)
         WebCleaner.init(this)
 
+        // 토렌트 링크(magnet/.torrent) 처리: ON이면 받으면서 재생 화면, OFF면 일반 파일 다운로드
+        com.example.streambrowser.browser.SniffingWebViewClient.onTorrentLink = { _, url ->
+            handleTorrentLink(url)
+        }
+
         // Android 13+ : 다운로드 진행 알림을 위한 알림 권한 요청
         if (Build.VERSION.SDK_INT >= 33) {
             runCatching {
@@ -499,6 +504,10 @@ class MainActivity : Activity() {
                 runCatching { safeBrowsingEnabled = true }
             }
         }
+        // 구글 "쿠키 수락" 등 서드파티 도메인(consent.google.com)의 쿠키를 허용하지 않으면
+        // 동의 선택이 저장되지 않아 매번 다시 물어봄 (WebView 기본값: 서드파티 쿠키 차단)
+        CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
         // 사이트별 JS 차단 초기 적용
         runCatching {
             val h = Uri.parse(url).host ?: ""
@@ -961,6 +970,11 @@ class MainActivity : Activity() {
                     val on = !prefs.getBoolean("fast_dl", true)
                     prefs.edit().putBoolean("fast_dl", on).apply()
                 },
+                // 토렌트: ON이면 받으면서 재생 가능, OFF면 .torrent를 그냥 파일로 다운로드
+                MenuEntry(s(R.string.menu_torrent_play), R.drawable.ic_play, "torrent_play") {
+                    val on = !prefs.getBoolean("torrent_play", false)
+                    prefs.edit().putBoolean("torrent_play", on).apply()
+                },
                 MenuEntry(getString(R.string.menu_dl_split, prefs.getInt("dl_split", 8)), R.drawable.ic_folder, null) {
                     showSplitDialog()
                 },
@@ -986,6 +1000,9 @@ class MainActivity : Activity() {
                 },
                 MenuEntry(s(R.string.menu_home_setting), R.drawable.ic_home, null) {
                     showHomeDialog()
+                },
+                MenuEntry(s(R.string.menu_torrent_open), R.drawable.ic_download, null) {
+                    showTorrentOpenDialog()
                 },
                 MenuEntry(s(R.string.menu_restore_tabs), R.drawable.ic_tabs, "restore_tabs") {
                     val on = !prefs.getBoolean("restore_tabs", true)
@@ -1041,7 +1058,7 @@ class MainActivity : Activity() {
 
     /** 각 설정의 실제 동작 기본값 (메뉴 ON 표시와 일치시키기 위함) */
     private fun prefDefault(key: String): Boolean = when (key) {
-        "desktop", "auto_pip", "js_block" -> false
+        "desktop", "auto_pip", "js_block", "torrent_play" -> false
         "adblock" -> AdBlocker.enabled
         else -> true // restore_tabs, fast_dl, dl_notify, overlay_block, popup_block, app_block
     }
@@ -1499,6 +1516,48 @@ class MainActivity : Activity() {
     }
 
     // ------------------------------------------------------- 테마 (다크/라이트/시스템)
+
+    /** magnet/.torrent 링크 진입점 — 설정에 따라 토렌트 재생 또는 일반 다운로드 */
+    private fun handleTorrentLink(url: String) {
+        if (prefs.getBoolean("torrent_play", false)) {
+            runCatching {
+                startActivity(Intent(this, com.example.streambrowser.ui.TorrentActivity::class.java)
+                    .putExtra(com.example.streambrowser.ui.TorrentActivity.EXTRA_URL, url))
+            }.onFailure {
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.torrent_unavailable))
+            }
+        } else {
+            // 토렌트 재생 OFF: 시스템 다운로드 매니저로 .torrent 파일만 받기
+            runCatching {
+                val req = android.app.DownloadManager.Request(Uri.parse(url)).apply {
+                    setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, url.substringBefore('#').substringAfterLast('/').ifBlank { "file.torrent" })
+                }
+                (getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager).enqueue(req)
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.torrent_file_downloading))
+            }.onFailure {
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.notif_failed))
+            }
+        }
+    }
+
+    /** 메뉴에서 토렌트/magnet 직접 열기 */
+    private fun showTorrentOpenDialog() {
+        val edit = android.widget.EditText(this).apply {
+            hint = "magnet:?xt=urn:btih:... 또는 https://.../file.torrent"
+            setTextColor(resources.getColor(R.color.text_primary, theme))
+            setHintTextColor(resources.getColor(R.color.icon_tint, theme))
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle(R.string.menu_torrent_open)
+            .setView(edit)
+            .setPositiveButton(R.string.btn_ok) { _, _ ->
+                val u = edit.text.toString().trim()
+                if (u.isNotEmpty()) handleTorrentLink(u)
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
 
     private fun themeModeLabel(): String = when (com.example.streambrowser.util.ThemeHelper.mode(this)) {
         com.example.streambrowser.util.ThemeHelper.MODE_DARK -> getString(R.string.theme_dark)

@@ -53,6 +53,10 @@
             android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
             android:exported="false"
             android:label="@string/player_title" />
+        <activity
+            android:name=".ui.TorrentActivity"
+            android:exported="false"
+            android:label="@string/torrent_title" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

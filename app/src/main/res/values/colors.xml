@@ -4,5 +4,6 @@
     <color name="icon_tint">#5F6368</color>
     <color name="text_primary">#202124</color>
     <color name="url_bg">#F1F3F4</color>
+    <color name="sheet_bg">#FFFFFF</color>
     <color name="bottom_bar_bg">#FFFFFF</color>
 </resources>

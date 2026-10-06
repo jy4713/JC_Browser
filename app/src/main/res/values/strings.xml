@@ -231,4 +231,26 @@
     <string name="dlg_split_title">Segments per file</string>
     <string name="dlg_conn_title">Simultaneous connections</string>
     <string name="no_video_playing">No video playing</string>
+    <string name="menu_torrent_play">Torrent play while downloading</string>
+    <string name="torrent_title">Torrent</string>
+    <string name="menu_torrent_open">Open torrent / magnet</string>
+    <string name="torrent_loading">Loading torrent info…</string>
+    <string name="torrent_load_failed">Could not load torrent (no seeds or network error)</string>
+    <string name="torrent_ready">Ready — choose play or download</string>
+    <string name="torrent_starting">Starting…</string>
+    <string name="torrent_start_failed">Failed to start torrent</string>
+    <string name="torrent_play">Play while downloading</string>
+    <string name="torrent_download_all">Download all</string>
+    <string name="torrent_stop">Stop</string>
+    <string name="torrent_stopped">Stopped</string>
+    <string name="torrent_playing">Opening player…</string>
+    <string name="torrent_file_wait_failed">Video file is not ready yet — try again in a moment</string>
+    <string name="torrent_status">%1$d%% · seeds %2$d · peers %3$d · received %4$s</string>
+    <string name="torrent_meta">Files: %1$d · Total: %2$s
+%3$s</string>
+    <string name="torrent_video_file">Video: %1$s (%2$s)</string>
+    <string name="torrent_no_video">No video file in this torrent</string>
+    <string name="torrent_done">Done — exported %1$d file(s) to Downloads/JC Browser</string>
+    <string name="torrent_file_downloading">Downloading .torrent file</string>
+    <string name="torrent_unavailable">Cannot open torrent</string>
 </resources>

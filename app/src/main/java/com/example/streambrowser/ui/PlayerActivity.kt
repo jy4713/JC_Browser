@@ -9,6 +9,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.FrameLayout
 import com.example.streambrowser.R
+import java.io.File
 
 /**
  * 낭부 HTML5 플레이어: 외부 앱 없이 팝업(액티비티)으로 영상 재생.
@@ -75,7 +76,20 @@ video{width:100vw;height:100vh;object-fit:contain;background:#000}</style>
 </head><body>
 <video controls autoplay playsinline webkit-playsinline src="$escaped"></video>
 </body></html>"""
-        web.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
+        if (url.startsWith("file://")) {
+            // 로컬 파일(토렌트 순차 재생 등): 같은 폴터에 플레이어 HTML을 쓰고 file://로 로드
+            // (loadDataWithBaseURL은 file 하위 리소스 접근이 막혀 불가)
+            runCatching {
+                val path = url.removePrefix("file://")
+                val dir = File(path).parentFile ?: run { finish(); return }
+                dir.mkdirs()
+                val htmlFile = File(dir, ".jc_play.html")
+                htmlFile.writeText(html.replace("src=\"$escaped\"", "src=\"${File(path).name}\""))
+                web.loadUrl("file://${htmlFile.absolutePath}")
+            }.onFailure { finish() }
+        } else {
+            web.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
+        }
     }
 
     @Deprecated("Deprecated in Java")

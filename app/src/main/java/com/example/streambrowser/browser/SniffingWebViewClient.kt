@@ -102,7 +102,19 @@ class SniffingWebViewClient(
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         val url = request.url.toString()
         val scheme = request.url.scheme ?: ""
+        // 토렌트: magnet 링크
+        if (scheme == "magnet") {
+            onTorrentLink?.invoke(view.context, url)
+            return true
+        }
         if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("about:")) {
+            // 토렌트: .torrent 파일 (메인 프레임 클릭만)
+            if (request.isForMainFrame && request.method == "GET" &&
+                request.url.path?.lowercase()?.endsWith(".torrent") == true
+            ) {
+                onTorrentLink?.invoke(view.context, url)
+                return true
+            }
             // 팝업 차단: 제스처 없는 메인프레임 이동 중 서버 리다이렉트가 아닌 것
             if (WebCleaner.popupEnabled && request.isForMainFrame &&
                 !request.hasGesture() && !request.isRedirect
@@ -133,6 +145,10 @@ class SniffingWebViewClient(
 
     @Deprecated("구형 API 대응")
     override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+        if (url.startsWith("magnet:")) {
+            onTorrentLink?.invoke(view.context, url)
+            return true
+        }
         if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("about:")) {
             return false
         }
@@ -232,6 +248,9 @@ class SniffingWebViewClient(
     }
 
     companion object {
+        /** magnet / .torrent 링크 처리 콜백 — MainActivity가 설정 (토렌트 기능) */
+        @Volatile var onTorrentLink: ((android.content.Context, String) -> Unit)? = null
+
         /** 보안 인증(봇 체크) 관련 호스트 — 스캐너 주입/차단 제외 대상 */
         private val CHALLENGE_HOST_PARTS = listOf("cloudflare", "hcaptcha", "recaptcha", "turnstile")
 

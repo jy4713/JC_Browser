@@ -11,8 +11,8 @@ android {
         applicationId = "com.example.streambrowser"
         minSdk = 24
         targetSdk = 34
-        versionCode = 33
-        versionName = "2.5.4"
+        versionCode = 34
+        versionName = "2.6.0"
     }
 
     buildTypes {
@@ -51,4 +51,8 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     // FFmpeg Kit: HLS/DASH/TS/FLV 스트림 다운로드+합본
     implementation("com.arthenica:ffmpeg-kit-full-gpl:5.1")
+    // 토렌트 순차 재생(받으면서 재생): Tincat과 동일 엔진
+    implementation("org.libtorrent4j:libtorrent4j:2.1.0-38")
+    implementation("org.libtorrent4j:libtorrent4j-android-arm64:2.1.0-38")
+    implementation("org.libtorrent4j:libtorrent4j-android-arm:2.1.0-38")
 }

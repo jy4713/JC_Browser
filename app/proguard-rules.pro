@@ -12,3 +12,7 @@
 -keepclassmembers class * implements android.os.Parcelable {
     static *** CREATOR;
 }
+
+# libtorrent4j (SWIG JNI 바인딩 — 난독화/제거 금지)
+-keep class org.libtorrent4j.** { *; }
+-dontwarn org.libtorrent4j.**
