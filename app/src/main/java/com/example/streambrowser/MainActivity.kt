@@ -877,6 +877,10 @@ class MainActivity : Activity() {
                 AdBlocker.enabled = !AdBlocker.enabled
                 rebuildMenu()
             },
+            ShortcutSpec(R.drawable.ic_open_in_new, R.string.menu_popup_block, { WebCleaner.popupEnabled }) {
+                WebCleaner.popupEnabled = !WebCleaner.popupEnabled
+                rebuildMenu()
+            },
             ShortcutSpec(R.drawable.ic_pip, R.string.menu_auto_pip, { prefs.getBoolean("auto_pip", false) }) {
                 val on = !prefs.getBoolean("auto_pip", false)
                 prefs.edit().putBoolean("auto_pip", on).apply()
@@ -986,23 +990,6 @@ class MainActivity : Activity() {
                 MenuEntry(s(R.string.menu_restore_tabs), R.drawable.ic_tabs, "restore_tabs") {
                     val on = !prefs.getBoolean("restore_tabs", true)
                     prefs.edit().putBoolean("restore_tabs", on).apply()
-                },
-                MenuEntry(s(R.string.menu_import_bookmarks), R.drawable.ic_bookmark_add, null) {
-                    val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                        type = "*/*"
-                    }
-                    runCatching { startActivityForResult(i, 3) }
-                        .onFailure { com.example.streambrowser.util.JcToast.show(this, s(R.string.bookmark_import_failed)) }
-                },
-                MenuEntry(s(R.string.menu_export_bookmarks), R.drawable.ic_bookmark_add, null) {
-                    val i = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                        type = "text/html"
-                        putExtra(Intent.EXTRA_TITLE, "jc_browser_bookmarks.html")
-                    }
-                    runCatching { startActivityForResult(i, 4) }
-                        .onFailure { com.example.streambrowser.util.JcToast.show(this, s(R.string.bookmark_export_failed)) }
                 },
                 MenuEntry(s(R.string.menu_language), R.drawable.ic_menu_vert, null) {
                     showLanguageDialog()
