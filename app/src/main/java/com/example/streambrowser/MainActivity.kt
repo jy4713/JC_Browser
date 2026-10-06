@@ -969,9 +969,6 @@ class MainActivity : Activity() {
                 }
             )),
             MenuGroup(R.string.group_privacy, R.drawable.ic_incognito, listOf(
-                MenuEntry(s(R.string.menu_allow_ads), R.drawable.ic_check_circle, null, { isCurrentHostAllowed() }) {
-                    toggleAllowAds()
-                },
                 MenuEntry(s(R.string.menu_clear_data), R.drawable.ic_close, null) {
                     confirmClearData()
                 }
@@ -1022,14 +1019,6 @@ class MainActivity : Activity() {
     private fun buildMenuRows(): List<MenuRow> {
         val rows = mutableListOf<MenuRow>()
         rows += MenuRow.Shortcut()
-        rows += MenuRow.Quick(MenuEntry(getString(R.string.menu_pip), R.drawable.ic_play, null) {
-            enterPipManual()
-            menuDialog?.dismiss()
-        })
-        rows += MenuRow.Quick(MenuEntry(getString(R.string.menu_close_tab), R.drawable.ic_close, null) {
-            closeTab(current)
-            menuDialog?.dismiss()
-        })
         for (g in menuGroups()) {
             rows += MenuRow.Header(g.groupRes)
             if (expandedGroup == g.groupRes) {
