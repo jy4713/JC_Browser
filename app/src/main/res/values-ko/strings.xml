@@ -269,4 +269,5 @@
     <string name="newtab_title">새 탭</string>
     <string name="newtab_empty">방문 기록이 쌓이면 자주 가는 사이트가 여기에 표시됩니다</string>
     <string name="js_denied_site">이 사이트는 자바스크립트가 차단되었습니다</string>
+    <string name="menu_system_downloads">시스템 다운로드</string>
 </resources>

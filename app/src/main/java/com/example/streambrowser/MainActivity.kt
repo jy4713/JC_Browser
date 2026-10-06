@@ -140,7 +140,14 @@ class MainActivity : Activity() {
 
         // 토렌트 링크(magnet/.torrent) 처리: ON이면 받으면서 재생 화면, OFF면 일반 파일 다운로드
         com.example.streambrowser.browser.SniffingWebViewClient.onTorrentLink = { _, url ->
-            handleTorrentLink(url)
+            runOnUiThread {
+                handleTorrentLink(url)
+                // 가로챈 링크가 빈 팝업 탭(fromWindow)에서 열린 경우 그 탭을 닫고 원래 탭으로
+                val t = current()
+                if (t?.fromWindow == true && tabs.size > 1 && t.web.url.isNullOrEmpty()) {
+                    closeTab(current)
+                }
+            }
         }
 
         // Android 13+ : 다운로드 진행 알림을 위한 알림 권한 요청
@@ -1098,6 +1105,7 @@ class MainActivity : Activity() {
                 MenuEntry(s(R.string.menu_share), R.drawable.ic_share, null) { sharePage() },
                 MenuEntry(s(R.string.menu_copy_url), R.drawable.ic_copy, null) { copyCurrentUrl() },
                 MenuEntry(s(R.string.menu_open_external), R.drawable.ic_open_in_new, null) { openInExternalApp() },
+                MenuEntry(s(R.string.menu_system_downloads), R.drawable.ic_download, null) { openSystemDownloads() },
                 MenuEntry(s(R.string.menu_print), R.drawable.ic_list, null) { printPage() }
             )),
             MenuGroup(R.string.group_cleaner, R.drawable.ic_shield, listOf(
@@ -2205,6 +2213,13 @@ class MainActivity : Activity() {
                 .onFailure {
                     com.example.streambrowser.util.JcToast.show(this, getString(R.string.torrent_unavailable))
                 }
+        }
+    }
+
+    /** 시스템 다운로드 앱 열기 (DownloadListener로 받은 zip/pdf 등은 여기서 관리) */
+    private fun openSystemDownloads() {
+        runCatching {
+            startActivity(Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS))
         }
     }
 

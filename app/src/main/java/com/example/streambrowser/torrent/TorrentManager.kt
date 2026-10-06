@@ -42,6 +42,14 @@ object TorrentManager {
         session?.let { return it }
         val s = SessionManager()
         s.start()
+        // libtorrent4j는 start()만으로는 DHT가 켜지지 않음 — 마그넷 메타데이터 수신에 DHT 필수
+        runCatching { if (!s.isDhtRunning) s.startDht() }
+        // DHT 부트스트랩(노드 연결)이 될 때까지 잠시 대기
+        for (i in 0 until 30) {
+            val nodes = runCatching { s.dhtNodes() }.getOrDefault(0)
+            if (nodes > 0) break
+            Thread.sleep(500)
+        }
         session = s
         return s
     }

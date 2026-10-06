@@ -53,4 +53,32 @@ object ThumbLoader {
         @Volatile
         var bitmap: Bitmap? = null
     }
+
+    /* ---------- 종류별 색상 타일 (스냅샷/포스터 없을 때 검은 네모 대신 표시) ---------- */
+
+    private val tileCache = LruCache<String, Bitmap>(16)
+
+    fun kindTile(kind: String): Bitmap {
+        tileCache.get(kind)?.let { return it }
+        val w = 160
+        val h = 90
+        val colors = mapOf(
+            "HLS" to "#0B8043", "DASH" to "#1A73E8", "MP4" to "#E8710A",
+            "WEBM" to "#9334E6", "FLV" to "#D93025", "IMG" to "#5F6368"
+        )
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565)
+        val c = android.graphics.Canvas(bmp)
+        c.drawColor(android.graphics.Color.parseColor(colors[kind] ?: "#3C4043"))
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.WHITE
+            textSize = 30f
+            textAlign = android.graphics.Paint.Align.CENTER
+            isFakeBoldText = true
+        }
+        val label = if (kind == "IMG") "IMG" else kind
+        val y = h / 2f - (p.descent() + p.ascent()) / 2f
+        c.drawText(label, w / 2f, y, p)
+        tileCache.put(kind, bmp)
+        return bmp
+    }
 }

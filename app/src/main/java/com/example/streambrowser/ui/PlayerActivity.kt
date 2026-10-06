@@ -74,9 +74,23 @@ class PlayerActivity : Activity() {
         val html = """<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>html,body{margin:0;padding:0;background:#000;height:100%;overflow:hidden}
-video{width:100vw;height:100vh;object-fit:contain;background:#000}</style>
+video{width:100vw;height:100vh;object-fit:contain;background:#000}
+#sbErr{display:none;position:fixed;left:8px;right:8px;bottom:8px;background:rgba(60,0,0,.85);color:#fff;font:12px monospace;padding:10px;border-radius:6px;white-space:pre-wrap;word-break:break-all;z-index:9}</style>
 </head><body>
 <video controls autoplay playsinline webkit-playsinline src="$escaped"></video>
+<div id="sbErr"></div>
+<script>
+var v=document.querySelector('video'),e=document.getElementById('sbErr');
+function show(m){e.style.display='block';e.textContent=m;}
+v.addEventListener('error',function(){
+  var c=v.error?v.error.code:'?';
+  show('VIDEO ERROR code='+c+' network='+v.networkState+'\n'+(v.currentSrc||v.src));
+});
+document.addEventListener('error',function(ev){
+  var t=ev&&ev.target;
+  if(t&&t.tagName==='SOURCE')show('SOURCE ERROR network='+v.networkState+'\n'+(t.src||''));
+},true);
+</script>
 </body></html>"""
         if (url.startsWith("file://")) {
             // 로컬 파일(토렌트 순차 재생 등): 같은 폴터에 플레이어 HTML을 쓰고 file://로 로드

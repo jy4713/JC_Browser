@@ -271,4 +271,5 @@
     <string name="newtab_title">New tab</string>
     <string name="newtab_empty">Frequently visited sites will appear here as you browse</string>
     <string name="js_denied_site">JavaScript blocked on this site</string>
+    <string name="menu_system_downloads">System downloads</string>
 </resources>
