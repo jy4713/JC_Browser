@@ -231,7 +231,7 @@
     <string name="dlg_split_title">Segments per file</string>
     <string name="dlg_conn_title">Simultaneous connections</string>
     <string name="no_video_playing">No video playing</string>
-    <string name="menu_torrent_play">Torrent play while downloading</string>
+    <string name="menu_torrent_play">Torrent download support</string>
     <string name="torrent_title">Torrent</string>
     <string name="menu_torrent_open">Open torrent / magnet</string>
     <string name="torrent_loading">Loading torrent info…</string>
@@ -272,4 +272,29 @@
     <string name="newtab_empty">Frequently visited sites will appear here as you browse</string>
     <string name="js_denied_site">JavaScript blocked on this site</string>
     <string name="menu_system_downloads">System downloads</string>
+
+    <string name="menu_torrent_downloads">Torrent downloads</string>
+    <string name="menu_torrent_max">Torrent max simultaneous (%d)</string>
+    <string name="menu_torrent_rate">Torrent speed limit</string>
+    <string name="dlg_rate_dl_hint">Download KB/s (0 = unlimited)</string>
+    <string name="dlg_rate_ul_hint">Upload KB/s (0 = unlimited)</string>
+    <string name="torrent_go_list">Open download manager</string>
+    <string name="torrent_auto_starting">Starting download…</string>
+    <string name="torrent_started">Torrent started: %1$s</string>
+    <string name="torrent_max_reached">Too many simultaneous torrents (max %d)</string>
+    <string name="torrent_need_enable">Enable torrent support (Menu → Download settings)</string>
+    <string name="tdl_empty">No torrent downloads</string>
+    <string name="tdl_status_running">%1$d%% · %2$s / %3$s · %4$s · seeds %5$d · peers %6$d</string>
+    <string name="tdl_status_paused">Paused · %1$d%% · %2$s / %3$s</string>
+    <string name="tdl_status_done">Done · %1$s</string>
+    <string name="tdl_status_cancelled">Canceled · %1$d%% · %2$s / %3$s</string>
+    <string name="tdl_status_failed">Failed · %1$s</string>
+    <string name="tdl_delete_msg">Remove this item from the list? (downloaded files stay)</string>
+    <string name="tdl_delete_files_msg">Remove this item and delete the partial files?</string>
+    <string name="tdl_file_missing">File not found</string>
+    <string name="tdl_no_app">No app can open this file</string>
+    <string name="print_failed">Print failed</string>
+    <string name="tab_media">Media</string>
+    <string name="tab_files">Files</string>
+    <string name="sys_dl_empty">No downloaded files</string>
 </resources>

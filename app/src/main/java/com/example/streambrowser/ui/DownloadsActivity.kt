@@ -15,6 +15,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -43,11 +44,16 @@ class DownloadsActivity : Activity() {
     private enum class Filter { ALL, RUNNING, DONE, CANCELED }
     private var filter = Filter.ALL
 
+    /** MEDIA: 앱 내 미디어 다운로드 / FILES: 시스템 다운로드 매니저의 일반 파일 */
+    private enum class Mode { MEDIA, FILES }
+    private var mode = Mode.MEDIA
+
     private lateinit var chipAll: TextView
     private lateinit var chipRunning: TextView
     private lateinit var chipDone: TextView
     private lateinit var chipCanceled: TextView
     private lateinit var txtEmpty: TextView
+    private var sysAdapter: SysAdapter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -82,19 +88,60 @@ class DownloadsActivity : Activity() {
             onPause = { item -> VideoDownloadService.pause(item.id) },
             onResume = { item -> resumeDl(item) }
         )
+        sysAdapter = SysAdapter(
+            onOpen = { item -> openSysFile(item) },
+            onDelete = { item -> deleteSysFile(item) },
+            onReloaded = { n ->
+                if (mode == Mode.FILES) {
+                    txtEmpty.text = getString(R.string.sys_dl_empty)
+                    txtEmpty.visibility = if (n == 0) View.VISIBLE else View.GONE
+                }
+            }
+        )
         list.adapter = adapter
 
-        DownloadStore.listener = { runOnUiThread { applyFilter() } }
-        applyFilter()
+        // 미디어/파일 탭
+        findViewById<TextView>(R.id.tabMedia).setOnClickListener { setMode(Mode.MEDIA) }
+        findViewById<TextView>(R.id.tabFiles).setOnClickListener { setMode(Mode.FILES) }
+
+        DownloadStore.listener = { runOnUiThread { if (mode == Mode.MEDIA) applyFilter() } }
+        setMode(Mode.MEDIA)
 
         // 진행 중 0.5초 간격 갱신
         ticker = object : Runnable {
             override fun run() {
-                adapter.notifyDataSetChanged()
+                if (mode == Mode.MEDIA) {
+                    adapter.notifyDataSetChanged()
+                } else {
+                    sysAdapter?.reload { querySystemDownloads() }
+                }
                 handler.postDelayed(this, 500)
             }
         }
         ticker?.let { handler.post(it) }
+    }
+
+    private fun setMode(m: Mode) {
+        mode = m
+        val list = findViewById<RecyclerView>(R.id.list)
+        val chipRow = findViewById<LinearLayout>(R.id.chipRow)
+        fun style(tab: TextView, selected: Boolean) {
+            tab.setBackgroundResource(if (selected) R.drawable.bg_btn_soft else android.R.color.transparent)
+            tab.setTextColor(if (selected) 0xFF1A73E8.toInt() else 0xFF5F6368.toInt())
+            tab.setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+        }
+        style(findViewById(R.id.tabMedia), m == Mode.MEDIA)
+        style(findViewById(R.id.tabFiles), m == Mode.FILES)
+        if (m == Mode.MEDIA) {
+            chipRow.visibility = View.VISIBLE
+            list.adapter = adapter
+            applyFilter()
+        } else {
+            chipRow.visibility = View.GONE
+            list.adapter = sysAdapter
+            sysAdapter?.reload { querySystemDownloads() }
+            txtEmpty.text = getString(R.string.sys_dl_empty)
+        }
     }
 
     private fun setFilter(f: Filter) {
@@ -209,6 +256,125 @@ class DownloadsActivity : Activity() {
             putExtra(VideoDownloadService.EXTRA_EXT, item.ext)
         }
         startForegroundService(i)
+    }
+
+    // ---------------- 시스템 다운로드 (zip/pdf 등 일반 파일) ----------------
+
+    class SysDl(
+        val id: Long,
+        val title: String,
+        val mime: String,
+        val status: Int,   // DownloadManager.STATUS_*
+        val total: Long,
+        val done: Long
+    )
+
+    private fun querySystemDownloads(): List<SysDl> {
+        val dm = getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+        val c = runCatching { dm.query(android.app.DownloadManager.Query()) }.getOrNull()
+            ?: return emptyList()
+        val out = mutableListOf<SysDl>()
+        c.use {
+            val iId = it.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_ID)
+            val iTitle = it.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_TITLE)
+            val iMime = it.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_MEDIA_TYPE)
+            val iStatus = it.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_STATUS)
+            val iTotal = it.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+            val iDone = it.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+            while (it.moveToNext()) {
+                out += SysDl(
+                    it.getLong(iId),
+                    it.getString(iTitle) ?: "file",
+                    it.getString(iMime) ?: "*/*",
+                    it.getInt(iStatus),
+                    it.getLong(iTotal),
+                    it.getLong(iDone)
+                )
+            }
+        }
+        return out.sortedByDescending { it.id }
+    }
+
+    private fun openSysFile(item: SysDl) {
+        if (item.status != android.app.DownloadManager.STATUS_SUCCESSFUL) {
+            com.example.streambrowser.util.JcToast.show(this, "아직 다운로드 중입니다")
+            return
+        }
+        val dm = getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+        val uri = runCatching { dm.getUriForDownloadedFile(item.id) }.getOrNull()
+        if (uri == null) {
+            com.example.streambrowser.util.JcToast.show(this, "파일을 찾을 수 없습니다")
+            return
+        }
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, item.mime)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            })
+        }.onFailure {
+            com.example.streambrowser.util.JcToast.show(this, "이 파일을 열 수 있는 앱이 없습니다")
+        }
+    }
+
+    private fun deleteSysFile(item: SysDl) {
+        AlertDialog.Builder(this)
+            .setTitle(item.title)
+            .setMessage("다운로드 목록과 파일을 삭제할까요?")
+            .setPositiveButton("삭제") { _, _ ->
+                val dm = getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+                runCatching { dm.remove(item.id) }
+                sysAdapter?.reload { querySystemDownloads() }
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
+    /** 시스템 다운로드 어댑터 — 목록 질의 + 열기/삭제 */
+    class SysAdapter(
+        private val onOpen: (SysDl) -> Unit,
+        private val onDelete: (SysDl) -> Unit,
+        private val onReloaded: (Int) -> Unit
+    ) : RecyclerView.Adapter<SysAdapter.VH>() {
+
+        private var items = listOf<SysDl>()
+
+        fun reload(query: () -> List<SysDl>) {
+            items = query()
+            notifyDataSetChanged()
+            onReloaded(items.size)
+        }
+
+        class VH(v: View) : RecyclerView.ViewHolder(v) {
+            val name: TextView = v.findViewById(R.id.sdName)
+            val status: TextView = v.findViewById(R.id.sdStatus)
+            val btnOpen: ImageButton = v.findViewById(R.id.btnOpen)
+            val btnDelete: ImageButton = v.findViewById(R.id.btnDelete)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
+            VH(LayoutInflater.from(parent.context).inflate(R.layout.item_sys_download, parent, false))
+
+        override fun getItemCount() = items.size
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val item = items[position]
+            holder.name.text = item.title
+            holder.status.text = when (item.status) {
+                android.app.DownloadManager.STATUS_SUCCESSFUL ->
+                    "완료 · " + fmtMb(item.total)
+                android.app.DownloadManager.STATUS_RUNNING ->
+                    "다운로드 중 · " + fmtMb(item.done) + " / " + fmtMb(item.total)
+                android.app.DownloadManager.STATUS_PENDING -> "대기 중…"
+                android.app.DownloadManager.STATUS_PAUSED -> "일시 중지됨"
+                else -> "실패"
+            }
+            holder.btnOpen.visibility =
+                if (item.status == android.app.DownloadManager.STATUS_SUCCESSFUL) View.VISIBLE else View.GONE
+            holder.btnOpen.setOnClickListener { onOpen(item) }
+            holder.btnDelete.setOnClickListener { onDelete(item) }
+        }
+
+        private fun fmtMb(bytes: Long): String = String.format("%.1f MB", bytes / 1048576.0)
     }
 
     // ---------------- 어댑터 ----------------

@@ -229,7 +229,7 @@
     <string name="dlg_split_title">한 파일 분할 수</string>
     <string name="dlg_conn_title">동시 연결 수</string>
     <string name="no_video_playing">재샽 중인 동영상이없습니다</string>
-    <string name="menu_torrent_play">토렌트 받으면서 재생</string>
+    <string name="menu_torrent_play">토렌트 다운로드 지원</string>
     <string name="torrent_title">토렌트</string>
     <string name="menu_torrent_open">토렌트/magnet 열기</string>
     <string name="torrent_loading">토렌트 정보 불러오는 중…</string>
@@ -270,4 +270,29 @@
     <string name="newtab_empty">방문 기록이 쌓이면 자주 가는 사이트가 여기에 표시됩니다</string>
     <string name="js_denied_site">이 사이트는 자바스크립트가 차단되었습니다</string>
     <string name="menu_system_downloads">시스템 다운로드</string>
+
+    <string name="menu_torrent_downloads">토렌트 다운로드</string>
+    <string name="menu_torrent_max">토렌트 동시 다운로드 (%d)</string>
+    <string name="menu_torrent_rate">토렌트 속도 제한</string>
+    <string name="dlg_rate_dl_hint">다운로드 KB/s (0 = 무제한)</string>
+    <string name="dlg_rate_ul_hint">업로드 KB/s (0 = 무제한)</string>
+    <string name="torrent_go_list">다운로드 관리로 이동</string>
+    <string name="torrent_auto_starting">다운로드를 시작합니다…</string>
+    <string name="torrent_started">토렌트 시작: %1$s</string>
+    <string name="torrent_max_reached">동시 다운로드 개수 초과 (최대 %d개)</string>
+    <string name="torrent_need_enable">토렌트 지원을 켜주세요 (메뉴 → 다운로드 설정)</string>
+    <string name="tdl_empty">토렌트 다운로드가 없습니다</string>
+    <string name="tdl_status_running">%1$d%% · %2$s / %3$s · %4$s · 시드 %5$d · 피어 %6$d</string>
+    <string name="tdl_status_paused">일시 중지 · %1$d%% · %2$s / %3$s</string>
+    <string name="tdl_status_done">완료 · %1$s</string>
+    <string name="tdl_status_cancelled">취소됨 · %1$d%% · %2$s / %3$s</string>
+    <string name="tdl_status_failed">실패 · %1$s</string>
+    <string name="tdl_delete_msg">목록에서 삭제할까요? (받은 파일은 유지됩니다)</string>
+    <string name="tdl_delete_files_msg">목록에서 삭제하고 받던 파일도 함께 삭제할까요?</string>
+    <string name="tdl_file_missing">파일을 찾을 수 없습니다</string>
+    <string name="tdl_no_app">이 파일을 열 수 있는 앱이 없습니다</string>
+    <string name="print_failed">인쇄에 실패했습니다</string>
+    <string name="tab_media">미디어</string>
+    <string name="tab_files">파일</string>
+    <string name="sys_dl_empty">다운로드한 파일이 없습니다</string>
 </resources>

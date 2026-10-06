@@ -57,6 +57,10 @@
             android:name=".ui.TorrentActivity"
             android:exported="false"
             android:label="@string/torrent_title" />
+        <activity
+            android:name=".ui.TorrentDownloadsActivity"
+            android:exported="false"
+            android:label="@string/menu_torrent_downloads" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -28,43 +28,14 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
-            android:text="다운로드"
+            android:text="@string/menu_torrent_downloads"
             android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- 미디어(앱 내 다운로드) / 파일(시스템 다운로드) 탭 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp">
-
-        <TextView
-            android:id="@+id/tabMedia"
-            android:layout_width="0dp"
-            android:layout_height="36dp"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="@string/tab_media"
-            android:textSize="14sp" />
-
-        <TextView
-            android:id="@+id/tabFiles"
-            android:layout_width="0dp"
-            android:layout_height="36dp"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="@string/tab_files"
-            android:textSize="14sp" />
-    </LinearLayout>
-
     <!-- 상태별 탭 필터 -->
     <LinearLayout
-        android:id="@+id/chipRow"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
@@ -136,6 +107,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
+            android:text="@string/tdl_empty"
             android:textColor="#9AA0A6"
             android:textSize="14sp"
             android:visibility="gone" />

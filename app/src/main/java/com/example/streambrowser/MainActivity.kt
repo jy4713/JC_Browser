@@ -138,7 +138,7 @@ class MainActivity : Activity() {
         AdBlocker.init(this)
         WebCleaner.init(this)
 
-        // 토렌트 링크(magnet/.torrent) 처리: ON이면 받으면서 재생 화면, OFF면 일반 파일 다운로드
+        // 토렌트 링크(magnet/.torrent) 처리: ON이면 토렌트 다운로드 화면, OFF면 일반 파일 다운로드
         com.example.streambrowser.browser.SniffingWebViewClient.onTorrentLink = { _, url ->
             runOnUiThread {
                 handleTorrentLink(url)
@@ -149,6 +149,27 @@ class MainActivity : Activity() {
                 }
             }
         }
+
+        // 토렌트 완료/실패 콜백 — 완료 시 설정된 다운로드 폴터로 납품
+        com.example.streambrowser.torrent.TorrentManager.onJobDone = { job ->
+            runOnUiThread {
+                com.example.streambrowser.util.JcToast.show(
+                    this, getString(R.string.torrent_done, job.files().size)
+                )
+            }
+            exportTorrentJob(job)
+        }
+        com.example.streambrowser.torrent.TorrentManager.onJobFailed = { job ->
+            runOnUiThread {
+                com.example.streambrowser.util.JcToast.show(
+                    this, getString(R.string.tdl_status_failed, job.error ?: "")
+                )
+            }
+        }
+        // 저장된 토렌트 속도 제한 적용 (세션 생성 전이면 보관했다가 적용)
+        com.example.streambrowser.torrent.TorrentManager.applyRateLimits(
+            prefs.getInt("torrent_rate_dl", 0), prefs.getInt("torrent_rate_ul", 0)
+        )
 
         // Android 13+ : 다운로드 진행 알림을 위한 알림 권한 요청
         if (Build.VERSION.SDK_INT >= 33) {
@@ -332,13 +353,8 @@ class MainActivity : Activity() {
             }
         })
 
-        // Soul 스타일 동영상 길게 누르기 메뉴 (JS 다리)
-        VideoJsBridge.onVideoLongPress = { runOnUiThread { showVideoMenu() } }
-
-        // 페이지에 video 태그가 생기면 왼쪽 구석에 플로팅 메뉴 버튼 표시
-        VideoJsBridge.onVideoPresence = { owner, found ->
-            runOnUiThread { updateVideoMenuButton(owner, found) }
-        }
+        // Soul 스타일 동영상 길게 누르기 (JS 다리) — 전체화면이면 톱니 버튼 2초 표시, 아니면 바로 메뉴
+        VideoJsBridge.onVideoLongPress = { runOnUiThread { onVideoLongPressed() } }
 
         // 동영상 재생 상태 추적 (PIP 자동 진입 여부 판단용)
         VideoJsBridge.onVideoStateChange = { playing ->
@@ -1174,10 +1190,22 @@ class MainActivity : Activity() {
                     val on = !prefs.getBoolean("fast_dl", true)
                     prefs.edit().putBoolean("fast_dl", on).apply()
                 },
-                // 토렌트: ON이면 받으면서 재생 가능, OFF면 .torrent를 그냥 파일로 다운로드
+                // 토렌트 지원: ON이면 .torrent/magnet을 토렌트로 받고(공유 파일 자동 다운로드), OFF면 .torrent만 일반 파일로
                 MenuEntry(s(R.string.menu_torrent_play), R.drawable.ic_play, "torrent_play") {
                     val on = !prefs.getBoolean("torrent_play", false)
                     prefs.edit().putBoolean("torrent_play", on).apply()
+                },
+                MenuEntry(s(R.string.menu_torrent_downloads), R.drawable.ic_download, null) {
+                    startActivity(Intent(this, com.example.streambrowser.ui.TorrentDownloadsActivity::class.java))
+                },
+                MenuEntry(getString(R.string.menu_torrent_max, prefs.getInt("torrent_max", 2)), R.drawable.ic_tune, null) {
+                    showIntPickerDialog(getString(R.string.menu_torrent_max, prefs.getInt("torrent_max", 2)), 1, 5, prefs.getInt("torrent_max", 2)) { v ->
+                        prefs.edit().putInt("torrent_max", v).apply()
+                        rebuildMenu()
+                    }
+                },
+                MenuEntry(s(R.string.menu_torrent_rate), R.drawable.ic_tune, null) {
+                    showTorrentRateDialog()
                 },
                 MenuEntry(getString(R.string.menu_dl_split, prefs.getInt("dl_split", 8)), R.drawable.ic_folder, null) {
                     showSplitDialog()
@@ -1648,12 +1676,19 @@ class MainActivity : Activity() {
         return b
     }
 
-    /** JS가 보고한 video 태그 존재 여부로 버튼 표시/숨김 (현재 탭 것만 반영) */
-    private fun updateVideoMenuButton(owner: WebView?, found: Boolean) {
-        if (owner != current()?.web) return
-        val b = ensureVideoMenuButton()
-        b.visibility = if (found) View.VISIBLE else View.GONE
-        if (found) container.bringChildToFront(b)
+    private val hideGearRunnable = Runnable { videoMenuBtn?.visibility = View.GONE }
+
+    /** Soul 스타일: 전체화면에서 동영상을 길게 누륾면 톱니 버튼이 2초간만 표시 (설정 안 하면 자동 숨김) */
+    private fun onVideoLongPressed() {
+        if (jsFsActive || fullscreenView != null) {
+            val b = ensureVideoMenuButton()
+            b.visibility = View.VISIBLE
+            container.bringChildToFront(b)
+            mainHandler.removeCallbacks(hideGearRunnable)
+            mainHandler.postDelayed(hideGearRunnable, 2000)
+        } else {
+            showVideoMenu()
+        }
     }
 
     /** 회전 대상: HTML5 fullscreen 커스텀 뷰가 아니면 JS 풀스크린 모드의 WebView를 회전 */
@@ -1816,10 +1851,9 @@ class MainActivity : Activity() {
         }
     }
 
-    /** magnet/.torrent 링크 진입점 — 설정에 따라 토렌트 재생 또는 일반 다운로드 */
+    /** magnet/.torrent 링크 진입점 — 토렌트 지원 ON일 때만 토렌트로, OFF면 .torrent만 일반 다운로드 */
     private fun handleTorrentLink(url: String) {
-        // 마그넷은 파일 다운로드가 불가하므로 토렌트 화면을 항상 연다 (토글은 .torrent 파일에만 적용)
-        if (url.startsWith("magnet:") || prefs.getBoolean("torrent_play", false)) {
+        if (prefs.getBoolean("torrent_play", false)) {
             runCatching {
                 startActivity(Intent(this, com.example.streambrowser.ui.TorrentActivity::class.java)
                     .putExtra(com.example.streambrowser.ui.TorrentActivity.EXTRA_URL, url))
@@ -1827,7 +1861,12 @@ class MainActivity : Activity() {
                 com.example.streambrowser.util.JcToast.show(this, getString(R.string.torrent_unavailable))
             }
         } else {
-            // 토렌트 재생 OFF: 시스템 다운로드 매니저로 .torrent 파일만 받기
+            if (url.startsWith("magnet:")) {
+                // 마그넷은 일반 다운로드 불가 — 토렌트 지원 켜기 안내
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.torrent_need_enable))
+                return
+            }
+            // 토렌트 지원 OFF: 시스템 다운로드 매니저로 .torrent 파일만 받기
             runCatching {
                 val name = android.webkit.URLUtil.guessFileName(url, null, "application/x-bittorrent")
                 val req = android.app.DownloadManager.Request(Uri.parse(url)).apply {
@@ -1840,6 +1879,59 @@ class MainActivity : Activity() {
                 com.example.streambrowser.util.JcToast.show(this, getString(R.string.notif_failed))
             }
         }
+    }
+
+    /** 토렌트 완료 파일들을 설정된 다운로드 위치(dl_folder)로 납품 */
+    private fun exportTorrentJob(job: com.example.streambrowser.torrent.TorrentManager.Job) {
+        if (job.exported) return
+        job.exported = true
+        kotlin.concurrent.thread {
+            job.files().forEach { f ->
+                com.example.streambrowser.download.DownloadFolder.export(this, f, mimeOfTorrent(f.name))
+            }
+        }
+    }
+
+    private fun mimeOfTorrent(name: String): String = when (name.substringAfterLast('.', "").lowercase()) {
+        "mp4" -> "video/mp4"; "mkv" -> "video/x-matroska"; "webm" -> "video/webm"
+        "avi" -> "video/x-msvideo"; "mov" -> "video/quicktime"; "mp3" -> "audio/mpeg"
+        "flac" -> "audio/flac"; "ogg" -> "audio/ogg"; "wav" -> "audio/wav"
+        "jpg", "jpeg" -> "image/jpeg"; "png" -> "image/png"
+        "pdf" -> "application/pdf"; "zip" -> "application/zip"
+        "txt" -> "text/plain"; "srt" -> "application/x-subrip"
+        else -> "application/octet-stream"
+    }
+
+    /** 토렌트 다운/업로드 속도 제한 설정 (KB/s, 0=무제한) */
+    private fun showTorrentRateDialog() {
+        val density = resources.displayMetrics.density
+        fun edit(current: Int, hint: String) = EditText(this).apply {
+            setText(current.toString())
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            this.hint = hint
+            setTextColor(resources.getColor(R.color.text_primary, theme))
+            setHintTextColor(resources.getColor(R.color.icon_tint, theme))
+        }
+        val edDl = edit(prefs.getInt("torrent_rate_dl", 0), getString(R.string.dlg_rate_dl_hint))
+        val edUl = edit(prefs.getInt("torrent_rate_ul", 0), getString(R.string.dlg_rate_ul_hint))
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = (24 * density).toInt()
+            setPadding(pad, pad / 2, pad, 0)
+            addView(edDl)
+            addView(edUl)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.menu_torrent_rate))
+            .setView(box)
+            .setPositiveButton(getString(R.string.btn_ok)) { _, _ ->
+                val dl = edDl.text.toString().toIntOrNull()?.coerceAtLeast(0) ?: 0
+                val ul = edUl.text.toString().toIntOrNull()?.coerceAtLeast(0) ?: 0
+                prefs.edit().putInt("torrent_rate_dl", dl).putInt("torrent_rate_ul", ul).apply()
+                com.example.streambrowser.torrent.TorrentManager.applyRateLimits(dl, ul)
+            }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
     }
 
     /** 메뉴에서 토렌트/magnet 직접 열기 */
@@ -2227,10 +2319,20 @@ class MainActivity : Activity() {
     private fun printPage() {
         val web = current()?.web ?: return
         val pm = getSystemService(Context.PRINT_SERVICE) as android.print.PrintManager
-        runCatching {
-            pm.print("JC Browser", web.createPrintDocumentAdapter("JC Browser"),
-                android.print.PrintAttributes.Builder().build())
+        val attrs = android.print.PrintAttributes.Builder().build()
+        var ok = runCatching {
+            pm.print("JC Browser", web.createPrintDocumentAdapter("JC Browser"), attrs)
+            true
+        }.getOrDefault(false)
+        if (!ok) {
+            // 인자 없는 어댑터로 재시도 (구형 웹뷰/출력 서비스 호환)
+            ok = runCatching {
+                @Suppress("DEPRECATION")
+                pm.print("JC Browser", web.createPrintDocumentAdapter(), attrs)
+                true
+            }.getOrDefault(false)
         }
+        if (!ok) com.example.streambrowser.util.JcToast.show(this, getString(R.string.print_failed))
     }
 
     /* ---------- 닫은 탭 복구 (Chrome/Firefox 공통) ---------- */
@@ -2424,7 +2526,7 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         VideoStore.listener = null
         VideoJsBridge.onVideoLongPress = null
-        VideoJsBridge.onVideoPresence = null
+        mainHandler.removeCallbacks(hideGearRunnable)
         tabs.forEach { it.web.destroy() }
         tabs.clear()
         super.onDestroy()
