@@ -307,6 +307,11 @@ class MainActivity : Activity() {
         // Soul 스타일 동영상 길게 누르기 메뉴 (JS 다리)
         VideoJsBridge.onVideoLongPress = { runOnUiThread { showVideoMenu() } }
 
+        // 페이지에 video 태그가 생기면 왼쪽 구석에 플로팅 메뉴 버튼 표시
+        VideoJsBridge.onVideoPresence = { owner, found ->
+            runOnUiThread { updateVideoMenuButton(owner, found) }
+        }
+
         // 동영상 재생 상태 추적 (PIP 자동 진입 여부 판단용)
         VideoJsBridge.onVideoStateChange = { playing ->
             runOnUiThread {
@@ -642,6 +647,11 @@ class MainActivity : Activity() {
     private fun showCurrent() {
         container.removeAllViews()
         current()?.let { container.addView(it.web) }
+        // removeAllViews가 플로팅 버튼도 제거하므로 다시 올리고, 현재 탭 JS 보고 전까지 숨김
+        videoMenuBtn?.let {
+            container.addView(it)
+            it.visibility = View.GONE
+        }
         editUrl.setText(current()?.web?.url ?: "")
         badgeTabs.text = tabs.size.toString()
         updateNavButtons()
@@ -1365,9 +1375,10 @@ class MainActivity : Activity() {
     }
 
     private fun rotateFullscreen(deg: Float) {
-        val v = fullscreenView ?: return
+        val v = rotationTarget() ?: return
         stopAutoRotate()
         applyFullscreenRotation(v, deg)
+        rotatedWeb = if (v is WebView) v else null
     }
 
     private fun startAutoRotate() {
@@ -1375,7 +1386,7 @@ class MainActivity : Activity() {
         orientListener = object : OrientationEventListener(this) {
             override fun onOrientationChanged(degrees: Int) {
                 if (degrees == ORIENTATION_UNKNOWN) return
-                val v = fullscreenView ?: return
+                val v = rotationTarget() ?: run { stopAutoRotate(); return }
                 // 기기 회전 방향에 맞춰 영상 회전 (landscape에서 뒤집히지 않게)
                 val target = when {
                     degrees >= 45 && degrees < 135 -> 270f
@@ -1384,6 +1395,7 @@ class MainActivity : Activity() {
                     else -> 0f
                 }
                 if (v.rotation != target) applyFullscreenRotation(v, target)
+                rotatedWeb = if (v is WebView) v else null
             }
         }
         if (orientListener?.canDetectOrientation() == true) orientListener?.enable()
@@ -1392,6 +1404,58 @@ class MainActivity : Activity() {
     private fun stopAutoRotate() {
         orientListener?.disable()
         orientListener = null
+    }
+
+    /* ---------- Soul 스타일: 동영상 위 플로팅 메뉴 버튼 ---------- */
+
+    private var videoMenuBtn: TextView? = null
+
+    private fun ensureVideoMenuButton(): TextView {
+        videoMenuBtn?.let { return it }
+        val dm = resources.displayMetrics
+        val size = (38 * dm.density).toInt()
+        val b = TextView(this).apply {
+            text = "⚙"
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor(0x73000000.toInt())
+                cornerRadius = 999f
+            }
+            layoutParams = FrameLayout.LayoutParams(size, size, Gravity.BOTTOM or Gravity.START).apply {
+                leftMargin = (12 * dm.density).toInt()
+                bottomMargin = (112 * dm.density).toInt()
+            }
+            setOnClickListener { showVideoMenu() }
+        }
+        container.addView(b)
+        videoMenuBtn = b
+        return b
+    }
+
+    /** JS가 보고한 video 태그 존재 여부로 버튼 표시/숨김 (현재 탭 것만 반영) */
+    private fun updateVideoMenuButton(owner: WebView?, found: Boolean) {
+        if (owner != current()?.web) return
+        val b = ensureVideoMenuButton()
+        b.visibility = if (found) View.VISIBLE else View.GONE
+        if (found) container.bringChildToFront(b)
+    }
+
+    /** 회전 대상: HTML5 fullscreen 커스텀 뷰가 아니면 JS 풀스크린 모드의 WebView를 회전 */
+    private var rotatedWeb: WebView? = null
+
+    private fun rotationTarget(): View? = fullscreenView ?: (if (jsFsActive) current()?.web else null)
+
+    private fun restoreRotatedWeb() {
+        rotatedWeb?.let { w ->
+            w.rotation = 0f
+            w.layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        rotatedWeb = null
     }
 
     private fun showVideoMenu() {
@@ -1436,6 +1500,7 @@ class MainActivity : Activity() {
                 if (jsFsActive) {
                     runVideoJs("window.__sbFsOff();")
                     jsFsActive = false
+                    restoreRotatedWeb()
                     topBar.visibility = View.VISIBLE
                     bottomBar.visibility = View.VISIBLE
                     if (fullscreenView == null) exitImmersive()
@@ -1447,8 +1512,8 @@ class MainActivity : Activity() {
                     enterImmersive()
                 }
             })
-            // custom-view fullscreen only: rotate the video, not the browser (Soul-style)
-            if (fullscreenView != null) {
+            // 회전 메뉴: HTML5 fullscreen 커스텀 뷰 + JS 풀스크린 모드 둘 다 지원
+            if (fullscreenView != null || jsFsActive) {
                 addView(row(getString(R.string.vm_landscape)) {
                     rotateFullscreen(90f)
                 })
@@ -1923,6 +1988,7 @@ class MainActivity : Activity() {
         if (jsFsActive) {
             runVideoJs("window.__sbFsOff();")
             jsFsActive = false
+            restoreRotatedWeb()
             topBar.visibility = View.VISIBLE
             bottomBar.visibility = View.VISIBLE
             return
@@ -1956,6 +2022,7 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         VideoStore.listener = null
         VideoJsBridge.onVideoLongPress = null
+        VideoJsBridge.onVideoPresence = null
         tabs.forEach { it.web.destroy() }
         tabs.clear()
         super.onDestroy()

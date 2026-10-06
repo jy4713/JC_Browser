@@ -41,8 +41,23 @@ object VideoStore {
     fun add(wv: WebView?, v: DetectedVideo) {
         val m = mediaFor(wv)
         val target = if (v.kind == "IMG") m.images else m.videos
-        if (target.any { it.url == v.url }) return
-        if (target.size > 100) target.removeAt(0)
+        // 토큰이 매 요청 회전하는 사이트 대응: 쿼리/프래그먼트 제외한 기준 URL로 중복 판정.
+        // 같은 영상이면 예전 URL을 지우고 최신 URL 하나만 유지 (다운로드 시 만료된 토큰 방지).
+        if (v.kind != "IMG") {
+            val key = v.url.substringBefore('#').substringBefore('?')
+            if (key.length > 10) {
+                val idx = target.indexOfFirst {
+                    it.url.substringBefore('#').substringBefore('?') == key
+                }
+                if (idx >= 0) {
+                    target.removeAt(idx)
+                    target.add(v)
+                    listener?.invoke()
+                    return
+                }
+            }
+        } else if (target.any { it.url == v.url }) return
+        if (target.size > 60) target.removeAt(0)
         target.add(v)
         listener?.invoke()
     }

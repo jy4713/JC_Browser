@@ -44,6 +44,12 @@ class VideoJsBridge(private val owner: WebView? = null) {
         onVideoLongPress?.invoke()
     }
 
+    /** 페이지에 재생 가능한 video 태그가 있는지 주기적 보고 (플로팅 메뉴 버튼 표시용) */
+    @JavascriptInterface
+    fun videoPresent(found: Boolean) {
+        onVideoPresence?.invoke(owner, found)
+    }
+
     /** SPA 등에서 주소만 바뀌는 페이지 전환 감지 → 이 탭의 목록만 리셋 */
     @JavascriptInterface
     fun pageChanged() {
@@ -65,6 +71,9 @@ class VideoJsBridge(private val owner: WebView? = null) {
     companion object {
         @Volatile
         var onVideoLongPress: (() -> Unit)? = null
+
+        @Volatile
+        var onVideoPresence: ((WebView?, Boolean) -> Unit)? = null
 
         @Volatile
         var onVideoFsChange: ((Boolean) -> Unit)? = null
@@ -173,6 +182,20 @@ class VideoJsBridge(private val owner: WebView? = null) {
       if (vs[i].__sbfs !== undefined){ vs[i].setAttribute('style', vs[i].__sbfs); delete vs[i].__sbfs; }
     }
   };
+
+  /* 1-2a) video 태그 존재 여부를 네이티브에 보고 (플로팅 메뉴 버튼 표시용) */
+  var __sbHadVideo = false;
+  function __sbReportVideo(){
+    try{
+      var has = !!window.__sbBigVideo();
+      if (has !== __sbHadVideo){
+        __sbHadVideo = has;
+        window.StreamBrowser.videoPresent(has);
+      }
+    }catch(e){}
+  }
+  setInterval(__sbReportVideo, 1500);
+  __sbReportVideo();
 
   /* 1-2) 큰 이미지 수집 (300px 미만 아이콘/배너 제외) */
   function collectImages(){
