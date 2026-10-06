@@ -29,7 +29,7 @@
             android:id="@+id/txtVideoKind"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#1A73E8"
+            android:textColor="@color/primary"
             android:textSize="11sp"
             android:textStyle="bold" />
 

@@ -2,6 +2,7 @@
 <resources>
     <color name="primary">#8AB4F8</color>
     <color name="icon_tint">#9AA0A6</color>
+    <color name="text_primary">#E8EAED</color>
     <color name="url_bg">#2A2B2E</color>
     <color name="bottom_bar_bg">#1F2023</color>
 </resources>

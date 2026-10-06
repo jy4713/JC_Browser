@@ -29,7 +29,7 @@
             android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:text="다운로드"
-            android:textColor="#202124"
+            android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
