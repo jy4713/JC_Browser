@@ -30,6 +30,18 @@ WebView 기반 안드로이드 브라우저 — 광고 차단, 스트리밍 영�
 - 이미지(300px 이상) 감지 및 다운로드
 - 다운로드 관리 화면: 진행률 %/MB, 취소, 재생, 이름 변경, 삭제
 
+### 토렌트 (libtorrent4j)
+- magnet / `.torrent` 링크 자동 가로채기
+- 설정 ON: **받으면서 재생** — 영상 파일만 순차 다운로드(sequential pieces) 우선순위 지정 후 플레이어에서 즉시 재생 (MKV/WebM 권장, MP4는 moov 위치에 따라 못 여는 경우 있음)
+- 설정 OFF: `.torrent`를 일반 파일로 다운로드
+- TorrentActivity: 진행률 %, 시드/피어 수, 수신량 실시간 표시, 전체 다운로드 시 Downloads/JC Browser 납품
+
+### UI / 테마
+- 다크 모드 설정 (dark / light / system), values-night 리소스 전면 대응
+- 탭 개수 배지 (숫자만), 메뉴 시트·탭 시트 테마 색상, 화면 아래로 당기기 새로고침
+- PIP (동영상 재생 중 홈 버튼), 팝업 차단 ON/OFF 토글
+- 쿠키·서드파티 쿠키 허용 (구글 동의 등 세션 유지)
+
 ### 데이터
 - 즐겨찾기: 폴터(하위 디렉토리) 생성/이동, HTML 가져오기·낳볶기 (Netscape 포맷 — Chrome/Soul 호환)
 - 방문 기록: 검색 필터, 도메인 아바타
@@ -52,10 +64,14 @@ app/src/main/java/com/example/streambrowser/
 │   └── VideoAdapter.kt           # 감지 미디어 목록 (영상+이미지)
 ├── db/
 │   └── BrowserDb.kt              # SQLite (즐겨찾기 v2: 폴터 지원, 기록)
+├── torrent/
+│   └── TorrentManager.kt         # libtorrent4j 세션, 순차 다운로드 우선순위, 파일 준비 대기
 └── ui/
     ├── BookmarksActivity.kt      # 즐겨찾기 (폴터, HTML 임포트/익스포트)
     ├── HistoryActivity.kt        # 방문 기록
-    └── DownloadsActivity.kt      # 다운로드 관리
+    ├── DownloadsActivity.kt      # 다운로드 관리
+    ├── PlayerActivity.kt         # 비디오 플레이어 (http/https + file:// 로컬 재생)
+    └── TorrentActivity.kt        # 토렌트 진행 화면 (재생/전체 다운로드/중지)
 ```
 
 ## 빌드 방법
@@ -68,13 +84,19 @@ gradle assembleDebug
 
 - compileSdk 34, minSdk 24, Kotlin, AGP 8.5.2, Gradle 8.9
 - FFmpegKit 5.1 (full-gpl) — Maven Central에서 제거되어 Aliyun 미러 사용 (settings.gradle.kts 참조)
+- libtorrent4j 2.1.0 (arm64 / armeabi-v7a 네이티브 포함 — universal APK ~150MB, arm64 전용 ~45MB)
 - 출력: `app/build/outputs/apk/debug/app-debug.apk`
+
+## 버전 히스토리
+
+- **v2.6.0** — 토렌트 순차 재생 (받으면서 재생, ON/OFF 설정), 쿠키 서드파티 허용 (구글 동의 반복 수정), 다크모드 메뉴 시트 대응, 탭 배지 스타일
+- **v2.5.x** — 다크모드 글자색 전면 대응, 팝업 차단 메뉴 토글, KOR Site list URL 수정, PIP / pull-to-refresh, 주소창 포커스 동작 수정, 메뉴 재구성
 
 ## 로드맵 (아이디어)
 
 - Brave식 EasyList 필터 + 요소 숨김 (빈칸 제거)
 - 탭 그룹, 뒤로가기 길게 누르기 = 방문 기록 팝업
-- 사이트별 설정 (권한/데스크톱 기억), PIP(화면 속 화면)
+- 사이트별 설정 (권한/데스크톱 기억), 토렌트 커스텀 트래커 목록
 
 ## 참고
 
