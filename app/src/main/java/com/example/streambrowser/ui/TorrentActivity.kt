@@ -77,7 +77,7 @@ class TorrentActivity : Activity() {
             when {
                 url.startsWith("magnet:") -> {
                     magnetUri = url
-                    TorrentManager.fetchMagnetInfo(url, 120, workDir())
+                    TorrentManager.fetchMagnetInfo(withDefaultTrackers(url), 120, workDir())
                 }
                 else -> {
                     val conn = URL(url).openConnection() as HttpURLConnection
@@ -92,7 +92,8 @@ class TorrentActivity : Activity() {
         }.onSuccess { info ->
             runOnUiThread {
                 if (info == null) {
-                    txtStatus.text = getString(R.string.torrent_load_failed)
+                    // 시드/DHT 문제일 수 있어 실패 사유를 구체적으로 표시
+                    txtStatus.text = getString(R.string.torrent_load_failed) + "\n(magnet metadata timeout — seeds 없음 또는 DHT 대기)"
                     btnPlay.isEnabled = false
                     btnDl.isEnabled = false
                 } else {
@@ -100,9 +101,9 @@ class TorrentActivity : Activity() {
                     showMeta(info)
                 }
             }
-        }.onFailure {
+        }.onFailure { e ->
             runOnUiThread {
-                txtStatus.text = getString(R.string.torrent_load_failed)
+                txtStatus.text = getString(R.string.torrent_load_failed) + "\n${e.javaClass.simpleName}: ${e.message}"
                 btnPlay.isEnabled = false
                 btnDl.isEnabled = false
             }
@@ -110,6 +111,18 @@ class TorrentActivity : Activity() {
     }
 
     private fun workDir(): File = File(filesDir, "torrent").apply { mkdirs() }
+
+    /** 트래커가 없는 마그넷에 공개 트래커를 붙여 메타데이터 수신 성공률을 높인다 */
+    private fun withDefaultTrackers(magnet: String): String {
+        if (magnet.contains("tr=")) return magnet
+        val trackers = listOf(
+            "udp://tracker.opentrackr.org:1337/announce",
+            "udp://open.stealth.si:80/announce",
+            "udp://tracker.torrent.eu.org:451/announce",
+            "udp://exodus.desync.com:6969/announce"
+        )
+        return magnet + trackers.joinToString("") { "&tr=" + java.net.URLEncoder.encode(it, "UTF-8") }
+    }
 
     private fun showMeta(info: TorrentInfo) {
         val fs = info.files()

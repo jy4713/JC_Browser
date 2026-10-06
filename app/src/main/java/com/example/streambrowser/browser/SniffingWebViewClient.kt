@@ -35,6 +35,13 @@ class SniffingWebViewClient(
     ): WebResourceResponse? {
         val url = request.url.toString()
         val host = request.url.host ?: ""
+        // .torrent 메인 프레임 요청: 팝업/리다이렉트 경로(shouldOverrideUrlLoading이 안 불리는 경우)까지 커버
+        if (request.isForMainFrame && request.method == "GET" &&
+            request.url.path?.lowercase()?.endsWith(".torrent") == true
+        ) {
+            view.post { onTorrentLink?.invoke(view.context, url) }
+            return AdBlocker.emptyResponse()
+        }
         runCatching {
             if (AdBlocker.isBlocked(host, url)) {
                 return AdBlocker.emptyResponse()
