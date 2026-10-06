@@ -90,14 +90,17 @@ object TorrentManager {
         saveDir.mkdirs()
         s.download(ti, saveDir, null, priorities, null, torrent_flags_t())
 
-        // 비동기 추가이므로 핸들이 잡힐 때까지 짧게 대기
+        // 비동기 추가 + 세션 초기화가 늦어질 수 있어 핸들이 잡힐 때까지 충분히 대기
         var h: TorrentHandle? = null
-        for (i in 0 until 50) {
+        for (i in 0 until 100) {
             h = s.find(ti.infoHash())
             if (h != null) break
             Thread.sleep(100)
         }
         val handle = h ?: error("torrent handle not found")
+
+        // 일부 환경에서 paused 상태로 추가되는 경우 대비
+        runCatching { handle.resume() }
 
         if (stream && streamIdx >= 0) {
             // 앞에서부터 순서대로 받기 → 플레이어가 중간부터 재생 가능

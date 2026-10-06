@@ -45,6 +45,8 @@ class PlayerActivity : Activity() {
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
             cacheMode = WebSettings.LOAD_NO_CACHE
+            // http/https가 섞인 스트림(m3u8 세그먼트 등) 재생 허용 — 이 플레이어 전용 설정
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
         web.webChromeClient = object : WebChromeClient() {
             override fun onShowCustomView(view: View, callback: CustomViewCallback) {
@@ -84,11 +86,18 @@ video{width:100vw;height:100vh;object-fit:contain;background:#000}</style>
                 val dir = File(path).parentFile ?: run { finish(); return }
                 dir.mkdirs()
                 val htmlFile = File(dir, ".jc_play.html")
-                htmlFile.writeText(html.replace("src=\"$escaped\"", "src=\"${File(path).name}\""))
+                // 파일명을 URL 인코딩(공백/한글 등) + HTML 이스케이프
+                val encName = android.net.Uri.encode(File(path).name)
+                    .replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;")
+                htmlFile.writeText(html.replace("src=\"$escaped\"", "src=\"$encName\""))
                 web.loadUrl("file://${htmlFile.absolutePath}")
             }.onFailure { finish() }
         } else {
-            web.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
+            // 원본 페이지를 base URL로 지정: 상대 URL 해결 + 스트림 서버가 요구하는 오리진/리퍼러 제공
+            // (base 없이 로드하면 CDN이 요청을 거부해 0:00/검은 화면이 되는 사이트가 있음)
+            val page = intent.getStringExtra(EXTRA_PAGE)
+            val base = if (!page.isNullOrEmpty() && (page.startsWith("http://") || page.startsWith("https://"))) page else null
+            web.loadDataWithBaseURL(base, html, "text/html", "utf-8", null)
         }
     }
 

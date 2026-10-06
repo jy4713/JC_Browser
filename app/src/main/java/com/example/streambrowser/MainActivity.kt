@@ -549,7 +549,7 @@ class MainActivity : Activity() {
         wv.webViewClient = SniffingWebViewClient(
             onPageStartedCb = { view, url ->
                 runOnUiThread {
-                    if (view == current()?.web) {
+                    if (view == current()?.web && !editUrl.isFocused) {
                         editUrl.setText(if (url.contains("jcb.local")) "" else url)
                         updateNavButtons()
                     }
@@ -565,7 +565,7 @@ class MainActivity : Activity() {
             },
             onPageFinishedCb = { view, url ->
                 runOnUiThread {
-                    if (view == current()?.web) {
+                    if (view == current()?.web && !editUrl.isFocused) {
                         editUrl.setText(if (url.contains("jcb.local")) "" else url)
                         updateNavButtons()
                         val tab = tabs.firstOrNull { it.web == view }
@@ -651,6 +651,14 @@ class MainActivity : Activity() {
         }
         wv.webChromeClient = chromeClient
         wv.setOnLongClickListener { showHitMenu(wv) }
+        // WebView가 렌더링 못 하는 파일(일반 다운로드) 감지 — 기존엔 리스너가 없어 클릭핸도 아무 일 없었음
+        wv.setDownloadListener { u, _, contentDisposition, mime, _ ->
+            when {
+                u.startsWith("magnet:") -> handleTorrentLink(u)
+                u.substringBefore('#').substringBefore('?').lowercase().endsWith(".torrent") -> handleTorrentLink(u)
+                else -> downloadFile(u, contentDisposition, mime)
+            }
+        }
         val tab = Tab(wv, incognito)
         tabs.add(tab)
         current = tabs.size - 1
@@ -1780,6 +1788,26 @@ class MainActivity : Activity() {
 
     // ------------------------------------------------------- 테마 (다크/라이트/시스템)
 
+    /** 일반 파일 다운로드: 시스템 다운로드 매니저로 Downloads 폴터에 저장 (표준 브라우저 동작) */
+    private fun downloadFile(u: String, contentDisposition: String?, mime: String?) {
+        runCatching {
+            val name = android.webkit.URLUtil.guessFileName(u, contentDisposition, mime)
+            val req = android.app.DownloadManager.Request(Uri.parse(u)).apply {
+                setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
+                current()?.web?.settings?.userAgentString?.let { addRequestHeader("User-Agent", it) }
+                runCatching { CookieManager.getInstance().getCookie(u) }.getOrNull()?.let { c ->
+                    if (c.isNotEmpty()) addRequestHeader("Cookie", c)
+                }
+                if (!mime.isNullOrEmpty()) setMimeType(mime)
+            }
+            (getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager).enqueue(req)
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.torrent_file_downloading))
+        }.onFailure {
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.notif_failed))
+        }
+    }
+
     /** magnet/.torrent 링크 진입점 — 설정에 따라 토렌트 재생 또는 일반 다운로드 */
     private fun handleTorrentLink(url: String) {
         if (prefs.getBoolean("torrent_play", false)) {
@@ -1792,9 +1820,10 @@ class MainActivity : Activity() {
         } else {
             // 토렌트 재생 OFF: 시스템 다운로드 매니저로 .torrent 파일만 받기
             runCatching {
+                val name = android.webkit.URLUtil.guessFileName(url, null, "application/x-bittorrent")
                 val req = android.app.DownloadManager.Request(Uri.parse(url)).apply {
                     setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, url.substringBefore('#').substringAfterLast('/').ifBlank { "file.torrent" })
+                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
                 }
                 (getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager).enqueue(req)
                 com.example.streambrowser.util.JcToast.show(this, getString(R.string.torrent_file_downloading))
@@ -2251,11 +2280,12 @@ class MainActivity : Activity() {
         if (items.isEmpty() || !editUrl.isFocused) return
         val listView = android.widget.ListView(this)
         listView.adapter = ArrayAdapter(this, R.layout.item_suggest, items)
+        // focusable=false — 팝업이 포커스를 빼앗지 않아 입력 중 키보드가 날아가지 않음
         val pw = PopupWindow(
             listView,
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
-            true
+            false
         )
         pw.setBackgroundDrawable(ColorDrawable(resources.getColor(R.color.sheet_bg, theme)))
         pw.elevation = 16f

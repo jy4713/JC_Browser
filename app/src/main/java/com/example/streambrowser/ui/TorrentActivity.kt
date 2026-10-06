@@ -77,7 +77,7 @@ class TorrentActivity : Activity() {
             when {
                 url.startsWith("magnet:") -> {
                     magnetUri = url
-                    TorrentManager.fetchMagnetInfo(url, 60, workDir())
+                    TorrentManager.fetchMagnetInfo(url, 120, workDir())
                 }
                 else -> {
                     val conn = URL(url).openConnection() as HttpURLConnection
