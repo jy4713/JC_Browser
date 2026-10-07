@@ -275,8 +275,9 @@
     <string name="menu_torrent_downloads">토렌트 다운로드</string>
     <string name="menu_torrent_max">토렌트 동시 다운로드 (%d)</string>
     <string name="menu_torrent_rate">토렌트 속도 제한</string>
-    <string name="dlg_rate_dl_hint">다운로드 KB/s (0 = 무제한)</string>
-    <string name="dlg_rate_ul_hint">업로드 KB/s (0 = 무제한)</string>
+    <string name="dlg_rate_dl_hint">다운로드 (KB/s)</string>
+    <string name="dlg_rate_ul_hint">업로드 (KB/s)</string>
+    <string name="dlg_rate_note">0 = 무제한 (속도 제한 없음)</string>
     <string name="torrent_go_list">다운로드 관리로 이동</string>
     <string name="torrent_auto_starting">다운로드를 시작합니다…</string>
     <string name="torrent_started">토렌트 시작: %1$s</string>

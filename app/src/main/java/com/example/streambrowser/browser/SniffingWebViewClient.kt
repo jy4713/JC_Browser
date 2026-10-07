@@ -51,11 +51,29 @@ class SniffingWebViewClient(
                 VideoStore.add(view, DetectedVideo(url = url, page = view.url ?: "", kind = kind))
             }
             // HTML 문서(메인 프레임 + iframe)면 스캐너 JS 주입
-            if (request.method == "GET" && accept.lowercase().contains("text/html")) {
+            // - accept에 text/html이 있거나, 확장자 없는 */* 문서 요청(iframe이 */*로 오는 경우 많음)도 시도
+            //   (주입 여부는 응답 content-type이 text/html일 때만 확정 — 낶에서 2차 확인)
+            if (request.method == "GET" && looksLikeDocument(accept, request.url)) {
                 injectScanner(view, request)?.let { return it }
             }
         }
         return null
+    }
+
+    /** 문서(HTML) 요청 여부 — accept 헤더 + URL 확장자로 판별 */
+    private fun looksLikeDocument(accept: String, uri: Uri): Boolean {
+        val a = accept.lowercase()
+        if ("text/html" in a) return true
+        // */* 요청 중 확장자 없는 것(iframe 문서 등)만 시도 — 스크립트/이미지 등 정적 파일 제외
+        if ("*/*" !in a) return false
+        val path = uri.path ?: ""
+        val ext = path.substringAfterLast('.', "")
+        if (ext.length > 4) return false
+        return ext !in setOf(
+            "js", "css", "png", "jpg", "jpeg", "gif", "webp", "svg", "ico",
+            "woff", "woff2", "ttf", "otf", "eot", "mp4", "webm", "mp3", "m3u8", "ts",
+            "json", "xml", "txt", "pdf", "zip", "wasm"
+        )
     }
 
     /** HTML 응답을 직접 받아 <head> 뒤에 스캐너 스크립트를 삽입 (iframe 낶의 video 태그도 수집) */

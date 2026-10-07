@@ -277,8 +277,9 @@
     <string name="menu_torrent_downloads">Torrent downloads</string>
     <string name="menu_torrent_max">Torrent max simultaneous (%d)</string>
     <string name="menu_torrent_rate">Torrent speed limit</string>
-    <string name="dlg_rate_dl_hint">Download KB/s (0 = unlimited)</string>
-    <string name="dlg_rate_ul_hint">Upload KB/s (0 = unlimited)</string>
+    <string name="dlg_rate_dl_hint">Download (KB/s)</string>
+    <string name="dlg_rate_ul_hint">Upload (KB/s)</string>
+    <string name="dlg_rate_note">0 = unlimited (no speed limit)</string>
     <string name="torrent_go_list">Open download manager</string>
     <string name="torrent_auto_starting">Starting download…</string>
     <string name="torrent_started">Torrent started: %1$s</string>

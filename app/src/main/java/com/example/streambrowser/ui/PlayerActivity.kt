@@ -107,16 +107,16 @@ ${if (isHls) """<script>$hlsJs</script>
       v.removeAttribute('src');
       v.src=SRC;
       v.load();
-      var p=v.play(); if(p&amp;&amp;p.catch) p.catch(function(){});
+      var p=v.play(); if(p&&p.catch) p.catch(function(){});
     }catch(e){ show('native fallback error: '+e.message); }
   }
   try{
-    if (window.Hls &amp;&amp; Hls.isSupported()) {
+    if (window.Hls && Hls.isSupported()) {
       var h=new Hls({enableWorker:false});
       window.h=h;
       h.loadSource(SRC); h.attachMedia(v);
       h.on(Hls.Events.ERROR,function(ev,data){
-        if(data &amp;&amp; data.fatal){
+        if(data && data.fatal){
           show('HLS.JS FATAL: '+data.type+'/'+data.details);
           setTimeout(function(){
             if(v.error||v.networkState===3||v.readyState===0) tryNative();
@@ -125,7 +125,7 @@ ${if (isHls) """<script>$hlsJs</script>
       });
       /* 8초 뒤에도 영상이 안 뜨면 네이티브로 전환 */
       setTimeout(function(){
-        if(v.readyState===0 &amp;&amp; !nativeTried) tryNative();
+        if(v.readyState===0 && !nativeTried) tryNative();
       },8000);
     } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
       v.src=SRC;

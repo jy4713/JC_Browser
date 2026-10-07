@@ -4,9 +4,15 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.8.2 (versionCode 44)
+- 현재 버전: 2.8.3 (versionCode 45)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-07, v2.8.3)
+- [x] HLS 재생 실패 진짜 원인 수정: 플레이어 HTML의 <script>에 `&amp;&amp;` 엔티티를 써서 JS 전체가 SyntaxError 난 것 → plain `&&`로 교정 (script 낶은 엔티티 디코딩 안 됨). hls.js 경로 + 네이티브 폴드백 둘 다 살아남
+- [x] HLS 고속 다운로드 병합본이 .ts(MPEG-TS)라 재생 0:00이던 문제 → ffmpeg 스트림 복사로 .mp4 재먹스 (실패 시 ts 유지)
+- [x] HLS 감지 누락 보강: 스캐너 JS가 상대 경로 m3u8을 절대 URL로 변환해 수집, XHR/fetch 요청 URL 자체가 미디어 링크면 직접 보고, accept가 */*인 확장자 없는 iframe 문서에도 스캐너 주입 시도 (새로고침 시 캐시 때문에 네트워크 감지가 안 뜨는 경우 대비)
+- [x] 토렌트 속도 제한 다이얼로그: 다운로드/업로드 라벨 + (KB/s) 단위 표기 + "0 = 무제한" 안내 노트 추가
 
 ### 완료 (2026-10-07, v2.8.2)
 - [x] 토렌트 속도 제한 메뉴에 단위 표기 — "토렌트 속도 제한 (다운 500 KB/s · 업로드 무제한)" 형식, 0=무제한 명시

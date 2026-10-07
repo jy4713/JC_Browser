@@ -154,6 +154,19 @@ object FastVideoDownloader {
             val ts = File(out.parentFile, out.nameWithoutExtension + ".ts")
             out.renameTo(ts)
             item.file = ts
+            // WebView <video>는 TS 컨테이너를 재생 못 하므로 스트림 복사로 mp4 재먹스 시도
+            val mp4 = File(out.parentFile, out.nameWithoutExtension + ".mp4")
+            val rc = runCatching {
+                com.arthenica.ffmpegkit.FFmpegKit.execute(
+                    "-y -i \"${ts.absolutePath}\" -c copy -bsf:a aac_adtstoasc \"${mp4.absolutePath}\""
+                )
+            }.getOrNull()
+            if (rc != null && rc.returnCode.isValueSuccess && mp4.length() > 0) {
+                ts.delete()
+                item.file = mp4
+            } else {
+                mp4.delete()
+            }
         } else {
             item.file = out
         }

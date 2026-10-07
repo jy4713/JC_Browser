@@ -1917,21 +1917,34 @@ class MainActivity : Activity() {
     /** 토렌트 다운/업로드 속도 제한 설정 (KB/s, 0=무제한) */
     private fun showTorrentRateDialog() {
         val density = resources.displayMetrics.density
-        fun edit(current: Int, hint: String) = EditText(this).apply {
+        fun dp(x: Int) = (x * density).toInt()
+        fun label(txt: String) = TextView(this).apply {
+            text = txt
+            textSize = 13f
+            setTextColor(resources.getColor(R.color.icon_tint, theme))
+        }
+        fun edit(current: Int) = EditText(this).apply {
             setText(current.toString())
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            this.hint = hint
             setTextColor(resources.getColor(R.color.text_primary, theme))
             setHintTextColor(resources.getColor(R.color.icon_tint, theme))
         }
-        val edDl = edit(prefs.getInt("torrent_rate_dl", 0), getString(R.string.dlg_rate_dl_hint))
-        val edUl = edit(prefs.getInt("torrent_rate_ul", 0), getString(R.string.dlg_rate_ul_hint))
+        val edDl = edit(prefs.getInt("torrent_rate_dl", 0))
+        val edUl = edit(prefs.getInt("torrent_rate_ul", 0))
+        val note = TextView(this).apply {
+            text = getString(R.string.dlg_rate_note)
+            textSize = 12f
+            setTextColor(resources.getColor(R.color.icon_tint, theme))
+        }
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            val pad = (24 * density).toInt()
-            setPadding(pad, pad / 2, pad, 0)
+            val pad = dp(24)
+            setPadding(pad, dp(6), pad, dp(8))
+            addView(label(getString(R.string.dlg_rate_dl_hint)))
             addView(edDl)
+            addView(label(getString(R.string.dlg_rate_ul_hint)))
             addView(edUl)
+            addView(note)
         }
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.menu_torrent_rate))

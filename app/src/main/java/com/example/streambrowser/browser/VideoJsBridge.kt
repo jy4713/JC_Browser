@@ -98,7 +98,18 @@ class VideoJsBridge(private val owner: WebView? = null) {
       t = t.replace(/\\\//g, '/'); /* JSON 이스케이프 복원 */
       var m;
       while((m = MEDIA_RE.exec(t)) !== null){
-        window.StreamBrowser.addVideo(m[0], 'NET', location.href);
+        var abs = m[0];
+        try{ abs = new URL(abs, location.href).href; }catch(x){}
+        window.StreamBrowser.addVideo(abs, 'NET', location.href);
+      }
+    }catch(e){}
+  }
+
+  /* 요청 URL 자체가 미디어 링크면(상대 경로 포함) 바로 보고 */
+  function reportUrl(u){
+    try{
+      if(u && /\.(m3u8|mpd|mp4|m4v|webm|flv)(\?|#|$)/i.test(u)){
+        window.StreamBrowser.addVideo(new URL(u, location.href).href, 'NET', location.href);
       }
     }catch(e){}
   }
@@ -237,6 +248,7 @@ class VideoJsBridge(private val owner: WebView? = null) {
   XMLHttpRequest.prototype.send = function(){
     try{
       this.addEventListener('load', function(){
+        try{ reportUrl(this.__u); }catch(e){}
         try{ scanText(this.__u); }catch(e){}
         try{ if (this.responseType === '' || this.responseType === 'text') scanText(this.responseText); }catch(e){}
       });
@@ -251,7 +263,8 @@ class VideoJsBridge(private val owner: WebView? = null) {
       var u = (typeof input === 'string') ? input : ((input && input.url) || '');
       return ofetch.apply(this, arguments).then(function(res){
         try{
-          if (u) scanText(u);
+          reportUrl(u);
+          scanText(u);
           var ct = '';
           try{ ct = (res.headers && res.headers.get) ? (res.headers.get('content-type') || '') : ''; }catch(e){}
           if (ct.indexOf('json') >= 0 || ct.indexOf('text') >= 0 || /\.(m3u8|mpd)/i.test(u)){
