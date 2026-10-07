@@ -662,6 +662,11 @@ class MainActivity : Activity() {
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
                 )
+                // Soul 스타일: 네이티브 전체화면에서 화면 오래 누륵면 톱니 버튼 표시
+                view.setOnLongClickListener {
+                    onVideoLongPressed()
+                    true
+                }
             }
 
             override fun onHideCustomView() {
@@ -1755,20 +1760,25 @@ class MainActivity : Activity() {
                 cornerRadius = r.toFloat()
             }
             elevation = 24f
-            addView(row(getString(if (jsFsActive) R.string.vm_fs_off else R.string.vm_fs_on)) {
-                if (jsFsActive) {
-                    runVideoJs("window.__sbFsOff();")
-                    jsFsActive = false
-                    restoreRotatedWeb()
-                    topBar.visibility = View.VISIBLE
-                    bottomBar.visibility = View.VISIBLE
-                    if (fullscreenView == null) exitImmersive()
-                } else {
-                    runVideoJs("window.__sbFsOn();")
-                    jsFsActive = true
-                    topBar.visibility = View.GONE
-                    bottomBar.visibility = View.GONE
-                    enterImmersive()
+            addView(row(getString(if (jsFsActive || fullscreenView != null) R.string.vm_fs_off else R.string.vm_fs_on)) {
+                when {
+                    // 네이티브 HTML5 전체화면: 커스텀 뷰 종료
+                    fullscreenView != null -> chromeClient.onHideCustomView()
+                    jsFsActive -> {
+                        runVideoJs("window.__sbFsOff();")
+                        jsFsActive = false
+                        restoreRotatedWeb()
+                        topBar.visibility = View.VISIBLE
+                        bottomBar.visibility = View.VISIBLE
+                        exitImmersive()
+                    }
+                    else -> {
+                        runVideoJs("window.__sbFsOn();")
+                        jsFsActive = true
+                        topBar.visibility = View.GONE
+                        bottomBar.visibility = View.GONE
+                        enterImmersive()
+                    }
                 }
             })
             // 회전 메뉴: HTML5 fullscreen 커스텀 뷰 + JS 풀스크린 모드 둘 다 지원

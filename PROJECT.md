@@ -4,9 +4,13 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.8.4 (versionCode 46)
+- 현재 버전: 2.8.5 (versionCode 47)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-07, v2.8.5)
+- [x] 전체화면 동영상 길게 눌러도 톱니(⚙)가 안 뜨던 문제 — 사이트마다 전체화면 구현이 달라 3가지 케이스 모두 지원: ①네이티브 HTML5 풀스크린(onShowCustomView)에 롱클릭 리스너 추가, ②div 래퍼를 fullscreen으로 쓰는 경우 document.fullscreenElement에서 비디오 탐색, ③기존 JS 풀스크린
+- [x] 영상 메뉴의 "전체화면 OFF"가 네이티브 풀스크린도 종료하도록 처리 (chromeClient.onHideCustomView)
 
 ### 완료 (2026-10-07, v2.8.4)
 - [x] 토렌트 업로드 방지: 메뉴 → 토렌트 그룹에 "다운 완료 후 업로드 중지" 토글 추가 — 완료되는 순간 시딩을 멈춰 업로드가 아예 안 생김 (상태는 완료 유지). 속도 제한 0은 무제한이므로 최소 1 KB/s 권장

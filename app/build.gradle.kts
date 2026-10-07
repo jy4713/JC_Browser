@@ -11,8 +11,8 @@ android {
         applicationId = "com.example.streambrowser"
         minSdk = 24
         targetSdk = 34
-        versionCode = 46
-        versionName = "2.8.4"
+        versionCode = 47
+        versionName = "2.8.5"
     }
 
     buildTypes {

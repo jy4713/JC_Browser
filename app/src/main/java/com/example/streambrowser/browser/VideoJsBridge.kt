@@ -158,6 +158,8 @@ class VideoJsBridge(private val owner: WebView? = null) {
       clearLp();
       var t = e.target;
       var v = (t && t.closest) ? t.closest('video') : null;
+      /* 사이트가 div 래퍼를 전체화면으로 쓰는 경우: 풀스크린 요소면 video 대상으로 간주 */
+      if (!v) { try{ if (document.fullscreenElement) v = document.fullscreenElement; }catch(x){} }
       if (!v) return;
       lpTimer = setTimeout(function(){
         try{ window.StreamBrowser.videoLongPress(); }catch(x){}
