@@ -47,4 +47,4 @@
 ## 규칙
 - 정상 동작하는 기능은 건드리지 않는다
 - 한국어/영어 문자열은 values-ko / values 모두 유지 (터미널 한글 깨짐 주의 — 코드포인트 사용)
-- 빌드: `gradle.bat --no-daemon assembleDebug`, 배포: C:\Temp\workspace\ + Downloads 양쪽 복사
+- 빌드: `gradle.bat --no-daemon assembleDebug`, 배포: C:\Temp\workspace\ + Z:\Share 양쪽 복사 (Downloads 아님)
