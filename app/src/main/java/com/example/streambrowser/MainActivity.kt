@@ -150,7 +150,7 @@ class MainActivity : Activity() {
             }
         }
 
-        // 토렌트 완료/실패 콜백 — 완료 시 설정된 다운로드 폴터로 납품
+        // 토렌트 완료/실패 콜백 — 완료 시 설정된 다운로드 폴터로 납품, 시딩 중지 옵션이면 업로드 방지
         com.example.streambrowser.torrent.TorrentManager.onJobDone = { job ->
             runOnUiThread {
                 com.example.streambrowser.util.JcToast.show(
@@ -158,6 +158,9 @@ class MainActivity : Activity() {
                 )
             }
             exportTorrentJob(job)
+            if (prefs.getBoolean("torrent_no_seed", false)) {
+                com.example.streambrowser.torrent.TorrentManager.stopSeeding(job.key)
+            }
         }
         com.example.streambrowser.torrent.TorrentManager.onJobFailed = { job ->
             runOnUiThread {
@@ -1221,6 +1224,11 @@ class MainActivity : Activity() {
                 },
                 MenuEntry(s(R.string.menu_torrent_open), R.drawable.ic_open_in_new, null) {
                     showTorrentOpenDialog()
+                },
+                // 다운 완료 후 시딩 중지 — 완료되는 순간 일시 정지해 업로드가 아예 안 생기게 함
+                MenuEntry(s(R.string.menu_torrent_no_seed), R.drawable.ic_block, "torrent_no_seed") {
+                    val on = !prefs.getBoolean("torrent_no_seed", false)
+                    prefs.edit().putBoolean("torrent_no_seed", on).apply()
                 }
             )),
             MenuGroup(R.string.group_privacy, R.drawable.ic_incognito, listOf(
@@ -1311,7 +1319,7 @@ class MainActivity : Activity() {
 
     /** 각 설정의 실제 동작 기본값 (메뉴 ON 표시와 일치시키기 위함) */
     private fun prefDefault(key: String): Boolean = when (key) {
-        "desktop", "auto_pip", "js_block", "torrent_play", "block_images" -> false
+        "desktop", "auto_pip", "js_block", "torrent_play", "block_images", "torrent_no_seed" -> false
         "adblock" -> AdBlocker.enabled
         else -> true // restore_tabs, fast_dl, dl_notify, overlay_block, popup_block, app_block, suggest
     }

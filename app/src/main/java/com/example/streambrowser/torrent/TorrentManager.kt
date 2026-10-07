@@ -205,6 +205,14 @@ object TorrentManager {
         }
     }
 
+    /** 다운 완료 후 시딩만 중지 — 상태는 DONE 유지 (업로드 안 함) */
+    @Synchronized
+    fun stopSeeding(key: String) {
+        jobs[key]?.let { j ->
+            if (j.state == State.DONE) runCatching { j.handle.pause() }
+        }
+    }
+
     @Synchronized
     fun resumeJob(key: String) {
         jobs[key]?.let { j ->

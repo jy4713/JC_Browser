@@ -301,4 +301,6 @@
     <string name="torrent_pick_file">파일에서 .torrent 선택</string>
     <string name="menu_torrent_rate_fmt">토렌트 속도 제한 (다운 %1$s · 업로드 %2$s)</string>
     <string name="rate_unlimited">무제한</string>
+
+    <string name="menu_torrent_no_seed">다운 완료 후 업로드 중지</string>
 </resources>

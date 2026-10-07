@@ -118,4 +118,52 @@ object ThumbLoader {
             }
         }
     }
+
+    /* ---------- 로컬 파일 썸네일 (다운로드 목록용) ---------- */
+
+    private val localCache = LruCache<String, Bitmap>(40)
+
+    /** 다운로드 완료된 영상 파일에서 프레임 추출 (경로+크기 키로 캐시) */
+    fun loadLocalFrame(file: java.io.File, iv: ImageView, fallback: Bitmap?) {
+        val key = "${file.absolutePath}:${file.length()}"
+        localCache.get(key)?.let { iv.setImageBitmap(it); return }
+        iv.setImageBitmap(fallback)
+        iv.tag = "local:$key"
+        if (!frameInFlight.add(key)) return
+        exec.execute {
+            val bmp = runCatching {
+                val r = android.media.MediaMetadataRetriever()
+                r.setDataSource(file.absolutePath)
+                val f = r.getFrameAtTime(1_000_000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                    ?: r.getFrameAtTime(0)
+                r.release()
+                f
+            }.getOrNull()
+            if (bmp != null) localCache.put(key, bmp)
+            frameInFlight.remove(key)
+            main.post {
+                if (iv.tag == "local:$key") iv.setImageBitmap(bmp ?: fallback)
+            }
+        }
+    }
+
+    /** 이미지 파일 다운샘플 디코딩 (이미지 다운로드 미리보기) */
+    fun loadLocalImage(file: java.io.File, iv: ImageView, fallback: Bitmap?) {
+        val key = "${file.absolutePath}:${file.length()}"
+        localCache.get(key)?.let { iv.setImageBitmap(it); return }
+        iv.setImageBitmap(fallback)
+        iv.tag = "local:$key"
+        if (!frameInFlight.add(key)) return
+        exec.execute {
+            val bmp = runCatching {
+                val opt = BitmapFactory.Options().apply { inSampleSize = 8 }
+                BitmapFactory.decodeFile(file.absolutePath, opt)
+            }.getOrNull()
+            if (bmp != null) localCache.put(key, bmp)
+            frameInFlight.remove(key)
+            main.post {
+                if (iv.tag == "local:$key") iv.setImageBitmap(bmp ?: fallback)
+            }
+        }
+    }
 }

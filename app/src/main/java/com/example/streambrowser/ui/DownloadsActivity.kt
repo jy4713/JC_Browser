@@ -15,6 +15,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -27,6 +28,7 @@ import com.example.streambrowser.download.DlFormat
 import com.example.streambrowser.download.DlItem
 import com.example.streambrowser.download.DlStatus
 import com.example.streambrowser.download.DownloadStore
+import com.example.streambrowser.download.ThumbLoader
 import com.example.streambrowser.download.VideoDownloadService
 import java.io.File
 
@@ -447,6 +449,7 @@ class DownloadsActivity : Activity() {
         fun currentCount() = items.size
 
         class VH(v: View) : RecyclerView.ViewHolder(v) {
+            val thumb: ImageView = v.findViewById(R.id.dlThumb)
             val name: TextView = v.findViewById(R.id.dlName)
             val status: TextView = v.findViewById(R.id.dlStatus)
             val progress: ProgressBar = v.findViewById(R.id.dlProgress)
@@ -465,6 +468,17 @@ class DownloadsActivity : Activity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = items[position]
             holder.name.text = item.name
+
+            // 썸네일: 완료 파일이 있으면 프레임/이미지 캡처, 없으면 종류 타일
+            val f = item.file
+            val tile = ThumbLoader.kindTile(item.kind)
+            when {
+                item.kind == "IMG" && f != null && f.exists() ->
+                    ThumbLoader.loadLocalImage(f, holder.thumb, tile)
+                item.kind != "IMG" && f != null && f.exists() ->
+                    ThumbLoader.loadLocalFrame(f, holder.thumb, tile)
+                else -> holder.thumb.setImageBitmap(tile)
+            }
 
             when (item.status) {
                 DlStatus.PENDING -> {

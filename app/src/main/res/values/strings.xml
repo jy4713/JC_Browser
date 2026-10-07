@@ -303,4 +303,6 @@
     <string name="torrent_pick_file">Pick .torrent file</string>
     <string name="menu_torrent_rate_fmt">Torrent speed limit (down %1$s · up %2$s)</string>
     <string name="rate_unlimited">unlimited</string>
+
+    <string name="menu_torrent_no_seed">Stop upload when download completes</string>
 </resources>
