@@ -4,9 +4,14 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.8.0 (versionCode 42)
+- 현재 버전: 2.8.1 (versionCode 43)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-07, v2.8.1)
+- [x] 앱 아이콘 교체: 어두운 배경 + 초록 네온 "JC / BROWSER" 디자인 (adaptive foreground/background 포함)
+- [x] 다운로드/토렌트 관리 화면 탭 선택 UI: 흰색 칩(겹침) → 파랑 밑줄 인디케이터로 변경, 탭 간격 조정
+- [x] 메뉴 구조: 토렌트 항목(지원 토글/다운로드 관리/동시 개수/속도 제한/magnet 열기)을 "다운로드 설정"에서 별도 "토렌트" 그룹으로 분리
 
 ### 완료 (2026-10-06, v2.8.0)
 - [x] 토렌트 전면 개편: "받으면서 재생" 제거 → 전체 파일 다운로드 방식. .torrent/magnet은 토렌트 지원 ON일 때만 공유 파일 자동 다운로드 (OFF면 .torrent만 일반 다운로드, magnet은 켜기 안내)

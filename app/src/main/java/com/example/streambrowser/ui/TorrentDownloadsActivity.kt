@@ -105,7 +105,7 @@ class TorrentDownloadsActivity : Activity() {
     private fun refreshChips() {
         fun style(id: Int, selected: Boolean) {
             val chip = findViewById<TextView>(id)
-            chip.setBackgroundResource(if (selected) R.drawable.bg_btn_soft else android.R.color.transparent)
+            chip.setBackgroundResource(if (selected) R.drawable.bg_tab_indicator else android.R.color.transparent)
             chip.setTextColor(if (selected) 0xFF1A73E8.toInt() else 0xFF5F6368.toInt())
             chip.setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
         }

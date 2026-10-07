@@ -225,6 +225,7 @@
     <string name="filter_rules_fmt">%1$d rules</string>
     <string name="rule_hint">Rule, e.g. ||ads.example.com^</string>
     <string name="group_dl_settings">Download settings</string>
+    <string name="group_torrent">Torrent</string>
     <string name="menu_fast_dl">Fast download (segmented parallel)</string>
     <string name="menu_dl_split">Segments per file (%d)</string>
     <string name="menu_dl_conn">Simultaneous connections (%d)</string>

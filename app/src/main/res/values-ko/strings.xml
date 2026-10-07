@@ -223,6 +223,7 @@
     <string name="filter_rules_fmt">규칙 %1$d개</string>
     <string name="rule_hint">예: ||ads.example.com^</string>
     <string name="group_dl_settings">다운로드 설정</string>
+    <string name="group_torrent">토렌트</string>
     <string name="menu_fast_dl">고속 다운로드 (분할 병렬)</string>
     <string name="menu_dl_split">한 파일 분할 수 (%d)</string>
     <string name="menu_dl_conn">동시 연결 수 (%d)</string>

@@ -1190,6 +1190,18 @@ class MainActivity : Activity() {
                     val on = !prefs.getBoolean("fast_dl", true)
                     prefs.edit().putBoolean("fast_dl", on).apply()
                 },
+                MenuEntry(getString(R.string.menu_dl_split, prefs.getInt("dl_split", 8)), R.drawable.ic_folder, null) {
+                    showSplitDialog()
+                },
+                MenuEntry(getString(R.string.menu_dl_conn, prefs.getInt("dl_conn", 4)), R.drawable.ic_folder, null) {
+                    showConnDialog()
+                },
+                MenuEntry(s(R.string.menu_dl_notify), R.drawable.ic_play, "dl_notify") {
+                    val on = !prefs.getBoolean("dl_notify", true)
+                    prefs.edit().putBoolean("dl_notify", on).apply()
+                }
+            )),
+            MenuGroup(R.string.group_torrent, R.drawable.ic_download, listOf(
                 // 토렌트 지원: ON이면 .torrent/magnet을 토렌트로 받고(공유 파일 자동 다운로드), OFF면 .torrent만 일반 파일로
                 MenuEntry(s(R.string.menu_torrent_play), R.drawable.ic_play, "torrent_play") {
                     val on = !prefs.getBoolean("torrent_play", false)
@@ -1207,15 +1219,8 @@ class MainActivity : Activity() {
                 MenuEntry(s(R.string.menu_torrent_rate), R.drawable.ic_tune, null) {
                     showTorrentRateDialog()
                 },
-                MenuEntry(getString(R.string.menu_dl_split, prefs.getInt("dl_split", 8)), R.drawable.ic_folder, null) {
-                    showSplitDialog()
-                },
-                MenuEntry(getString(R.string.menu_dl_conn, prefs.getInt("dl_conn", 4)), R.drawable.ic_folder, null) {
-                    showConnDialog()
-                },
-                MenuEntry(s(R.string.menu_dl_notify), R.drawable.ic_play, "dl_notify") {
-                    val on = !prefs.getBoolean("dl_notify", true)
-                    prefs.edit().putBoolean("dl_notify", on).apply()
+                MenuEntry(s(R.string.menu_torrent_open), R.drawable.ic_open_in_new, null) {
+                    showTorrentOpenDialog()
                 }
             )),
             MenuGroup(R.string.group_privacy, R.drawable.ic_incognito, listOf(
@@ -1245,9 +1250,6 @@ class MainActivity : Activity() {
                 },
                 MenuEntry(s(R.string.menu_home_setting), R.drawable.ic_home, null) {
                     showHomeDialog()
-                },
-                MenuEntry(s(R.string.menu_torrent_open), R.drawable.ic_download, null) {
-                    showTorrentOpenDialog()
                 },
                 MenuEntry(s(R.string.menu_reopen_tab), R.drawable.ic_history, null) {
                     reopenClosedTab()

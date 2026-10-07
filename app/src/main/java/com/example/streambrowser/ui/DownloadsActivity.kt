@@ -126,7 +126,7 @@ class DownloadsActivity : Activity() {
         val list = findViewById<RecyclerView>(R.id.list)
         val chipRow = findViewById<LinearLayout>(R.id.chipRow)
         fun style(tab: TextView, selected: Boolean) {
-            tab.setBackgroundResource(if (selected) R.drawable.bg_btn_soft else android.R.color.transparent)
+            tab.setBackgroundResource(if (selected) R.drawable.bg_tab_indicator else android.R.color.transparent)
             tab.setTextColor(if (selected) 0xFF1A73E8.toInt() else 0xFF5F6368.toInt())
             tab.setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
         }
@@ -166,7 +166,7 @@ class DownloadsActivity : Activity() {
 
     private fun refreshChips() {
         fun style(chip: TextView, selected: Boolean) {
-            chip.setBackgroundResource(if (selected) R.drawable.bg_btn_soft else android.R.color.transparent)
+            chip.setBackgroundResource(if (selected) R.drawable.bg_tab_indicator else android.R.color.transparent)
             chip.setTextColor(if (selected) 0xFF1A73E8.toInt() else 0xFF5F6368.toInt())
             chip.setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
         }
