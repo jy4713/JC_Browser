@@ -54,6 +54,7 @@ class DownloadsActivity : Activity() {
     private lateinit var chipCanceled: TextView
     private lateinit var txtEmpty: TextView
     private var sysAdapter: SysAdapter? = null
+    private var filesAdapter: FilesAdapter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -94,17 +95,18 @@ class DownloadsActivity : Activity() {
             onReloaded = { n ->
                 if (mode == Mode.FILES) {
                     txtEmpty.text = getString(R.string.sys_dl_empty)
-                    txtEmpty.visibility = if (n == 0) View.VISIBLE else View.GONE
+                    txtEmpty.visibility = if (n == 0 && adapter.currentCount() == 0) View.VISIBLE else View.GONE
                 }
             }
         )
+        filesAdapter = FilesAdapter(adapter, sysAdapter!!)
         list.adapter = adapter
 
         // 미디어/파일 탭
         findViewById<TextView>(R.id.tabMedia).setOnClickListener { setMode(Mode.MEDIA) }
         findViewById<TextView>(R.id.tabFiles).setOnClickListener { setMode(Mode.FILES) }
 
-        DownloadStore.listener = { runOnUiThread { if (mode == Mode.MEDIA) applyFilter() } }
+        DownloadStore.listener = { runOnUiThread { if (mode == Mode.FILES) refreshFiles() else applyFilter() } }
         setMode(Mode.MEDIA)
 
         // 진행 중 0.5초 간격 갱신
@@ -119,6 +121,14 @@ class DownloadsActivity : Activity() {
             }
         }
         ticker?.let { handler.post(it) }
+    }
+
+    /** 파일 탭 갱신: 앱에서 받은 이미지 + 시스템 다운로드 일반 파일 */
+    private fun refreshFiles() {
+        val images = DownloadStore.items.filter { it.kind == "IMG" }.sortedByDescending { it.id }
+        adapter.submit(images)
+        filesAdapter?.notifyDataSetChanged()
+        sysAdapter?.reload { querySystemDownloads() }
     }
 
     private fun setMode(m: Mode) {
@@ -138,9 +148,32 @@ class DownloadsActivity : Activity() {
             applyFilter()
         } else {
             chipRow.visibility = View.GONE
-            list.adapter = sysAdapter
-            sysAdapter?.reload { querySystemDownloads() }
-            txtEmpty.text = getString(R.string.sys_dl_empty)
+            list.adapter = filesAdapter
+            refreshFiles()
+        }
+    }
+
+    /** 파일 탭 어댑터: 이미지(DlAdapter) + 시스템 파일(SysAdapter) 결합 */
+    class FilesAdapter(
+        private val imgAdapter: DlAdapter,
+        private val sysAdapter: SysAdapter
+    ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+        override fun getItemViewType(position: Int) =
+            if (position < imgAdapter.currentCount()) 0 else 1
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder =
+            if (viewType == 0) imgAdapter.onCreateViewHolder(parent, viewType)
+            else sysAdapter.onCreateViewHolder(parent, viewType)
+
+        override fun getItemCount() = imgAdapter.currentCount() + sysAdapter.itemCount
+
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            if (getItemViewType(position) == 0) {
+                imgAdapter.onBindViewHolder(holder as DlAdapter.VH, position)
+            } else {
+                sysAdapter.onBindViewHolder(holder as SysAdapter.VH, position - imgAdapter.currentCount())
+            }
         }
     }
 
@@ -151,7 +184,8 @@ class DownloadsActivity : Activity() {
 
     /** 선택한 탭에 따라 목록 필터링 + 빈 화면/칩 스타일 갱신 */
     private fun applyFilter() {
-        val all = DownloadStore.items.sortedByDescending { it.id }
+        // 비디오 탭: 스트리밍 영상(HLS/MP4 등)만 — 이미지는 파일 탭에서
+        val all = DownloadStore.items.filter { it.kind != "IMG" }.sortedByDescending { it.id }
         val shown = when (filter) {
             Filter.ALL -> all
             Filter.RUNNING -> all.filter { it.status == DlStatus.PENDING || it.status == DlStatus.RUNNING || it.status == DlStatus.PAUSED }
@@ -188,14 +222,27 @@ class DownloadsActivity : Activity() {
             com.example.streambrowser.util.JcToast.show(this, "파일이 없습니다.")
             return
         }
+        // 영상은 외부 앱 대신 내장 플레이어로 (외부 플레이어가 HLS 병합본을 못 먹는 경우 방지)
+        if (item.kind != "IMG") {
+            runCatching {
+                startActivity(Intent(this, PlayerActivity::class.java)
+                    .putExtra(PlayerActivity.EXTRA_URL, "file://${f.absolutePath}")
+                    .putExtra(PlayerActivity.EXTRA_PAGE, item.page))
+            }.onFailure { openWithExternalApp(f, item.kind) }
+            return
+        }
+        openWithExternalApp(f, item.kind)
+    }
+
+    private fun openWithExternalApp(f: File, kind: String) {
         val uri: Uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", f)
-        val mime = if (item.kind == "IMG") "image/*" else "video/*"
+        val mime = if (kind == "IMG") "image/*" else "video/*"
         val i = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, mime)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         runCatching { startActivity(i) }.onFailure {
-            com.example.streambrowser.util.JcToast.show(this, "재생할 앱이 없습니다.")
+            com.example.streambrowser.util.JcToast.show(this, "열 수 있는 앱이 없습니다.")
         }
     }
 
@@ -395,6 +442,9 @@ class DownloadsActivity : Activity() {
             items = list
             notifyDataSetChanged()
         }
+
+        /** 현재 목록 크기 (FilesAdapter 결합용) */
+        fun currentCount() = items.size
 
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val name: TextView = v.findViewById(R.id.dlName)

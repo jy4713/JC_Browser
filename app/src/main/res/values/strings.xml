@@ -295,7 +295,11 @@
     <string name="tdl_file_missing">File not found</string>
     <string name="tdl_no_app">No app can open this file</string>
     <string name="print_failed">Print failed</string>
-    <string name="tab_media">Media</string>
+    <string name="tab_media">Video</string>
     <string name="tab_files">Files</string>
     <string name="sys_dl_empty">No downloaded files</string>
+
+    <string name="torrent_pick_file">Pick .torrent file</string>
+    <string name="menu_torrent_rate_fmt">Torrent speed limit (down %1$s · up %2$s)</string>
+    <string name="rate_unlimited">unlimited</string>
 </resources>

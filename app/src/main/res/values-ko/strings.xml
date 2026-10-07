@@ -293,7 +293,11 @@
     <string name="tdl_file_missing">파일을 찾을 수 없습니다</string>
     <string name="tdl_no_app">이 파일을 열 수 있는 앱이 없습니다</string>
     <string name="print_failed">인쇄에 실패했습니다</string>
-    <string name="tab_media">미디어</string>
+    <string name="tab_media">비디오</string>
     <string name="tab_files">파일</string>
     <string name="sys_dl_empty">다운로드한 파일이 없습니다</string>
+
+    <string name="torrent_pick_file">파일에서 .torrent 선택</string>
+    <string name="menu_torrent_rate_fmt">토렌트 속도 제한 (다운 %1$s · 업로드 %2$s)</string>
+    <string name="rate_unlimited">무제한</string>
 </resources>

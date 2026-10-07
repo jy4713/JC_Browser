@@ -1216,7 +1216,7 @@ class MainActivity : Activity() {
                         rebuildMenu()
                     }
                 },
-                MenuEntry(s(R.string.menu_torrent_rate), R.drawable.ic_tune, null) {
+                MenuEntry(torrentRateLabel(), R.drawable.ic_tune, null) {
                     showTorrentRateDialog()
                 },
                 MenuEntry(s(R.string.menu_torrent_open), R.drawable.ic_open_in_new, null) {
@@ -1904,6 +1904,16 @@ class MainActivity : Activity() {
         else -> "application/octet-stream"
     }
 
+    /** 토렌트 속도 제한 메뉴 라벨 — 단위 포함, 0이면 무제한으로 표시 */
+    private fun torrentRateLabel(): String {
+        fun fmt(v: Int) = if (v <= 0) getString(R.string.rate_unlimited) else "$v KB/s"
+        return getString(
+            R.string.menu_torrent_rate_fmt,
+            fmt(prefs.getInt("torrent_rate_dl", 0)),
+            fmt(prefs.getInt("torrent_rate_ul", 0))
+        )
+    }
+
     /** 토렌트 다운/업로드 속도 제한 설정 (KB/s, 0=무제한) */
     private fun showTorrentRateDialog() {
         val density = resources.displayMetrics.density
@@ -1931,6 +1941,7 @@ class MainActivity : Activity() {
                 val ul = edUl.text.toString().toIntOrNull()?.coerceAtLeast(0) ?: 0
                 prefs.edit().putInt("torrent_rate_dl", dl).putInt("torrent_rate_ul", ul).apply()
                 com.example.streambrowser.torrent.TorrentManager.applyRateLimits(dl, ul)
+                rebuildMenu()
             }
             .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
@@ -1951,7 +1962,55 @@ class MainActivity : Activity() {
                 if (u.isNotEmpty()) handleTorrentLink(u)
             }
             .setNegativeButton(R.string.btn_cancel, null)
+            .setNeutralButton(getString(R.string.torrent_pick_file)) { _, _ -> openTorrentFilePicker() }
             .show()
+    }
+
+    /** 파일 관리자에서 .torrent 파일 선택 */
+    private fun openTorrentFilePicker() {
+        val i = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "*/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        runCatching { startActivityForResult(i, 6) }
+            .onFailure {
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.torrent_unavailable))
+            }
+    }
+
+    /** 선택한 .torrent 파일 바로 다운로드 시작 (IO 스레드) */
+    private fun importTorrentFile(uri: Uri) {
+        kotlin.concurrent.thread {
+            val bytes = runCatching {
+                contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            }.getOrNull()
+            val ti = bytes?.let { runCatching { org.libtorrent4j.TorrentInfo(it) }.getOrNull() }
+            if (ti == null) {
+                runOnUiThread {
+                    com.example.streambrowser.util.JcToast.show(this, getString(R.string.torrent_load_failed))
+                }
+                return@thread
+            }
+            val max = prefs.getInt("torrent_max", 2)
+            val job = runCatching {
+                com.example.streambrowser.torrent.TorrentManager.add(ti, java.io.File(filesDir, "torrent/downloads"), max)
+            }.getOrElse { e ->
+                runOnUiThread {
+                    com.example.streambrowser.util.JcToast.show(
+                        this,
+                        if (e.message == "max_active") getString(R.string.torrent_max_reached, max)
+                        else getString(R.string.torrent_start_failed)
+                    )
+                }
+                return@thread
+            }
+            runOnUiThread {
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.torrent_started, job.name))
+                runCatching {
+                    startActivity(Intent(this, com.example.streambrowser.ui.TorrentDownloadsActivity::class.java))
+                }
+            }
+        }
     }
 
     private fun themeModeLabel(): String = when (com.example.streambrowser.util.ThemeHelper.mode(this)) {
@@ -2466,6 +2525,10 @@ class MainActivity : Activity() {
             }.onFailure {
                 com.example.streambrowser.util.JcToast.show(this, getString(R.string.folder_pick_failed))
             }
+        }
+        // 파일 관리자에서 선택한 .torrent
+        if (requestCode == 6 && resultCode == RESULT_OK) {
+            data?.data?.let { importTorrentFile(it) }
         }
     }
 

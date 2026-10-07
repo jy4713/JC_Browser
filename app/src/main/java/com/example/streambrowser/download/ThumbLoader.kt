@@ -81,4 +81,41 @@ object ThumbLoader {
         tileCache.put(kind, bmp)
         return bmp
     }
+
+    /* ---------- 원격 영상 직접 프레임 캡처 (썸네일) ---------- */
+
+    private val frameCache = LruCache<String, Bitmap>(24)
+    private val frameInFlight = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+    /** 직접 파일 URL(MP4/WEBM 등)이면 원격에서 프레임을 떠서 썸네일로 사용 가능 */
+    fun canFrameCapture(url: String, kind: String): Boolean {
+        if (!url.startsWith("http")) return false
+        if (kind == "HLS" || kind == "DASH" || kind == "BLOB") return false
+        return kind in setOf("MP4", "WEBM", "FLV", "MEDIA") ||
+                Regex("\\.(mp4|webm|mov|m4v|flv)(\\?|#|$)", RegexOption.IGNORE_CASE).containsMatchIn(url)
+    }
+
+    /** MediaMetadataRetriever로 1초 지점 프레임 추출 (백그라운드, 메모리 캐시) */
+    fun loadFrame(url: String, iv: ImageView, fallback: Bitmap?) {
+        frameCache.get(url)?.let { iv.setImageBitmap(it); return }
+        iv.setImageBitmap(fallback)
+        iv.tag = "frame:$url"
+        if (!frameInFlight.add(url)) return
+        exec.execute {
+            val bmp = runCatching {
+                val r = android.media.MediaMetadataRetriever()
+                r.setDataSource(url, mapOf("User-Agent" to
+                    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"))
+                val f = r.getFrameAtTime(1_000_000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                    ?: r.getFrameAtTime(0)
+                r.release()
+                f
+            }.getOrNull()
+            if (bmp != null) frameCache.put(url, bmp)
+            frameInFlight.remove(url)
+            main.post {
+                if (iv.tag == "frame:$url") iv.setImageBitmap(bmp ?: fallback)
+            }
+        }
+    }
 }

@@ -63,12 +63,14 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
         holder.kind.text = v.kind
         holder.info.text = v.url
 
-        // 썸네일: poster URL 로드, 없으면 종류별 색상 타일 (페이지 스냅샷은 하드웨어 가속 WebView에서 검게 나오는 경우가 많아 기본값에서 제외)
+        // 썸네일: 페이지 poster → 원격 프레임 캡처 → 종류별 색상 타일 순
         val poster = media()?.posterByUrl?.get(v.url)
-        if (poster != null) {
-            ThumbLoader.load(poster, holder.thumb, ThumbLoader.kindTile(v.kind))
-        } else {
-            holder.thumb.setImageBitmap(ThumbLoader.kindTile(v.kind))
+        val tile = ThumbLoader.kindTile(v.kind)
+        when {
+            poster != null -> ThumbLoader.load(poster, holder.thumb, tile)
+            ThumbLoader.canFrameCapture(v.url, v.kind) ->
+                ThumbLoader.loadFrame(v.url, holder.thumb, tile)
+            else -> holder.thumb.setImageBitmap(tile)
         }
 
         if (v.unavailable) {

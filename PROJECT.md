@@ -4,9 +4,16 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.8.1 (versionCode 43)
+- 현재 버전: 2.8.2 (versionCode 44)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-07, v2.8.2)
+- [x] 토렌트 속도 제한 메뉴에 단위 표기 — "토렌트 속도 제한 (다운 500 KB/s · 업로드 무제한)" 형식, 0=무제한 명시
+- [x] 토렌트/magnet 열기 다이얼로그에 "파일에서 .torrent 선택" 추가 — 파일 관리자에서 .torrent 골라 바로 다운로드 시작
+- [x] 다운로드 화면 분리: "비디오" 탭 = 스트리밍 영상(HLS/MP4 등), "파일" 탭 = 일반 파일(시스템 다운로드) + 이미지 다운로드
+- [x] 다운로드 목록 재생을 외부 앱 대신 내장 플레이어로 (외부 플레이어가 HLS 병합본 재생 못 해 0:00 멈추던 문제)
+- [x] 영상 목록 썸네일: poster 없는 직접 MP4/WEBM 링크는 MediaMetadataRetriever로 프레임 캡처해 표시 (실패 시 기존 색상 타일)
 
 ### 완료 (2026-10-07, v2.8.1)
 - [x] 앱 아이콘 교체: 어두운 배경 + 초록 네온 "JC / BROWSER" 디자인 (adaptive foreground/background 포함)
