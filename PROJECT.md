@@ -4,9 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.8.5 (versionCode 47)
+- 현재 버전: 2.8.6 (versionCode 48)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-07, v2.8.6)
+- [x] 팝업 차단 ON 상태에서 Google 검색이 먹통이던 문제 — 팝업 차단이 "모든 새창 차단" 모드에서 제스처 없는 메인프레임 이동을 무조건 차단해서, Google의 JS 리다이렉트/검색 흐름까지 막았음. 이제 메인프레임 이동은 사이트를 벗어나는 이동만 차단 (새 창 window.open 차단은 기존과 동일)
 
 ### 완료 (2026-10-07, v2.8.5)
 - [x] 전체화면 동영상 길게 눌러도 톱니(⚙)가 안 뜨던 문제 — 사이트마다 전체화면 구현이 달라 3가지 케이스 모두 지원: ①네이티브 HTML5 풀스크린(onShowCustomView)에 롱클릭 리스너 추가, ②div 래퍼를 fullscreen으로 쓰는 경우 document.fullscreenElement에서 비디오 탐색, ③기존 JS 풀스크린

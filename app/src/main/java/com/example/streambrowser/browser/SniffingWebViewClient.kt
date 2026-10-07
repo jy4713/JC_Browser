@@ -140,19 +140,15 @@ class SniffingWebViewClient(
                 onTorrentLink?.invoke(view.context, url)
                 return true
             }
-            // 팝업 차단: 제스처 없는 메인프레임 이동 중 서버 리다이렉트가 아닌 것
+            // 팝업 차단: 제스처 없는 메인프레임 이동 중 사이트를 벗어나는 이동만 차단
+            // (같은 사이트 내부 이동까지 막으면 Google 검색/JS 리다이렉트 등 정상 동작이 먹통이 됨)
             if (WebCleaner.popupEnabled && request.isForMainFrame &&
                 !request.hasGesture() && !request.isRedirect
             ) {
                 val host = request.url.host ?: ""
                 val pageHost = runCatching { Uri.parse(view.url ?: "").host ?: "" }.getOrDefault("")
-                val blocked = if (WebCleaner.popupBlockAll) {
-                    true
-                } else {
-                    // 광고 의심 모드: 다른 사이트로 가는 것만
-                    host.isNotEmpty() && pageHost.isNotEmpty() &&
-                            host != pageHost && !host.endsWith("." + pageHost) && !pageHost.endsWith("." + host)
-                }
+                val blocked = host.isNotEmpty() && pageHost.isNotEmpty() &&
+                        host != pageHost && !host.endsWith("." + pageHost) && !pageHost.endsWith("." + host)
                 if (blocked && !WebCleaner.isPopupAllowed(pageHost)) {
                     com.example.streambrowser.util.JcToast.show(view.context, com.example.streambrowser.R.string.popup_blocked)
                     return true
