@@ -199,6 +199,8 @@ class MainActivity : Activity() {
             onRefresh = { current()?.web?.reload() }
         }
         editUrl = findViewById(R.id.editUrl)
+        // 크롬 스타일: 첫 탭에 전체 선택, 이후 탭은 커서 위치 이동 (setSelectAllOnFocus)
+        editUrl.setSelectAllOnFocus(true)
         btnVideos = findViewById(R.id.btnVideos)
         btnImages = findViewById(R.id.btnImages)
         btnNavTabs = findViewById(R.id.btnNavTabs)

@@ -4,9 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.8.6 (versionCode 48)
+- 현재 버전: 2.8.7 (versionCode 49)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-08, v2.8.7)
+- [x] 주소창 크롬 스타일 편집: 첫 탭에서 전체 선택 (setSelectAllOnFocus), 이후 탭은 그 위치에 커서
 
 ### 완료 (2026-10-07, v2.8.6)
 - [x] 팝업 차단 ON 상태에서 Google 검색이 먹통이던 문제 — 팝업 차단이 "모든 새창 차단" 모드에서 제스처 없는 메인프레임 이동을 무조건 차단해서, Google의 JS 리다이렉트/검색 흐름까지 막았음. 이제 메인프레임 이동은 사이트를 벗어나는 이동만 차단 (새 창 window.open 차단은 기존과 동일)
