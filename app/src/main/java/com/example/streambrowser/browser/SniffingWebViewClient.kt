@@ -98,12 +98,26 @@ class SniffingWebViewClient(
             runCatching {
                 CookieManager.getInstance().getCookie(urlStr)?.let { conn.setRequestProperty("Cookie", it) }
             }
+            // gzip 압축 명시 — 헤더 복사 단계에서 accept-encoding을 뺐으므로 여기서 직접 지정
+            // (압축 없이 받으면 HTML 전송량이 3~5배 늘어 페이지 로딩이 느려짐)
+            conn.setRequestProperty("Accept-Encoding", "gzip")
             if (conn.responseCode != 200) { conn.disconnect(); return null }
             val contentType = conn.contentType ?: ""
             if (!contentType.contains("text/html")) { conn.disconnect(); return null }
 
             val charset = Regex("charset=([A-Za-z0-9\\-]+)").find(contentType)?.groupValues?.get(1) ?: "utf-8"
-            val data = conn.inputStream.use { it.readBytes() }
+            val bodyStream = if (conn.contentEncoding.equals("gzip", ignoreCase = true)) {
+                java.util.zip.GZIPInputStream(conn.inputStream)
+            } else conn.inputStream
+            val data = bodyStream.use { it.readBytes() }
+            // 캐시 관련 헤더를 원본 응답에서 그대로 전달 — 재방문/뒤로가기 시 문서 캐시 히트로 빨라짐
+            val hopByHop = setOf("transfer-encoding", "content-encoding", "content-length", "connection")
+            val respHeaders = mutableMapOf<String, String>()
+            conn.headerFields.forEach { (k, v) ->
+                if (k != null && k.lowercase() !in hopByHop && v != null) {
+                    respHeaders[k] = v.filterNotNull().joinToString(", ")
+                }
+            }
             conn.disconnect()
 
             val cs = runCatching { charset(charset) }.getOrElse { Charsets.UTF_8 }
@@ -119,7 +133,9 @@ class SniffingWebViewClient(
                     script + html
                 }
             }
-            WebResourceResponse("text/html", charset, ByteArrayInputStream(html.toByteArray(cs)))
+            WebResourceResponse("text/html", charset, ByteArrayInputStream(html.toByteArray(cs))).apply {
+                if (respHeaders.isNotEmpty()) responseHeaders = respHeaders
+            }
         }.getOrNull()
     }
 

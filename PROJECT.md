@@ -4,9 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.8.7 (versionCode 49)
+- 현재 버전: 2.8.8 (versionCode 50)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-08, v2.8.8)
+- [x] 페이지 로딩 속도 개선 — 스캐너 JS 주입용 재다운로드 fetch가 gzip을 요청하지 않아 HTML을 압축 없이 받던 문제 수정 (Accept-Encoding: gzip + GZIPInputStream), 원본 응답의 캐시 헤더를 WebResourceResponse에 전달해 재방문/뒤로가기 캐시 히트 개선
 
 ### 완료 (2026-10-08, v2.8.7)
 - [x] 주소창 크롬 스타일 편집: 첫 탭에서 전체 선택 (setSelectAllOnFocus), 이후 탭은 그 위치에 커서
