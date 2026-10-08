@@ -3,6 +3,7 @@ package com.example.streambrowser.browser
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.SystemClock
 import android.net.http.SslError
 import android.webkit.CookieManager
 import android.webkit.RenderProcessGoneDetail
@@ -28,6 +29,26 @@ class SniffingWebViewClient(
     private val onPageFinishedCb: (WebView, String) -> Unit = { _, _ -> },
     private val onRenderProcessGoneCb: (WebView) -> Unit = {}
 ) : WebViewClient() {
+
+    /** 마지막 사용자 제스처 시각 — 클릭 직후 비동기 이동(전체화면 진입 등)을 팝업 오인 차단하지 않기 위함 */
+    @Volatile
+    private var lastGestureAt = 0L
+
+    /** 호스트에서 베이스 도메인(등록 도메인) 추출 — 서브도메인 순환 사이트를 같은 사이트로 취급 */
+    private fun baseDomain(host: String): String {
+        val labels = host.lowercase().trimEnd('.').split('.')
+        if (labels.size <= 2) return labels.joinToString(".")
+        // 국가코드 하위 공용 접미사(co.kr, or.jp, com.au 등)는 3단계를 베이스로 봄
+        val secondLevel = setOf(
+            "com", "net", "org", "co", "or", "go", "ne", "re", "pe", "ac", "edu", "gov", "mil"
+        )
+        val tld = labels.last()
+        return if (tld.length == 2 && labels[labels.size - 2] in secondLevel) {
+            labels.takeLast(3).joinToString(".")
+        } else {
+            labels.takeLast(2).joinToString(".")
+        }
+    }
 
     override fun shouldInterceptRequest(
         view: WebView,
@@ -111,7 +132,11 @@ class SniffingWebViewClient(
             } else conn.inputStream
             val data = bodyStream.use { it.readBytes() }
             // 캐시 관련 헤더를 원본 응답에서 그대로 전달 — 재방문/뒤로가기 시 문서 캐시 히트로 빨라짐
-            val hopByHop = setOf("transfer-encoding", "content-encoding", "content-length", "connection")
+            // 단 X-Frame-Options/CSP는 제외: iframe 문서를 우리가 재전송하면 프레임 임베딩이 막혀 플레이어가 깨짐
+            val hopByHop = setOf(
+                "transfer-encoding", "content-encoding", "content-length", "connection",
+                "x-frame-options", "content-security-policy", "content-security-policy-report-only"
+            )
             val respHeaders = mutableMapOf<String, String>()
             conn.headerFields.forEach { (k, v) ->
                 if (k != null && k.lowercase() !in hopByHop && v != null) {
@@ -158,14 +183,20 @@ class SniffingWebViewClient(
             }
             // 팝업 차단: 제스처 없는 메인프레임 이동 중 사이트를 벗어나는 이동만 차단
             // (같은 사이트 내부 이동까지 막으면 Google 검색/JS 리다이렉트 등 정상 동작이 먹통이 됨)
+            if (request.hasGesture()) lastGestureAt = SystemClock.elapsedRealtime()
             if (WebCleaner.popupEnabled && request.isForMainFrame &&
                 !request.hasGesture() && !request.isRedirect
             ) {
                 val host = request.url.host ?: ""
                 val pageHost = runCatching { Uri.parse(view.url ?: "").host ?: "" }.getOrDefault("")
-                val blocked = host.isNotEmpty() && pageHost.isNotEmpty() &&
-                        host != pageHost && !host.endsWith("." + pageHost) && !pageHost.endsWith("." + host)
-                if (blocked && !WebCleaner.isPopupAllowed(pageHost)) {
+                // 같은 베이스 도메인(m02.x.com → m05.x.com 같은 서브도메인 순환 스트리밍 사이트)은
+                // 전체화면 진입 등 JS 이동이 많아 팝업 오인 차단하면 사이트가 에러를 띄움
+                val crossSite = host.isNotEmpty() && pageHost.isNotEmpty() &&
+                        baseDomain(host) != baseDomain(pageHost)
+                // 클릭 직후(수 초 이내) 비동기 이동은 사용자 유도 이동으로 간주해 허용 —
+                // 전체화면 버튼 등이 fetch 후 location 이동하는 흐름이 여기 해당
+                val recentGesture = SystemClock.elapsedRealtime() - lastGestureAt < 5000
+                if (crossSite && !recentGesture && !WebCleaner.isPopupAllowed(pageHost)) {
                     com.example.streambrowser.util.JcToast.show(view.context, com.example.streambrowser.R.string.popup_blocked)
                     return true
                 }

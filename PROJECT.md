@@ -4,9 +4,13 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.8.8 (versionCode 50)
+- 현재 버전: 2.8.9 (versionCode 51)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-08, v2.8.9)
+- [x] 전체화면 진입 시 사이트 에러("Sorry, an error has occurred") 수정 — 팝업 차단이 서브도메인 순환 스트리밍 사이트(m02.x.com → m05.x.com)의 전체화면 JS 이동을 오인 차단하던 것을 완화: 차단 기준을 정확한 호스트 대신 베이스 도메인(등록 도메인, co.kr 등 3단계 대응) 비교로 변경 + 클릭 후 5초 이내 비동기 이동은 사용자 유도로 허용
+- [x] v2.8.8의 캐시 헤더 전달에서 X-Frame-Options/CSP를 제외 — 우리가 재전송하는 iframe 문서의 프레임 임베딩이 막혀 플레이어가 깨지는 문제 방지
 
 ### 완료 (2026-10-08, v2.8.8)
 - [x] 페이지 로딩 속도 개선 — 스캐너 JS 주입용 재다운로드 fetch가 gzip을 요청하지 않아 HTML을 압축 없이 받던 문제 수정 (Accept-Encoding: gzip + GZIPInputStream), 원본 응답의 캐시 헤더를 WebResourceResponse에 전달해 재방문/뒤로가기 캐시 히트 개선
