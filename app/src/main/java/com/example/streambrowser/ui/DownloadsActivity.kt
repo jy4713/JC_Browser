@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -378,7 +379,7 @@ class DownloadsActivity : Activity() {
             .show()
     }
 
-    /** 시스템 다운로드 어댑터 — 목록 질의 + 열기/삭제 */
+    /** 시스템 다운로드 어댑터 — 목록 질의 + 진행률/속도 표시 + 열기/삭제 */
     class SysAdapter(
         private val onOpen: (SysDl) -> Unit,
         private val onDelete: (SysDl) -> Unit,
@@ -387,8 +388,36 @@ class DownloadsActivity : Activity() {
 
         private var items = listOf<SysDl>()
 
+        /** id → (직전 수신 바이트, 직전 시각) — 속도 계산용 */
+        private val prevBytes = HashMap<Long, Pair<Long, Long>>()
+
+        /** id → 직전 계산된 속도(B/s) — reload 시점에 계산해 바인딩에서 읽음 */
+        private val speeds = HashMap<Long, Long>()
+
         fun reload(query: () -> List<SysDl>) {
             items = query()
+            val now = SystemClock.elapsedRealtime()
+            val live = HashSet<Long>()
+            for (it in items) {
+                live.add(it.id)
+                if (it.status == android.app.DownloadManager.STATUS_RUNNING) {
+                    val p = prevBytes[it.id]
+                    var spd = 0L
+                    if (p != null) {
+                        val dt = now - p.second
+                        val delta = it.done - p.first
+                        // 갱신 주기(500ms)의 3배를 넘기면 멈췄다 재개한 것으로 보고 속도 0
+                        if (dt in 1..1500 && delta > 0) spd = delta * 1000 / dt
+                    }
+                    speeds[it.id] = spd
+                    prevBytes[it.id] = it.done to now
+                } else {
+                    speeds.remove(it.id)
+                    prevBytes.remove(it.id)
+                }
+            }
+            prevBytes.keys.retainAll(live)
+            speeds.keys.retainAll(live)
             notifyDataSetChanged()
             onReloaded(items.size)
         }
@@ -396,6 +425,7 @@ class DownloadsActivity : Activity() {
         class VH(v: View) : RecyclerView.ViewHolder(v) {
             val name: TextView = v.findViewById(R.id.sdName)
             val status: TextView = v.findViewById(R.id.sdStatus)
+            val progress: android.widget.ProgressBar = v.findViewById(R.id.sdProgress)
             val btnOpen: ImageButton = v.findViewById(R.id.btnOpen)
             val btnDelete: ImageButton = v.findViewById(R.id.btnDelete)
         }
@@ -408,14 +438,25 @@ class DownloadsActivity : Activity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = items[position]
             holder.name.text = item.title
-            holder.status.text = when (item.status) {
-                android.app.DownloadManager.STATUS_SUCCESSFUL ->
-                    "완료 · " + fmtMb(item.total)
-                android.app.DownloadManager.STATUS_RUNNING ->
-                    "다운로드 중 · " + fmtMb(item.done) + " / " + fmtMb(item.total)
-                android.app.DownloadManager.STATUS_PENDING -> "대기 중…"
-                android.app.DownloadManager.STATUS_PAUSED -> "일시 중지됨"
-                else -> "실패"
+            when (item.status) {
+                android.app.DownloadManager.STATUS_RUNNING -> {
+                    val speed = speeds[item.id] ?: 0L
+                    val pct = if (item.total > 0) (item.done * 100 / item.total).toInt() else 0
+                    holder.status.text = "다운로드 중 · " + fmtMb(item.done) + " / " + fmtMb(item.total) +
+                            " (" + pct + "%)" + (if (speed > 0) " · " + fmtSpeed(speed) else "")
+                    holder.progress.visibility = View.VISIBLE
+                    holder.progress.progress = pct
+                }
+                else -> {
+                    holder.progress.visibility = View.GONE
+                    holder.status.text = when (item.status) {
+                        android.app.DownloadManager.STATUS_SUCCESSFUL ->
+                            "완료 · " + fmtMb(item.total)
+                        android.app.DownloadManager.STATUS_PENDING -> "대기 중…"
+                        android.app.DownloadManager.STATUS_PAUSED -> "일시 중지됨"
+                        else -> "실패"
+                    }
+                }
             }
             holder.btnOpen.visibility =
                 if (item.status == android.app.DownloadManager.STATUS_SUCCESSFUL) View.VISIBLE else View.GONE
@@ -424,6 +465,12 @@ class DownloadsActivity : Activity() {
         }
 
         private fun fmtMb(bytes: Long): String = String.format("%.1f MB", bytes / 1048576.0)
+
+        private fun fmtSpeed(bps: Long): String {
+            val kb = bps / 1024.0
+            return if (kb >= 1024) String.format("%.1f MB/s", kb / 1024.0)
+            else String.format("%.0f KB/s", kb)
+        }
     }
 
     // ---------------- 어댑터 ----------------

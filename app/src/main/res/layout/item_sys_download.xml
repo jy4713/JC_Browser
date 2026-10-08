@@ -32,6 +32,16 @@
             android:layout_marginTop="2dp"
             android:textColor="#9AA0A6"
             android:textSize="12sp" />
+
+        <ProgressBar
+            android:id="@+id/sdProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:layout_marginTop="4dp"
+            android:max="100"
+            android:progressTint="#1A73E8"
+            android:visibility="gone" />
     </LinearLayout>
 
     <ImageButton
