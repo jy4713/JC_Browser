@@ -65,7 +65,7 @@ class BookmarksActivity : Activity() {
 
     private fun reload() {
         adapter.submit(BookmarkRepo.list(this, parentId))
-        txtTitle.text = if (pathStack.isEmpty()) "즐겨찾기"
+        txtTitle.text = if (pathStack.isEmpty()) getString(R.string.menu_bookmarks)
         else pathStack.joinToString(" › ") { it.second }
     }
 
@@ -86,23 +86,23 @@ class BookmarksActivity : Activity() {
     }
 
     private fun showNewFolderDialog() {
-        val input = EditText(this).apply { hint = "폴더 이름" }
+        val input = EditText(this).apply { hint = getString(R.string.bookmark_folder_name) }
         AlertDialog.Builder(this)
-            .setTitle("새 폴더")
+            .setTitle(getString(R.string.bookmark_new_folder))
             .setView(input)
-            .setPositiveButton("만들기") { _, _ ->
+            .setPositiveButton(getString(R.string.action_create)) { _, _ ->
                 val name = input.text.toString().trim()
                 if (name.isNotEmpty()) {
                     BookmarkRepo.addFolder(this, name, parentId)
                     reload()
                 }
             }
-            .setNegativeButton("취소", null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
     private fun showItemMenu(e: BookmarkEntry) {
-        val items = arrayOf("이름 변경", "삭제")
+        val items = arrayOf(getString(R.string.common_rename), getString(R.string.btn_delete))
         AlertDialog.Builder(this)
             .setTitle(e.title)
             .setItems(items) { _, which ->
@@ -110,19 +110,19 @@ class BookmarksActivity : Activity() {
                     0 -> {
                         val input = EditText(this).apply { setText(e.title) }
                         AlertDialog.Builder(this)
-                            .setTitle("이름 변경")
+                            .setTitle(getString(R.string.common_rename))
                             .setView(input)
-                            .setPositiveButton("저장") { _, _ ->
+                            .setPositiveButton(getString(R.string.common_save)) { _, _ ->
                                 BookmarkRepo.rename(this, e.id, input.text.toString().trim())
                                 reload()
                             }
-                            .setNegativeButton("취소", null)
+                            .setNegativeButton(getString(R.string.btn_cancel), null)
                             .show()
                     }
                     1 -> {
                         BookmarkRepo.remove(this, e.id)
                         reload()
-                        com.example.streambrowser.util.JcToast.show(this, "삭제되었습니다.")
+                        com.example.streambrowser.util.JcToast.show(this, getString(R.string.common_deleted))
                     }
                 }
             }
@@ -137,7 +137,7 @@ class BookmarksActivity : Activity() {
             type = "*/*"
         }
         runCatching { startActivityForResult(i, 3) }.onFailure {
-            com.example.streambrowser.util.JcToast.show(this, "파일 선택을 지원하지 않습니다.")
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.bookmark_no_picker))
         }
     }
 
@@ -154,10 +154,10 @@ class BookmarksActivity : Activity() {
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            runCatching { startActivity(Intent.createChooser(share, "즐겨찾기 내보내기")) }
-            com.example.streambrowser.util.JcToast.show(this, "저장됨: ${f.absolutePath}", long = true)
+            runCatching { startActivity(Intent.createChooser(share, getString(R.string.bookmark_exported))) }
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.bookmark_export_saved, f.absolutePath), long = true)
         }.onFailure {
-            com.example.streambrowser.util.JcToast.show(this, "내보내기 실패")
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.bookmark_export_failed))
         }
     }
 
@@ -170,11 +170,11 @@ class BookmarksActivity : Activity() {
                         val html = input.readBytes().toString(Charsets.UTF_8)
                         val n = BookmarkRepo.importHtml(this, html)
                         reload()
-                        com.example.streambrowser.util.JcToast.show(this, "$n 개 항목을 가져왔습니다.")
+                        com.example.streambrowser.util.JcToast.show(this, getString(R.string.bookmark_imported, n))
                     }
                 }
             }.onFailure {
-                com.example.streambrowser.util.JcToast.show(this, "가져오기 실패")
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.bookmark_import_failed))
             }
         }
     }
@@ -216,7 +216,7 @@ class BookmarksActivity : Activity() {
                 holder.icon.setImageResource(R.drawable.ic_folder)
                 holder.icon.setColorFilter(0xFFF9AB00.toInt())
                 val n = BookmarkRepo.childCount(holder.itemView.context, e.id)
-                holder.sub.text = "$n 개 항목"
+                holder.sub.text = holder.itemView.context.getString(R.string.folder_items, n)
             } else {
                 holder.icon.setImageResource(R.drawable.ic_bookmark)
                 holder.icon.setColorFilter(0xFF1A73E8.toInt())

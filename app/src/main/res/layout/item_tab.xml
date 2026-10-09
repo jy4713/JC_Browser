@@ -51,7 +51,7 @@
         android:layout_height="36dp"
         android:layout_marginStart="6dp"
         android:background="@drawable/bg_btn_ripple"
-        android:contentDescription="탭 닫기"
+        android:contentDescription="@string/cd_close_tab"
         android:padding="9dp"
         android:src="@drawable/ic_close"
         android:tint="#9AA0A6" />

@@ -50,7 +50,7 @@
         android:layout_height="40dp"
         android:layout_marginStart="8dp"
         android:background="@drawable/bg_btn_ripple"
-        android:contentDescription="열기"
+        android:contentDescription="@string/cd_open"
         android:padding="9dp"
         android:src="@drawable/ic_open_in_new"
         android:tint="#1A73E8" />

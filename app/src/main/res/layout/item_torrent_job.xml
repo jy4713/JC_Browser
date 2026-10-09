@@ -46,7 +46,7 @@
             android:layout_height="40dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="열기"
+            android:contentDescription="@string/cd_open"
             android:padding="9dp"
             android:src="@drawable/ic_play"
             android:tint="#1A73E8" />
@@ -68,7 +68,7 @@
             android:layout_height="40dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="재시작"
+            android:contentDescription="@string/cd_restart"
             android:padding="9dp"
             android:src="@drawable/ic_play"
             android:tint="#1A73E8" />
@@ -79,7 +79,7 @@
             android:layout_height="40dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="취소"
+            android:contentDescription="@string/action_cancel"
             android:padding="9dp"
             android:src="@drawable/ic_close"
             android:tint="#D93025" />

@@ -79,7 +79,7 @@ class JcVpnService : VpnService() {
             state = s
             profile?.let { stateProfile = it }
             err?.let { lastError = it }
-            logLine("jc", "상태 → $s" + (profile?.let { " ($it)" } ?: "") + (err?.let { " — $it" } ?: ""))
+            logLine("jc", "state: " + s + (profile?.let { " ($it)" } ?: "") + (err?.let { " — $it" } ?: ""))
             if (s == "CONNECTED") {
                 connectedSince = System.currentTimeMillis()
                 rxRate = 0; txRate = 0
@@ -125,7 +125,7 @@ class JcVpnService : VpnService() {
         }
         val profileId = intent.getStringExtra(EXTRA_PROFILE_ID) ?: return START_NOT_STICKY
         val profile = VpnProfiles.get(this, profileId) ?: run {
-            setState("ERROR", err = "프로파일을 찾을 수 없습니다")
+            setState("ERROR", err = getString(R.string.vpn_err_no_profile))
             stopSelf(); return START_NOT_STICKY
         }
         val username = intent.getStringExtra(EXTRA_USERNAME) ?: profile.username
@@ -133,9 +133,9 @@ class JcVpnService : VpnService() {
 
         stopRequested = false
         setState("CONNECTING", profile.name)
-        logLine("jc", "OpenVPN 시작 — ${profile.name} (${profile.file.name})")
+        logLine("jc", getString(R.string.vpn_log_start, profile.name, profile.file.name))
         createChannel()
-        startForeground(NOTIF_ID, buildNotification(profile.name, "연결 중…"))
+        startForeground(NOTIF_ID, buildNotification(profile.name, getString(R.string.vpn_notif_connecting)))
 
         thread(name = "jc-vpn") { runVpn(profile, username, password) }
         return START_NOT_STICKY
@@ -143,11 +143,15 @@ class JcVpnService : VpnService() {
 
     private fun runVpn(profile: VpnProfiles.Profile, username: String, password: String) {
         val bin = extractBinary() ?: run {
-            setState("ERROR", profile.name, "OpenVPN 바이너리를 준비하지 못했습니다 (지원하지 않는 CPU)")
+            setState("ERROR", profile.name, getString(R.string.vpn_err_binary))
             stopSelf(); return
         }
         val sockPath = File(cacheDir, "jcmgmt.sock").absolutePath
         File(sockPath).delete()
+        // openvpn 자체 로그 파일 — 프로세스가 강제로 죽으면 stdio 버퍼가 날아가
+        // 출력이 하나도 안 남는데, --log 는 openvpn 로깅 시스템이 직접 쓰므로 남음
+        val ovpnLog = File(cacheDir, "jcovpn.log")
+        ovpnLog.delete()
 
         // management 수신 소켓 먼저 준비
         val acceptSock = LocalSocket()
@@ -162,7 +166,7 @@ class JcVpnService : VpnService() {
             }
         }
         if (!bound) {
-            setState("ERROR", profile.name, "management 소켓 생성 실패")
+            setState("ERROR", profile.name, getString(R.string.vpn_err_mgmt_socket))
             stopSelf(); return
         }
         serverSocket = LocalServerSocket(acceptSock.fileDescriptor)
@@ -170,7 +174,7 @@ class JcVpnService : VpnService() {
         // listen 없이 두면 openvpn 의 connect() 가 ECONNREFUSED 로 실패해 프로세스가 죽고
         // UI 는 "연결 중…"에 무한히 멈춰 있게 됨 (openvpn 은 로그에만 에러를 남김)
         runCatching { Os.listen(acceptSock.fileDescriptor, 4) }
-        logLine("jc", "management 소켓 준비: $sockPath")
+        logLine("jc", getString(R.string.vpn_log_mgmt_ready, sockPath))
 
         val argv = listOf(
             bin.absolutePath,
@@ -181,6 +185,7 @@ class JcVpnService : VpnService() {
             "--route-noexec",
             "--ifconfig-noexec",
             "--auth-retry", "interact",
+            "--log", ovpnLog.absolutePath,
             "--verb", "3",
             "--mute-replay-warnings"
         )
@@ -192,7 +197,7 @@ class JcVpnService : VpnService() {
         try {
             process = pb.start()
         } catch (e: Exception) {
-            setState("ERROR", profile.name, "OpenVPN 실행 실패: ${e.message}")
+            setState("ERROR", profile.name, getString(R.string.vpn_err_exec, e.message ?: "?"))
             stopSelf(); return
         }
 
@@ -217,9 +222,12 @@ class JcVpnService : VpnService() {
                 }
             } catch (_: Exception) {}
             // stdout 이 닫힘 = 프로세스 종료. 사용자가 끈 게 아니라면 실패로 표시
+            val exitCode = runCatching { proc.exitValue() }.getOrNull()
+            logLine("jc", getString(R.string.vpn_log_exit, exitCode?.toString() ?: "?"))
+            dumpOpenvpnLog(ovpnLog)
             if (!stopRequested && state != "ERROR" && state != "DISCONNECTED") {
                 setState("ERROR", profile.name,
-                    lastFatal ?: "OpenVPN 프로세스가 종료되었습니다 — 로그를 확인하세요")
+                    lastFatal ?: getString(R.string.vpn_err_died, exitCode?.toString() ?: "?"))
             }
         }
 
@@ -227,12 +235,12 @@ class JcVpnService : VpnService() {
         try {
             val s = serverSocket!!.accept()
             mgmtSocket = s
-            logLine("mgmt", "openvpn ↔ management 연결됨")
+            logLine("mgmt", getString(R.string.vpn_log_mgmt_connected))
             manageLoop(s, profile, username, password)
         } catch (e: Exception) {
             if (!stopRequested) {
                 android.util.Log.w("jc-vpn", "mgmt end: ${e.message}")
-                logLine("jc", "management 종료: ${e.message}")
+                logLine("jc", getString(R.string.vpn_log_mgmt_end, e.message ?: "?"))
             }
         }
 
@@ -251,6 +259,17 @@ class JcVpnService : VpnService() {
         s.outputStream.flush()
         true
     }.getOrDefault(false)
+
+    /** openvpn 자체 로그 파일(--log)의 마지막 줄들을 콘솔에 덤프 — stdio 출력이 없을 때 원인 확인용 */
+    private fun dumpOpenvpnLog(f: File) {
+        val lines = runCatching { f.readLines() }.getOrNull() ?: return
+        if (lines.isEmpty()) {
+            logLine("jc", getString(R.string.vpn_log_empty))
+            return
+        }
+        logLine("jc", getString(R.string.vpn_log_tail, 15, lines.size))
+        lines.takeLast(15).forEach { logLine("ovpn-log", it) }
+    }
 
     /** >BYTECOUNT 수신 시 속도 계산 → companion 에 게시 (UI 1초 폴링) */
     private fun updateBytecount(rx: Long, tx: Long) {
@@ -299,18 +318,18 @@ class JcVpnService : VpnService() {
                         when (st) {
                             "CONNECTED" -> {
                                 setState("CONNECTED", profile.name)
-                                updateNotif(profile.name, "연결됨")
+                                updateNotif(profile.name, getString(R.string.vpn_notif_connected))
                             }
-                            "WAIT", "RECONNECTING" -> { setState("WAIT", profile.name); updateNotif(profile.name, "서버 연결 대기…") }
-                            "AUTH", "GET_CONFIG", "RESOLVE" -> { setState("AUTH", profile.name); updateNotif(profile.name, "인증 중…") }
-                            "ASSIGN_IP" -> { setState("ASSIGN_IP", profile.name); updateNotif(profile.name, "IP 할당 중…") }
+                            "WAIT", "RECONNECTING" -> { setState("WAIT", profile.name); updateNotif(profile.name, getString(R.string.vpn_notif_wait)) }
+                            "AUTH", "GET_CONFIG", "RESOLVE" -> { setState("AUTH", profile.name); updateNotif(profile.name, getString(R.string.vpn_notif_auth)) }
+                            "ASSIGN_IP" -> { setState("ASSIGN_IP", profile.name); updateNotif(profile.name, getString(R.string.vpn_notif_assign_ip)) }
                             "EXITING" -> { setState("DISCONNECTED", profile.name) }
                         }
                     }
 
                     // --- hold: 준비 완료 후 해제 ---
                     line.startsWith(">HOLD:") -> {
-                        logLine("mgmt", "HOLD — 연결 진행")
+                        logLine("mgmt", getString(R.string.vpn_log_hold))
                         if (!holdReleased) {
                             holdReleased = true
                             mgmtCmd(s, "hold release\n")
@@ -323,13 +342,13 @@ class JcVpnService : VpnService() {
                     line.startsWith(">PASSWORD:") -> {
                         val arg = line.removePrefix(">PASSWORD:")
                         if (arg.startsWith("Verification Failed")) {
-                            setState("ERROR", profile.name, "인증 실패 — 아이디/비밀번호를 확인하세요")
-                            updateNotif(profile.name, "인증 실패")
+                            setState("ERROR", profile.name, getString(R.string.vpn_err_auth))
+                            updateNotif(profile.name, getString(R.string.vpn_err_auth))
                         } else {
                             val p1 = arg.indexOf('\'')
                             val p2 = arg.indexOf('\'', p1 + 1)
                             val needed = if (p1 >= 0 && p2 > p1) arg.substring(p1 + 1, p2) else "Auth"
-                            logLine("mgmt", "인증 요구 ($needed) — 저장된 정보로 응답")
+                            logLine("mgmt", getString(R.string.vpn_log_auth_required, needed))
                             if (username.isNotEmpty() || password.isNotEmpty()) {
                                 if (username.isNotEmpty())
                                     mgmtCmd(s, "username '$needed' ${escape(username)}\n")
@@ -377,7 +396,7 @@ class JcVpnService : VpnService() {
                                 if (ip.isNotEmpty()) cfg.localIp = ip[0]
                                 if (ip.size > 1) cfg.localPrefix = netmaskToPrefix(ip[1])
                                 if (ip.size > 2) ip[2].toIntOrNull()?.let { cfg.mtu = it }
-                                logLine("mgmt", "IFCONFIG ${ip.getOrNull(0) ?: "?"} mtu=${cfg.mtu}")
+                                logLine("mgmt", getString(R.string.vpn_log_ifconfig, ip.getOrNull(0) ?: "?", cfg.mtu))
                                 mgmtCmd(s, "needok '$needed' ok\n")
                             }
                             "IFCONFIG6" -> {
@@ -391,14 +410,14 @@ class JcVpnService : VpnService() {
                                 mgmtCmd(s, "needok '$needed' ok\n")
                             }
                             "OPENTUN" -> {
-                                logLine("mgmt", "OPENTUN — tun 인터페이스 생성 시도")
+                                logLine("mgmt", getString(R.string.vpn_log_opentun_try))
                                 val pfd = openTun(profile.name, cfg)
                                 if (pfd != null && sendFd(s, pfd)) {
-                                    logLine("mgmt", "OPENTUN — tun fd 전달 성공")
+                                    logLine("mgmt", getString(R.string.vpn_log_opentun_ok))
                                     tunPfd = pfd
                                 } else {
                                     runCatching { pfd?.close() }
-                                    setState("ERROR", profile.name, "VPN 인터페이스 생성 실패 (시스템 VPN 권한 확인)")
+                                    setState("ERROR", profile.name, getString(R.string.vpn_err_tun))
                                     mgmtCmd(s, "needok 'OPENTUN' cancel\n")
                                 }
                             }
@@ -538,7 +557,7 @@ class JcVpnService : VpnService() {
             .setContentText(text)
             .setContentIntent(pi)
             .setOngoing(true)
-            .addAction(0, "연결 해제", disconnect)
+            .addAction(0, getString(R.string.vpn_notif_disconnect), disconnect)
             .build()
     }
 

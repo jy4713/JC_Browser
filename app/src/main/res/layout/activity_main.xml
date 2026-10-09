@@ -155,7 +155,7 @@
             android:layout_height="40dp"
             android:layout_weight="1"
             android:background="@drawable/bg_url"
-            android:hint="페이지에서 찾기"
+            android:hint="@string/cd_find_in_page"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
             android:singleLine="true"
@@ -167,7 +167,7 @@
             android:layout_height="40dp"
             android:layout_marginStart="4dp"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="이전"
+            android:contentDescription="@string/cd_prev"
             android:padding="9dp"
             android:src="@drawable/ic_expand_less"
             android:tint="@color/icon_tint" />
@@ -178,7 +178,7 @@
             android:layout_height="40dp"
             android:layout_marginStart="4dp"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="다음"
+            android:contentDescription="@string/cd_next"
             android:padding="9dp"
             android:src="@drawable/ic_expand_more"
             android:tint="@color/icon_tint" />
@@ -189,7 +189,7 @@
             android:layout_height="40dp"
             android:layout_marginStart="4dp"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="닫기"
+            android:contentDescription="@string/cd_close"
             android:padding="9dp"
             android:src="@drawable/ic_close"
             android:tint="@color/icon_tint" />
@@ -305,7 +305,7 @@
             android:layout_height="44dp"
             android:layout_weight="1"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="뒤로"
+            android:contentDescription="@string/cd_back"
             android:padding="11dp"
             android:src="@drawable/ic_arrow_back"
             android:tint="@color/icon_tint" />
@@ -316,7 +316,7 @@
             android:layout_height="44dp"
             android:layout_weight="1"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="앞으로"
+            android:contentDescription="@string/cd_forward_nav"
             android:padding="11dp"
             android:src="@drawable/ic_arrow_forward"
             android:tint="@color/icon_tint" />
@@ -327,7 +327,7 @@
             android:layout_height="44dp"
             android:layout_weight="1"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="새로고침"
+            android:contentDescription="@string/cd_refresh"
             android:padding="11dp"
             android:src="@drawable/ic_refresh"
             android:tint="@color/icon_tint" />
@@ -338,7 +338,7 @@
             android:layout_height="44dp"
             android:layout_weight="1"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="홈"
+            android:contentDescription="@string/cd_home"
             android:padding="11dp"
             android:src="@drawable/ic_home"
             android:tint="@color/icon_tint" />
@@ -349,7 +349,7 @@
             android:layout_height="44dp"
             android:layout_weight="1"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="즐겨찾기 추가"
+            android:contentDescription="@string/cd_add_bookmark"
             android:padding="11dp"
             android:src="@drawable/ic_bookmark_add"
             android:tint="@color/icon_tint" />
@@ -365,7 +365,7 @@
                 android:layout_height="44dp"
                 android:layout_gravity="center"
                 android:background="@drawable/bg_btn_ripple"
-                android:contentDescription="탭"
+                android:contentDescription="@string/cd_tabs"
                 android:padding="11dp"
                 android:src="@drawable/ic_tabs"
                 android:tint="@color/icon_tint" />
@@ -390,7 +390,7 @@
             android:layout_height="44dp"
             android:layout_weight="1"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="메뉴"
+            android:contentDescription="@string/cd_menu"
             android:padding="11dp"
             android:src="@drawable/ic_menu_vert"
             android:tint="@color/icon_tint" />

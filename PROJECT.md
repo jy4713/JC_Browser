@@ -4,9 +4,14 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.3 (versionCode 57)
+- 현재 버전: 2.11.4 (versionCode 58)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-09, v2.11.4)
+- [x] **OpenVPN 즉시 종료 진단 강화** — openvpn 프로세스가 출력 0줄로 바로 죽는 케이스를 추적하기 위해: `--log <cache>/jcovpn.log` 인자 추가(openvpn 자체 로그 파일), 로그 스레드 EOF 시 `exitValue()` 종료 코드 기록 + 로그 파일 덤프(비어있으면 "크래시 추정", 있으면 마지막 15줄) 후 ERROR 상태 전환. 다음 테스트에서 로그 콘솔의 `exit=` 라인과 덤프로 원인 확정 가능
+- [x] **앱 전체 하드코딩 문자열 리소스화 (언어 혼용 수정)** — 즐겨찾기/다운로드/히스토리/토렌트/VPN 화면과 전체 레이아웃에 하드코딩돼 있던 한글·영어 문자열을 전부 strings.xml(ko/en)로 이동. 시스템/한국어/영어 설정에 따라 UI 언어가 일관되게 표시됨. 접근성 설명(contentDescription) 17개 신규 키 추가
+- [x] **JcUi 통합 스타일 키트** — `ui/JcUi.kt` 신규: 파스텔 팔레트(blue #7C9BD4 / green #6FA88C / red #D08484 / slate #8E99A8 / amber #D4A574) + 높이 40dp 고정 알약 버튼 + 40dp 원형 아이콘 버튼 + 모서리 16dp 카드. VpnActivity의 지역 스타일 헬퍼를 JcUi 위임으로 교체해 화면별 색감/버튼 크기 불일치 해소 시작
 
 ### 완료 (2026-10-09, v2.11.3)
 - [x] **VPN 연결 "Connecting…" 무한 대기 수정 (치명)** — 원인: `LocalServerSocket(FileDescriptor)` 생성자는 bind만 하고 **listen()을 호출하지 않아** openvpn 이 management unix 소켓에 connect 하지 못하고 종료됐으나, 우리는 accept()에서 계속 대기해 상태가 CONNECTING 에 멈춤. `Os.listen(fd, 4)` 추가로 해결. 프로세스가 죽었는데 UI에 안 보이던 문제도 함께 수정 — stdout 스트림 종료 감지 시 마지막 fatal 라인("Cannot open…", "Options error:", "AUTH_FAILED" 등)으로 ERROR 상태 전환

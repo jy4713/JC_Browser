@@ -18,7 +18,7 @@
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="뒤로"
+            android:contentDescription="@string/cd_back"
             android:padding="11dp"
             android:src="@drawable/ic_arrow_back"
             android:tint="@color/icon_tint" />
@@ -28,7 +28,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
-            android:text="다운로드"
+            android:text="@string/menu_downloads"
             android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:textStyle="bold" />

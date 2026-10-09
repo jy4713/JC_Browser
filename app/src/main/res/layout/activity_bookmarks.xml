@@ -18,7 +18,7 @@
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:background="@drawable/bg_btn_ripple"
-            android:contentDescription="뒤로"
+            android:contentDescription="@string/cd_back"
             android:padding="11dp"
             android:src="@drawable/ic_arrow_back"
             android:tint="@color/icon_tint" />
@@ -31,7 +31,7 @@
             android:layout_weight="1"
             android:ellipsize="middle"
             android:singleLine="true"
-            android:text="즐겨찾기"
+            android:text="@string/menu_bookmarks"
             android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -43,7 +43,7 @@
             android:background="@drawable/bg_btn_ripple"
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
-            android:text="＋ 폴더"
+            android:text="@string/bookmark_add_folder"
             android:textColor="@color/primary"
             android:textSize="13sp" />
     </LinearLayout>

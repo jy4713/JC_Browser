@@ -74,14 +74,14 @@ class HistoryActivity : Activity() {
 
     private fun confirmClear() {
         AlertDialog.Builder(this)
-            .setTitle("방문 기록 삭제")
-            .setMessage("모든 방문 기록을 삭제하시겠습니까?")
-            .setPositiveButton("삭제") { _, _ ->
+            .setTitle(getString(R.string.history_delete_title))
+            .setMessage(getString(R.string.history_delete_all))
+            .setPositiveButton(getString(R.string.btn_delete)) { _, _ ->
                 HistoryRepo.clear(this)
                 reload()
-                com.example.streambrowser.util.JcToast.show(this, "삭제되었습니다.")
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.common_deleted))
             }
-            .setNegativeButton("취소", null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
@@ -129,13 +129,13 @@ class HistoryActivity : Activity() {
             holder.itemView.setOnClickListener { onClick(u) }
             holder.itemView.setOnLongClickListener {
                 AlertDialog.Builder(holder.itemView.context)
-                    .setMessage("이 기록을 삭제하시겠습니까?")
-                    .setPositiveButton("삭제") { _, _ ->
+                    .setMessage(holder.itemView.context.getString(R.string.history_delete_one))
+                    .setPositiveButton(holder.itemView.context.getString(R.string.btn_delete)) { _, _ ->
                         HistoryRepo.remove(holder.itemView.context, u)
                         rows = rows.filterNot { it.second == u }
                         notifyDataSetChanged()
                     }
-                    .setNegativeButton("취소", null)
+                    .setNegativeButton(holder.itemView.context.getString(R.string.btn_cancel), null)
                     .show()
                 true
             }

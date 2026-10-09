@@ -79,7 +79,7 @@ class TorrentActivity : Activity() {
         }.onSuccess { info ->
             runOnUiThread {
                 if (info == null) {
-                    txtStatus.text = getString(R.string.torrent_load_failed) + "\n(magnet metadata timeout — seeds 없음 또는 DHT 대기)"
+                    txtStatus.text = getString(R.string.torrent_load_failed) + "\n" + getString(R.string.torrent_magnet_timeout)
                 } else {
                     ti = info
                     showMeta(info)

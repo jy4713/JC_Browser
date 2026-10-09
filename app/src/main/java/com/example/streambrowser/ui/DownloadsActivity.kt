@@ -84,7 +84,7 @@ class DownloadsActivity : Activity() {
             onPlay = { item -> playFile(item) },
             onCancel = { item ->
                 VideoDownloadService.cancel(item.id)
-                com.example.streambrowser.util.JcToast.show(this, "취소 요청됨")
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.common_cancel_requested))
             },
             onRename = { item -> renameItem(item) },
             onDelete = { item -> deleteItem(item) },
@@ -222,7 +222,7 @@ class DownloadsActivity : Activity() {
     private fun playFile(item: DlItem) {
         val f = item.file
         if (f == null || !f.exists()) {
-            com.example.streambrowser.util.JcToast.show(this, "파일이 없습니다.")
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.common_no_file))
             return
         }
         // 영상은 외부 앱 대신 내장 플레이어로 (외부 플레이어가 HLS 병합본을 못 먹는 경우 방지)
@@ -245,7 +245,7 @@ class DownloadsActivity : Activity() {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         runCatching { startActivity(i) }.onFailure {
-            com.example.streambrowser.util.JcToast.show(this, "열 수 있는 앱이 없습니다.")
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.common_no_app))
         }
     }
 
@@ -255,9 +255,9 @@ class DownloadsActivity : Activity() {
             setSingleLine()
         }
         AlertDialog.Builder(this)
-            .setTitle("이름 변경")
+            .setTitle(getString(R.string.common_rename))
             .setView(input)
-            .setPositiveButton("저장") { _, _ ->
+            .setPositiveButton(getString(R.string.common_save)) { _, _ ->
                 val newName = input.text.toString().trim().ifEmpty { return@setPositiveButton }
                 runCatching {
                     val old = item.file
@@ -271,7 +271,7 @@ class DownloadsActivity : Activity() {
                     }
                 }
             }
-            .setNegativeButton("취소", null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
@@ -347,13 +347,13 @@ class DownloadsActivity : Activity() {
 
     private fun openSysFile(item: SysDl) {
         if (item.status != android.app.DownloadManager.STATUS_SUCCESSFUL) {
-            com.example.streambrowser.util.JcToast.show(this, "아직 다운로드 중입니다")
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.dl_running))
             return
         }
         val dm = getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
         val uri = runCatching { dm.getUriForDownloadedFile(item.id) }.getOrNull()
         if (uri == null) {
-            com.example.streambrowser.util.JcToast.show(this, "파일을 찾을 수 없습니다")
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.dl_file_not_found))
             return
         }
         runCatching {
@@ -362,20 +362,20 @@ class DownloadsActivity : Activity() {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             })
         }.onFailure {
-            com.example.streambrowser.util.JcToast.show(this, "이 파일을 열 수 있는 앱이 없습니다")
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.common_no_app))
         }
     }
 
     private fun deleteSysFile(item: SysDl) {
         AlertDialog.Builder(this)
             .setTitle(item.title)
-            .setMessage("다운로드 목록과 파일을 삭제할까요?")
-            .setPositiveButton("삭제") { _, _ ->
+            .setMessage(getString(R.string.dl_delete_confirm))
+            .setPositiveButton(getString(R.string.btn_delete)) { _, _ ->
                 val dm = getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
                 runCatching { dm.remove(item.id) }
                 sysAdapter?.reload { querySystemDownloads() }
             }
-            .setNegativeButton("취소", null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
@@ -442,7 +442,7 @@ class DownloadsActivity : Activity() {
                 android.app.DownloadManager.STATUS_RUNNING -> {
                     val speed = speeds[item.id] ?: 0L
                     val pct = if (item.total > 0) (item.done * 100 / item.total).toInt() else 0
-                    holder.status.text = "다운로드 중 · " + fmtMb(item.done) + " / " + fmtMb(item.total) +
+                    holder.status.text = holder.itemView.context.getString(R.string.dl_downloading) + " · " + fmtMb(item.done) + " / " + fmtMb(item.total) +
                             " (" + pct + "%)" + (if (speed > 0) " · " + fmtSpeed(speed) else "")
                     holder.progress.visibility = View.VISIBLE
                     holder.progress.progress = pct
@@ -451,10 +451,10 @@ class DownloadsActivity : Activity() {
                     holder.progress.visibility = View.GONE
                     holder.status.text = when (item.status) {
                         android.app.DownloadManager.STATUS_SUCCESSFUL ->
-                            "완료 · " + fmtMb(item.total)
-                        android.app.DownloadManager.STATUS_PENDING -> "대기 중…"
-                        android.app.DownloadManager.STATUS_PAUSED -> "일시 중지됨"
-                        else -> "실패"
+                            holder.itemView.context.getString(R.string.dl_done_mb, item.total / 1048576.0)
+                        android.app.DownloadManager.STATUS_PENDING -> holder.itemView.context.getString(R.string.dl_waiting)
+                        android.app.DownloadManager.STATUS_PAUSED -> holder.itemView.context.getString(R.string.dl_paused)
+                        else -> holder.itemView.context.getString(R.string.dl_failed)
                     }
                 }
             }
@@ -529,7 +529,7 @@ class DownloadsActivity : Activity() {
 
             when (item.status) {
                 DlStatus.PENDING -> {
-                    holder.status.text = "대기 중…"
+                    holder.status.text = holder.itemView.context.getString(R.string.dl_waiting)
                     holder.progress.visibility = View.GONE
                     holder.btnPlay.visibility = View.GONE
                     holder.btnPause.visibility = View.GONE
@@ -570,7 +570,7 @@ class DownloadsActivity : Activity() {
                 }
                 DlStatus.DONE -> {
                     val sz = (item.file?.length() ?: 0) / 1048576.0
-                    holder.status.text = String.format("완료 · %.1f MB", sz)
+                    holder.status.text = holder.itemView.context.getString(R.string.dl_done_mb, sz)
                     holder.progress.visibility = View.GONE
                     holder.btnPlay.visibility = View.VISIBLE
                     holder.btnPause.visibility = View.GONE
@@ -579,7 +579,7 @@ class DownloadsActivity : Activity() {
                     holder.btnDelete.visibility = View.VISIBLE
                 }
                 DlStatus.CANCELED -> {
-                    holder.status.text = "취소됨"
+                    holder.status.text = holder.itemView.context.getString(R.string.dl_cancelled)
                     holder.progress.visibility = View.GONE
                     holder.btnPlay.visibility = View.GONE
                     holder.btnPause.visibility = View.GONE
@@ -588,7 +588,7 @@ class DownloadsActivity : Activity() {
                     holder.btnDelete.visibility = View.VISIBLE
                 }
                 DlStatus.FAILED -> {
-                    holder.status.text = "실패"
+                    holder.status.text = holder.itemView.context.getString(R.string.dl_failed)
                     holder.progress.visibility = View.GONE
                     holder.btnPlay.visibility = View.GONE
                     holder.btnPause.visibility = View.GONE
@@ -607,7 +607,7 @@ class DownloadsActivity : Activity() {
             holder.btnCopy.setOnClickListener { onCopy(item) }
             holder.btnDelete.setOnClickListener { onDelete(item) }
             holder.itemView.setOnLongClickListener {
-                val opts = arrayOf("이름 변경", "삭제")
+                val opts = arrayOf(holder.itemView.context.getString(R.string.common_rename), holder.itemView.context.getString(R.string.btn_delete))
                 AlertDialog.Builder(holder.itemView.context)
                     .setTitle(item.name)
                     .setItems(opts) { _, which ->

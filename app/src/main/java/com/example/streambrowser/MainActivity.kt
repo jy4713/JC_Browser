@@ -2018,7 +2018,7 @@ class MainActivity : Activity() {
     /** 메뉴에서 토렌트/magnet 직접 열기 */
     private fun showTorrentOpenDialog() {
         val edit = android.widget.EditText(this).apply {
-            hint = "magnet:?xt=urn:btih:... 또는 https://.../file.torrent"
+            hint = getString(R.string.open_torrent_hint)
             setTextColor(resources.getColor(R.color.text_primary, theme))
             setHintTextColor(resources.getColor(R.color.icon_tint, theme))
         }

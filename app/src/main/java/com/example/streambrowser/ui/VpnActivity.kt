@@ -131,69 +131,27 @@ class VpnActivity : Activity() {
         if (showProfiles) refreshProfiles() else renderStatusCard()
     }
 
-    // ---------------- 공통 스타일 ----------------
+    // ---------------- 공통 스타일 (JcUi 통합 키트에 위임) ----------------
 
-    private fun padPx(dp: Int) = (dp * resources.displayMetrics.density).toInt()
+    private fun padPx(dp: Int) = JcUi.dp(this, dp)
 
-    private fun themedColor(attr: Int, fallback: Int): Int {
-        val ta = theme.obtainStyledAttributes(intArrayOf(attr))
-        val c = ta.getColor(0, fallback)
-        ta.recycle()
-        return c
-    }
-
-    private val colorPrimary get() = themedColor(android.R.attr.colorAccent, Color.parseColor("#1A73E8"))
-    private val colorText get() = themedColor(android.R.attr.textColorPrimary, Color.BLACK)
-    private val colorTextSec get() = themedColor(android.R.attr.textColorSecondary, Color.GRAY)
-    private val colorCard get() = themedColor(android.R.attr.colorBackgroundFloating, Color.WHITE)
-    private val colorGreen get() = Color.parseColor("#2E9E5B")
-    private val colorRed get() = Color.parseColor("#D93025")
+    private val colorPrimary get() = JcUi.blue
+    private val colorText get() = JcUi.textPrimary(this)
+    private val colorTextSec get() = JcUi.slate
+    private val colorCard get() = JcUi.cardBg(this)
+    private val colorGreen get() = JcUi.green
+    private val colorRed get() = JcUi.red
 
     /** 둥근 알약 버튼 */
-    private fun pill(text: String, bg: Int, onClick: (View) -> Unit): TextView {
-        val h = padPx(12)
-        val w = padPx(20)
-        return TextView(this).apply {
-            this.text = text
-            setTextColor(Color.WHITE)
-            textSize = 13f
-            gravity = Gravity.CENTER
-            setPadding(w, h, w, h)
-            background = GradientDrawable().apply {
-                setColor(bg)
-                cornerRadius = padPx(60).toFloat()
-            }
-            setOnClickListener(onClick)
-        }
-    }
+    private fun pill(text: String, bg: Int, onClick: (View) -> Unit): TextView =
+        JcUi.pill(this, text, bg, onClick)
 
     /** 원형 아이콘 버튼 */
-    private fun roundIcon(desc: String, iconRes: Int, tint: Int, onClick: (View) -> Unit): ImageButton {
-        val size = padPx(38)
-        return ImageButton(this).apply {
-            contentDescription = desc
-            setImageResource(iconRes)
-            setColorFilter(tint)
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(0x1A000000)
-            }
-            setOnClickListener(onClick)
-            layoutParams = LinearLayout.LayoutParams(size, size)
-        }
-    }
+    private fun roundIcon(desc: String, iconRes: Int, tint: Int, onClick: (View) -> Unit): ImageButton =
+        JcUi.circleIcon(this, desc, iconRes, tint, onClick)
 
     /** 카드 컨테이너 */
-    private fun makeCard(): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        val pd = padPx(18)
-        setPadding(pd, pd, pd, pd)
-        background = GradientDrawable().apply {
-            setColor(colorCard)
-            cornerRadius = padPx(16).toFloat()
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) elevation = padPx(2).toFloat()
-    }
+    private fun makeCard(): LinearLayout = JcUi.card(this)
 
     // ---------------- 메인 (상태) 화면 ----------------
 
@@ -565,8 +523,8 @@ class VpnActivity : Activity() {
             val pd = (24 * density).toInt()
             setPadding(pd, pd / 2, pd, 0)
         }
-        val user = EditText(this).apply { hint = "Username"; setText(p.username) }
-        val pass = passwordBox("Password", p.password)
+        val user = EditText(this).apply { hint = getString(R.string.vpn_username); setText(p.username) }
+        val pass = passwordBox(getString(R.string.vpn_password), p.password)
         box.addView(user); box.addView(pass.view)
         AlertDialog.Builder(this)
             .setTitle(p.name)
@@ -748,8 +706,8 @@ class VpnActivity : Activity() {
             setPadding(pd, pd / 2, pd, 0)
         }
         val name = EditText(this).apply { hint = getString(R.string.vpn_name_title); setText(p.name) }
-        val user = EditText(this).apply { hint = "Username"; setText(p.username) }
-        val pass = passwordBox("Password", p.password)
+        val user = EditText(this).apply { hint = getString(R.string.vpn_username); setText(p.username) }
+        val pass = passwordBox(getString(R.string.vpn_password), p.password)
         box.addView(name); box.addView(user); box.addView(pass.view)
         AlertDialog.Builder(this)
             .setTitle(R.string.vpn_edit)
