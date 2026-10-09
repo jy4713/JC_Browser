@@ -78,14 +78,20 @@ object VpnProfiles {
 
     /** 단일/멀티 공통 추가. uri 에서 본문 읽고 기본 이름 반환, 저장된 프로파일 id 반환 */
     fun import(ctx: Context, uri: Uri, defaultName: String?): Profile? {
-        init(ctx)
         val text = runCatching {
             ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
         }.getOrNull() ?: return null
         if (text.isBlank()) return null
-
         val name = defaultName?.trim().takeUnless { it.isNullOrEmpty() }
             ?: runCatching { uri.lastPathSegment?.substringAfterLast('/')?.removeSuffix(".ovpn") }.getOrNull()
+        return importText(ctx, text, name)
+    }
+
+    /** ovpn 본문 텍스트로 직접 추가 (메뉴에서 직접 입력 시) */
+    fun importText(ctx: Context, text: String, defaultName: String?): Profile? {
+        init(ctx)
+        if (text.isBlank()) return null
+        val name = defaultName?.trim().takeUnless { it.isNullOrEmpty() }
             ?: "VPN ${System.currentTimeMillis()}"
         val id = UUID.randomUUID().toString().substring(0, 8)
         val f = File(dir(ctx), "$id.ovpn")

@@ -1122,7 +1122,7 @@ class MainActivity : Activity() {
             }
         )
     }
-    /** 설정 그룹 (아코디언): 용도별 4개 그룹으로 정리 */
+    /** 설정 그룹 (아코디언): 용도별 그룹으로 정리 */
     /** Settings groups (accordion), grouped by purpose. Toggles live in the shortcut grid. */
     private fun menuGroups(): List<MenuGroup> {
         val s = fun(res: Int) = getString(res)
@@ -1210,6 +1210,14 @@ class MainActivity : Activity() {
                 MenuEntry(s(R.string.menu_dl_notify), R.drawable.ic_play, "dl_notify") {
                     val on = !prefs.getBoolean("dl_notify", true)
                     prefs.edit().putBoolean("dl_notify", on).apply()
+                },
+                MenuEntry(getString(R.string.menu_img_min) + ": " + prefs.getInt("img_min_px", 300) + "px", R.drawable.ic_image, null) {
+                    showImageMinDialog()
+                }
+            )),
+            MenuGroup(R.string.vpn_title, R.drawable.ic_lock, listOf(
+                MenuEntry(s(R.string.vpn_title), R.drawable.ic_lock, null) {
+                    runCatching { startActivity(Intent(this, com.example.streambrowser.ui.VpnActivity::class.java)) }
                 }
             )),
             MenuGroup(R.string.group_torrent, R.drawable.ic_download, listOf(
@@ -1250,9 +1258,6 @@ class MainActivity : Activity() {
                 }
             )),
             MenuGroup(R.string.group_general, R.drawable.ic_settings, listOf(
-                MenuEntry(s(R.string.vpn_title), R.drawable.ic_lock, null) {
-                    runCatching { startActivity(Intent(this, com.example.streambrowser.ui.VpnActivity::class.java)) }
-                },
                 MenuEntry(getString(R.string.menu_search_engine) + ": " + searchEngineLabel(), R.drawable.ic_search, null) {
                     showSearchEngineDialog()
                 },
@@ -1266,9 +1271,6 @@ class MainActivity : Activity() {
                 },
                 MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
                     showTextSizeDialog()
-                },
-                MenuEntry(getString(R.string.menu_img_min) + ": " + prefs.getInt("img_min_px", 300) + "px", R.drawable.ic_image, null) {
-                    showImageMinDialog()
                 },
                 MenuEntry(s(R.string.menu_home_setting), R.drawable.ic_home, null) {
                     showHomeDialog()

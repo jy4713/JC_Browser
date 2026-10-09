@@ -53,10 +53,26 @@ class JcVpnService : VpnService() {
         @Volatile var lastError: String = ""
         @Volatile var onStateChange: (() -> Unit)? = null
 
+        /** 속도/누적 통계 (bytecount 5 기반, bytes per second) */
+        @Volatile var rxRate: Long = 0
+        @Volatile var txRate: Long = 0
+        @Volatile var rxTotal: Long = 0
+        @Volatile var txTotal: Long = 0
+        /** CONNECTED 된 시각 (epoch ms), 연결 아니면 0 */
+        @Volatile var connectedSince: Long = 0
+
         private fun setState(s: String, profile: String? = null, err: String? = null) {
             state = s
             profile?.let { stateProfile = it }
             err?.let { lastError = it }
+            if (s == "CONNECTED") {
+                connectedSince = System.currentTimeMillis()
+                rxRate = 0; txRate = 0
+            }
+            if (s == "DISCONNECTED" || s == "ERROR") {
+                connectedSince = 0
+                rxRate = 0; txRate = 0; rxTotal = 0; txTotal = 0
+            }
             runCatching { onStateChange?.invoke() }
         }
     }
@@ -66,6 +82,11 @@ class JcVpnService : VpnService() {
     private var serverSocket: LocalServerSocket? = null
     private var tunPfd: ParcelFileDescriptor? = null
     private var stopRequested = false
+
+    // bytecount 속도 계산용 (누적값은 companion 에 게시)
+    private var lastRx = 0L
+    private var lastTx = 0L
+    private var lastByteAt = 0L
 
     // OPENTUN 직전까지 수집된 인터페이스 구성
     private class TunCfg {
@@ -193,6 +214,18 @@ class JcVpnService : VpnService() {
         s.outputStream.flush()
         true
     }.getOrDefault(false)
+
+    /** >BYTECOUNT 수신 시 속도 계산 → companion 에 게시 (UI 1초 폴링) */
+    private fun updateBytecount(rx: Long, tx: Long) {
+        val now = System.currentTimeMillis()
+        if (lastByteAt > 0) {
+            val dt = (now - lastByteAt).coerceAtLeast(1)
+            rxRate = ((rx - lastRx).coerceAtLeast(0) * 1000L) / dt
+            txRate = ((tx - lastTx).coerceAtLeast(0) * 1000L) / dt
+        }
+        lastRx = rx; lastTx = tx; lastByteAt = now
+        rxTotal = rx; txTotal = tx
+    }
 
     private fun manageLoop(s: LocalSocket, profile: VpnProfiles.Profile, username: String, password: String) {
         val cfg = TunCfg()
@@ -343,7 +376,13 @@ class JcVpnService : VpnService() {
                         if (fd != null) protectFd(fd)
                     }
 
-                    line.startsWith(">BYTECOUNT:") -> { /* 트래픽 통계 — UI 미사용 */ }
+                    line.startsWith(">BYTECOUNT:") -> {
+                        val arg = line.removePrefix(">BYTECOUNT:")
+                        val parts = arg.split(",")
+                        val rx = parts.getOrNull(0)?.trim()?.toLongOrNull()
+                        val tx = parts.getOrNull(1)?.trim()?.toLongOrNull()
+                        if (rx != null && tx != null) updateBytecount(rx, tx)
+                    }
 
                     line.startsWith("SUCCESS:") -> {}
                     line.startsWith(">INFO:") -> {}

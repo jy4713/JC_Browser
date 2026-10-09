@@ -321,4 +321,14 @@
     <string name="vpn_state_wait">재연결 대기 중… — %1s</string>
     <string name="vpn_state_error">오류 — %1s</string>
     <string name="vpn_state_disconnected">연결 안 됨 (브라우저에만 적용)</string>
+    <string name="vpn_manage">프로파일 관리</string>
+    <string name="vpn_status_hint">브라우저 트래픽만 VPN을 경유합니다</string>
+    <string name="vpn_speed_down">▼ %1s</string>
+    <string name="vpn_speed_up">▲ %1s</string>
+    <string name="vpn_connected_time">연결 %1s</string>
+    <string name="vpn_add_title">프로파일 추가</string>
+    <string name="vpn_add_manual">직접 입력</string>
+    <string name="vpn_add_file">파일에서 가져오기</string>
+    <string name="vpn_paste_hint">.ovpn 설정 내용을 붙여넣으세요</string>
+    <string name="vpn_state_connecting_short">연결 중…</string>
 </resources>

@@ -3,7 +3,10 @@ package com.example.streambrowser.ui
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.net.VpnService
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -11,9 +14,10 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -23,10 +27,18 @@ import com.example.streambrowser.vpn.JcVpnService
 import com.example.streambrowser.vpn.VpnProfiles
 
 /**
- * VPN 프로파일 관리 화면
- * - .ovpn 추가(파일 1개 + 이름 입력) / 멀티 import(파일 이름으로 이름)
- * - 이름 변경 / 삭제 / 연결(인증정보 미리 저장 시 그대로, 없으면 Auth 요구 시 빈 값 시도)
- * - 시스템 VPN 권한(VpnService.prepare) 승인 후 연결
+ * VPN 화면 (일반적인 VPN 앱 스타일)
+ *
+ * [메인 화면]
+ *  - 상태 카드: 현재 연결된 프로파일 이름 + 상태 + 실시간 속도(▼다운 ▲업) + 연결 시간 + 연결 해제 버튼
+ *  - 연결 없음: 자물쇠 아이콘 + 꺼짐 안내
+ *  - 아래 "프로파일 관리" 버튼 → 관리 화면
+ *
+ * [프로파일 관리 화면]
+ *  - 추가(직접 입력 / 파일 1개) / 여러 개 가져오기
+ *  - 목록: 각 항목 오른쪽에 연결(둥근 버튼) / 이름 변경 / 삭제
+ *  - 연결 중이면 항목 아래 진행 상태 표시, 연결되면 "연결됨", 버튼 누륾면 해제
+ *  - auth-user-pass 프로파일은 연결 전 크리덴셜 입력 (저장 선택)
  */
 class VpnActivity : Activity() {
 
@@ -36,10 +48,26 @@ class VpnActivity : Activity() {
         private const val REQ_VPN_PREPARE = 13
     }
 
-    private lateinit var listBox: LinearLayout
-    private lateinit var txtStatus: TextView
     private val handler = Handler(Looper.getMainLooper())
     private var pendingConnectId: String? = null
+    private var showProfiles = false
+
+    // 메인 화면 위젯
+    private lateinit var statusView: LinearLayout
+    private lateinit var cardBox: LinearLayout
+    private lateinit var txtTitleMain: TextView
+
+    // 관리 화면 위젯
+    private lateinit var profilesView: LinearLayout
+    private lateinit var listBox: LinearLayout
+
+    // 1초 폧링: 연결 중일 때 속도/시간 갱신
+    private val ticker = object : Runnable {
+        override fun run() {
+            if (!showProfiles) renderStatusCard()
+            handler.postDelayed(this, 1000)
+        }
+    }
 
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(com.example.streambrowser.util.LocaleHelper.wrap(com.example.streambrowser.util.ThemeHelper.wrap(newBase)))
@@ -50,40 +78,27 @@ class VpnActivity : Activity() {
         com.example.streambrowser.util.ThemeHelper.apply(this)
         VpnProfiles.init(this)
 
-        val pad = (16 * resources.displayMetrics.density).toInt()
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
-        }
+        val root = FrameLayout(this)
 
-        txtStatus = TextView(this).apply {
-            textSize = 13f
-            setPadding(0, 0, 0, pad / 2)
-        }
-        root.addView(txtStatus, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-
-        // 상단 버튼: 추가 / 멀티 가져오기 / 연결 해제
-        val btns = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        fun btn(label: String, l: View.OnClickListener) {
-            btns.addView(Button(this).apply { text = label; setOnClickListener(l) },
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    marginEnd = (6 * resources.displayMetrics.density).toInt()
-                })
-        }
-        btn(getString(R.string.vpn_add)) { pickOne() }
-        btn(getString(R.string.vpn_import_multi)) { pickMulti() }
-        btn(getString(R.string.vpn_disconnect)) { disconnect() }
-        root.addView(btns)
-
-        val scroll = ScrollView(this)
-        listBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scroll.addView(listBox)
-        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-
+        statusView = buildStatusView()
+        profilesView = buildProfilesView()
+        root.addView(statusView)
+        root.addView(profilesView)
         setContentView(root)
-        refresh()
+        showScreen(profiles = false)
 
-        JcVpnService.onStateChange = { runOnUiThread { refresh() } }
+        JcVpnService.onStateChange = { runOnUiThread { refreshAll() } }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshAll()
+        handler.post(ticker)
+    }
+
+    override fun onPause() {
+        handler.removeCallbacks(ticker)
+        super.onPause()
     }
 
     override fun onDestroy() {
@@ -91,46 +106,254 @@ class VpnActivity : Activity() {
         super.onDestroy()
     }
 
-    override fun onResume() {
-        super.onResume()
-        refresh()
+    // ---------------- 화면 전환 ----------------
+
+    private fun showScreen(profiles: Boolean) {
+        showProfiles = profiles
+        statusView.visibility = if (profiles) View.GONE else View.VISIBLE
+        profilesView.visibility = if (profiles) View.VISIBLE else View.GONE
+        refreshAll()
     }
 
-    // ---------------- 목록 ----------------
+    private fun refreshAll() {
+        if (showProfiles) refreshProfiles() else renderStatusCard()
+    }
 
-    private fun refresh() {
-        val st = JcVpnService.state
-        txtStatus.text = when (st) {
-            "CONNECTED" -> getString(R.string.vpn_state_connected, JcVpnService.stateProfile)
-            "CONNECTING", "AUTH", "ASSIGN_IP" -> getString(R.string.vpn_state_connecting, JcVpnService.stateProfile)
-            "WAIT" -> getString(R.string.vpn_state_wait, JcVpnService.stateProfile)
-            "ERROR" -> getString(R.string.vpn_state_error, JcVpnService.lastError)
-            else -> getString(R.string.vpn_state_disconnected)
+    // ---------------- 공통 스타일 ----------------
+
+    private fun padPx(dp: Int) = (dp * resources.displayMetrics.density).toInt()
+
+    private fun themedColor(attr: Int, fallback: Int): Int {
+        val ta = theme.obtainStyledAttributes(intArrayOf(attr))
+        val c = ta.getColor(0, fallback)
+        ta.recycle()
+        return c
+    }
+
+    private val colorPrimary get() = themedColor(android.R.attr.colorAccent, Color.parseColor("#1A73E8"))
+    private val colorText get() = themedColor(android.R.attr.textColorPrimary, Color.BLACK)
+    private val colorTextSec get() = themedColor(android.R.attr.textColorSecondary, Color.GRAY)
+    private val colorCard get() = themedColor(android.R.attr.colorBackgroundFloating, Color.WHITE)
+    private val colorGreen get() = Color.parseColor("#2E9E5B")
+    private val colorRed get() = Color.parseColor("#D93025")
+
+    /** 둥근 알약 버튼 */
+    private fun pill(text: String, bg: Int, onClick: (View) -> Unit): TextView {
+        val h = padPx(12)
+        val w = padPx(20)
+        return TextView(this).apply {
+            this.text = text
+            setTextColor(Color.WHITE)
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setPadding(w, h, w, h)
+            background = GradientDrawable().apply {
+                setColor(bg)
+                cornerRadius = padPx(60).toFloat()
+            }
+            setOnClickListener(onClick)
         }
+    }
+
+    /** 원형 아이콘 버튼 */
+    private fun roundIcon(desc: String, iconRes: Int, tint: Int, onClick: (View) -> Unit): ImageButton {
+        val size = padPx(38)
+        return ImageButton(this).apply {
+            contentDescription = desc
+            setImageResource(iconRes)
+            setColorFilter(tint)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0x1A000000)
+            }
+            setOnClickListener(onClick)
+            layoutParams = LinearLayout.LayoutParams(size, size)
+        }
+    }
+
+    /** 카드 컨테이너 */
+    private fun makeCard(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        val pd = padPx(18)
+        setPadding(pd, pd, pd, pd)
+        background = GradientDrawable().apply {
+            setColor(colorCard)
+            cornerRadius = padPx(16).toFloat()
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) elevation = padPx(2).toFloat()
+    }
+
+    // ---------------- 메인 (상태) 화면 ----------------
+
+    private fun buildStatusView(): LinearLayout {
+        val pad = padPx(16)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad, pad, pad)
+        }
+
+        txtTitleMain = TextView(this).apply {
+            text = getString(R.string.vpn_title)
+            textSize = 22f
+            setTextColor(colorText)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setPadding(0, 0, 0, pad)
+        }
+        root.addView(txtTitleMain, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        cardBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(cardBox, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        return root
+    }
+
+    private fun renderStatusCard() {
+        cardBox.removeAllViews()
+        val st = JcVpnService.state
+
+        val card = makeCard()
+        val icon = ImageView(this).apply {
+            setImageResource(R.drawable.ic_lock)
+            val tint = when {
+                st == "CONNECTED" -> colorGreen
+                st == "DISCONNECTED" -> colorTextSec
+                else -> colorPrimary
+            }
+            setColorFilter(tint)
+        }
+        card.addView(icon, LinearLayout.LayoutParams(padPx(52), padPx(52)).apply { gravity = Gravity.CENTER_HORIZONTAL })
+
+        fun centerText(size: Float, bold: Boolean = false, color: Int = colorText) = TextView(this).apply {
+            textSize = size
+            setTextColor(color)
+            gravity = Gravity.CENTER
+            if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }
+
+        val title = centerText(18f, bold = true)
+        val sub = centerText(13f, color = colorTextSec)
+        val speed = centerText(15f, bold = true, color = colorPrimary)
+        val time = centerText(12f, color = colorTextSec)
+        card.addView(title, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = padPx(10) })
+        card.addView(sub, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = padPx(4) })
+        card.addView(speed, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = padPx(10) })
+        card.addView(time, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = padPx(2) })
+
+        when (st) {
+            "CONNECTED" -> {
+                title.text = JcVpnService.stateProfile
+                sub.text = getString(R.string.vpn_state_connected_short)
+                speed.text = getString(R.string.vpn_speed_down, formatRate(JcVpnService.rxRate)) +
+                    "   " + getString(R.string.vpn_speed_up, formatRate(JcVpnService.txRate))
+                time.text = getString(R.string.vpn_connected_time, formatDuration(System.currentTimeMillis() - JcVpnService.connectedSince))
+                val btn = pill(getString(R.string.vpn_disconnect), colorRed) { disconnect() }
+                card.addView(btn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    gravity = Gravity.CENTER_HORIZONTAL
+                    topMargin = padPx(16)
+                })
+            }
+            "CONNECTING", "AUTH", "ASSIGN_IP" -> {
+                title.text = JcVpnService.stateProfile
+                sub.text = getString(R.string.vpn_state_connecting_short)
+                sub.setTextColor(colorPrimary)
+            }
+            "WAIT" -> {
+                title.text = JcVpnService.stateProfile
+                sub.text = getString(R.string.vpn_state_wait, JcVpnService.stateProfile)
+                sub.setTextColor(colorPrimary)
+            }
+            "ERROR" -> {
+                title.text = getString(R.string.vpn_state_error, JcVpnService.lastError)
+                title.setTextColor(colorRed)
+            }
+            else -> {
+                title.text = getString(R.string.vpn_state_disconnected)
+                sub.text = getString(R.string.vpn_status_hint)
+                sub.setTextColor(colorTextSec)
+            }
+        }
+        cardBox.addView(card)
+
+        // 프로파일 관리 버튼
+        val manage = pill(getString(R.string.vpn_manage), colorPrimary) { showScreen(profiles = true) }
+        cardBox.addView(manage, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            topMargin = padPx(20)
+        })
+    }
+
+    // ---------------- 프로파일 관리 화면 ----------------
+
+    private fun buildProfilesView(): LinearLayout {
+        val pad = padPx(16)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad, pad, pad)
+        }
+
+        // 상단 바: 뒤로 + 제목
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        bar.addView(roundIcon(getString(R.string.back), R.drawable.ic_arrow_back, colorText) { showScreen(profiles = false) })
+        bar.addView(TextView(this).apply {
+            text = getString(R.string.vpn_manage)
+            textSize = 18f
+            setTextColor(colorText)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setPadding(padPx(12), 0, 0, 0)
+        })
+        root.addView(bar)
+
+        // 추가 / 멀티 가져오기
+        val btns = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, padPx(14), 0, padPx(10))
+        }
+        btns.addView(pill(getString(R.string.vpn_add), colorPrimary) { showAddChooser() })
+        btns.addView(pill(getString(R.string.vpn_import_multi), colorTextSec) { pickMulti() },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = padPx(10) })
+        root.addView(btns)
+
+        val scroll = ScrollView(this)
+        listBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        scroll.addView(listBox)
+        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        return root
+    }
+
+    private fun refreshProfiles() {
         listBox.removeAllViews()
         val profiles = VpnProfiles.list(this)
         if (profiles.isEmpty()) {
             listBox.addView(TextView(this).apply {
                 text = getString(R.string.vpn_empty)
                 textSize = 14f
+                setTextColor(colorTextSec)
                 gravity = Gravity.CENTER
                 setPadding(0, padPx(48), 0, 0)
             })
             return
         }
+        val st = JcVpnService.state
         val activeId = if (st != "DISCONNECTED" && st != "ERROR") connectedProfileId() else null
+        var first = true
         for (p in profiles) {
-            listBox.addView(row(p, p.id == activeId))
+            if (!first) {
+                listBox.addView(View(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).apply {
+                        topMargin = padPx(2); bottomMargin = padPx(2)
+                    }
+                    setBackgroundColor(0x1A000000)
+                })
+            }
+            first = false
+            listBox.addView(profileRow(p, p.id == activeId))
         }
     }
 
-    private fun connectedProfileId(): String? =
-        getSharedPreferences("settings", MODE_PRIVATE).getString("vpn_active_id", null)
-
-    private fun padPx(dp: Int) = (dp * resources.displayMetrics.density).toInt()
-
-    private fun row(p: VpnProfiles.Profile, active: Boolean): View {
-        val density = resources.displayMetrics.density
+    private fun profileRow(p: VpnProfiles.Profile, active: Boolean): View {
+        val st = JcVpnService.state
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -140,51 +363,94 @@ class VpnActivity : Activity() {
         val name = TextView(this).apply {
             text = p.name + if (p.needsAuth) " 🔑" else ""
             textSize = 15f
+            setTextColor(colorText)
         }
         val sub = TextView(this).apply {
-            text = if (active) getString(R.string.vpn_state_connected_short) else ""
             textSize = 12f
+            when {
+                active && st == "CONNECTED" -> {
+                    text = getString(R.string.vpn_state_connected_short)
+                    setTextColor(colorGreen)
+                }
+                active -> {
+                    text = getString(R.string.vpn_state_connecting_short)
+                    setTextColor(colorPrimary)
+                }
+                else -> {
+                    text = ""
+                    setTextColor(colorTextSec)
+                }
+            }
         }
         col.addView(name); col.addView(sub)
         row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
-        fun ib(label: String, onClick: View.OnClickListener): ImageButton {
-            val b = ImageButton(this).apply {
-                contentDescription = label
-                setImageResource(android.R.drawable.ic_menu_edit)
-                setOnClickListener(onClick)
-                background = null
-            }
-            row.addView(b, LinearLayout.LayoutParams(padPx(40), padPx(40)))
-            return b
-        }
-
-        // 연결/해제
-        ib(if (active) getString(R.string.vpn_disconnect) else getString(R.string.vpn_connect)) {
-            if (active) disconnect() else connect(p)
-        }.setImageResource(
-            if (active) android.R.drawable.ic_menu_close_clear_cancel
-            else android.R.drawable.ic_menu_set_as
+        // 연결 / 해제 알약 버튼
+        row.addView(
+            if (active) pill(getString(R.string.vpn_disconnect), colorRed) { disconnect() }
+            else pill(getString(R.string.vpn_connect), colorGreen) { connect(p) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = padPx(8) }
         )
         // 이름 변경
-        ib(getString(R.string.vpn_rename)) { renameDialog(p) }
+        row.addView(roundIcon(getString(R.string.vpn_rename), android.R.drawable.ic_menu_edit, colorTextSec) { renameDialog(p) })
         // 삭제
-        ib(getString(R.string.action_remove)) {
-            AlertDialog.Builder(this)
-                .setTitle(p.name)
-                .setMessage(R.string.vpn_delete_confirm)
-                .setPositiveButton(R.string.action_remove) { _, _ ->
-                    if (active) disconnect()
-                    VpnProfiles.delete(this, p.id)
-                    refresh()
-                }
-                .setNegativeButton(R.string.btn_cancel, null)
-                .show()
-        }.setImageResource(android.R.drawable.ic_delete)
+        row.addView(roundIcon(getString(R.string.action_remove), android.R.drawable.ic_delete, colorRed) { confirmDelete(p, active) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = padPx(8) })
         return row
     }
 
-    // ---------------- 연결 ----------------
+    private fun confirmDelete(p: VpnProfiles.Profile, active: Boolean) {
+        AlertDialog.Builder(this)
+            .setTitle(p.name)
+            .setMessage(R.string.vpn_delete_confirm)
+            .setPositiveButton(R.string.action_remove) { _, _ ->
+                if (active) disconnect()
+                VpnProfiles.delete(this, p.id)
+                refreshProfiles()
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    // ---------------- 추가 (직접 입력 / 파일) ----------------
+
+    private fun showAddChooser() {
+        val items = arrayOf(getString(R.string.vpn_add_manual), getString(R.string.vpn_add_file))
+        AlertDialog.Builder(this)
+            .setTitle(R.string.vpn_add_title)
+            .setItems(items) { _, which -> if (which == 0) manualAddDialog() else pickOne() }
+            .show()
+    }
+
+    private fun manualAddDialog() {
+        val density = resources.displayMetrics.density
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val pd = (24 * density).toInt()
+            setPadding(pd, pd / 2, pd, 0)
+        }
+        val name = EditText(this).apply { hint = getString(R.string.vpn_name_title) }
+        val body = EditText(this).apply {
+            hint = getString(R.string.vpn_paste_hint)
+            minLines = 6
+            gravity = Gravity.TOP
+            typeface = android.graphics.Typeface.MONOSPACE
+        }
+        box.addView(name); box.addView(body)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.vpn_add_title)
+            .setView(box)
+            .setPositiveButton(R.string.btn_ok) { _, _ ->
+                val nm = name.text.toString().trim()
+                if (nm.isEmpty()) return@setPositiveButton
+                val p = VpnProfiles.importText(this, body.text.toString(), nm)
+                if (p == null) JcToast.show(this, getString(R.string.vpn_import_failed)) else refreshProfiles()
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    // ---------------- 연결 / 해제 ----------------
 
     private fun connect(p: VpnProfiles.Profile) {
         // 인증이 필요한 프로파일이면 연결 전 아이디/비밀번호 입력(저장 선택)
@@ -244,7 +510,7 @@ class VpnActivity : Activity() {
             putExtra(JcVpnService.EXTRA_PASSWORD, pass)
         }
         runCatching { startForegroundService(i) }
-        handler.postDelayed({ refresh() }, 800)
+        handler.postDelayed({ refreshAll() }, 800)
     }
 
     private fun disconnect() {
@@ -252,10 +518,10 @@ class VpnActivity : Activity() {
             startService(Intent(this, JcVpnService::class.java).setAction(JcVpnService.ACTION_DISCONNECT))
         }
         getSharedPreferences("settings", MODE_PRIVATE).edit().remove("vpn_active_id").apply()
-        handler.postDelayed({ refresh() }, 500)
+        handler.postDelayed({ refreshAll() }, 500)
     }
 
-    // ---------------- 추가 / 가져오기 ----------------
+    // ---------------- 파일 가져오기 ----------------
 
     private fun pickOne() {
         runCatching {
@@ -305,7 +571,7 @@ class VpnActivity : Activity() {
                     .setView(box)
                     .setPositiveButton(R.string.btn_ok) { _, _ ->
                         val p = VpnProfiles.import(this, uri, edit.text.toString())
-                        if (p == null) JcToast.show(this, getString(R.string.vpn_import_failed)) else refresh()
+                        if (p == null) JcToast.show(this, getString(R.string.vpn_import_failed)) else refreshProfiles()
                     }
                     .setNegativeButton(R.string.btn_cancel, null)
                     .show()
@@ -327,7 +593,7 @@ class VpnActivity : Activity() {
                     if (VpnProfiles.import(this, uri, nm) != null) count++
                 }
                 JcToast.show(this, getString(R.string.vpn_imported, count))
-                refresh()
+                refreshProfiles()
             }
             REQ_VPN_PREPARE -> {
                 val sp = getSharedPreferences("settings", MODE_PRIVATE)
@@ -339,8 +605,6 @@ class VpnActivity : Activity() {
             }
         }
     }
-
-    // ImageButton 리소스 미리 임포트 없이 android.R drawable 사용 (빌트인)
 
     private fun renameDialog(p: VpnProfiles.Profile) {
         val edit = EditText(this).apply { setText(p.name) }
@@ -356,9 +620,29 @@ class VpnActivity : Activity() {
             .setView(box)
             .setPositiveButton(R.string.btn_ok) { _, _ ->
                 VpnProfiles.rename(this, p.id, edit.text.toString())
-                refresh()
+                refreshProfiles()
             }
             .setNegativeButton(R.string.btn_cancel, null)
             .show()
+    }
+
+    // ---------------- 포맷 ----------------
+
+    private fun connectedProfileId(): String? =
+        getSharedPreferences("settings", MODE_PRIVATE).getString("vpn_active_id", null)
+
+    private fun formatRate(bytesPerSec: Long): String {
+        if (bytesPerSec < 1024) return "$bytesPerSec B/s"
+        val kb = bytesPerSec / 1024.0
+        if (kb < 1024) return "%.0f KB/s".format(kb)
+        return "%.1f MB/s".format(kb / 1024.0)
+    }
+
+    private fun formatDuration(ms: Long): String {
+        val s = (ms / 1000).coerceAtLeast(0)
+        val h = s / 3600
+        val m = (s % 3600) / 60
+        val sec = s % 60
+        return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
     }
 }

@@ -323,4 +323,14 @@
     <string name="vpn_state_wait">Waiting to reconnect… — %1s</string>
     <string name="vpn_state_error">Error — %1s</string>
     <string name="vpn_state_disconnected">Disconnected (browser only)</string>
+    <string name="vpn_manage">Manage profiles</string>
+    <string name="vpn_status_hint">Only browser traffic goes through the VPN</string>
+    <string name="vpn_speed_down">▼ %1s</string>
+    <string name="vpn_speed_up">▲ %1s</string>
+    <string name="vpn_connected_time">Connected %1s</string>
+    <string name="vpn_add_title">Add profile</string>
+    <string name="vpn_add_manual">Enter manually</string>
+    <string name="vpn_add_file">Import from file</string>
+    <string name="vpn_paste_hint">Paste the .ovpn config text</string>
+    <string name="vpn_state_connecting_short">Connecting…</string>
 </resources>

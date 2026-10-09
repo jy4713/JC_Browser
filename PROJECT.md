@@ -4,9 +4,15 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.10.0 (versionCode 53)
+- 현재 버전: 2.11.0 (versionCode 54)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-09, v2.11.0)
+- [x] VPN 화면 전면 재디자인 (일반 VPN 앱 스타일) — 메뉴에서 VPN을 별도 그룹으로 분리. 첫 화면: 상태 카드(연결된 프로파일 이름 + 실시간 속도 ▼다운/▲업 + 연결 시간 + 연결 해제 버튼, 미연결 시 자물쇠 아이콘+안내) 아래에 "프로파일 관리" 버튼. 관리 화면: 추가(직접 입력/파일 1개 선택), 여러 개 가져오기, 목록 항목마다 연결(초록 알약)/연결 해제(빨강 알약)+이름 변경+삭제, 연결 진행 상태가 항목 아래에 표시. 버튼을 둥근 알약/원형 스타일로 개선
+- [x] VPN 속도 표시 — management bytecount 5 응답을 파싱해 rx/tx 속도(bytes/s)와 누적량, 연결 시각을 서비스 싱글턴에 게시, UI는 1초 폧링으로 갱신
+- [x] .ovpn 직접 입력 추가 — 프로파일 추가 시 "직접 입력"(설정 텍스트 붙여넣기+이름) / "파일에서 가져오기" 중 선택 (VpnProfiles.importText 추가)
+- [x] 메뉴 재배치 — "이미지 다운로드 최소 크기"를 일반 그룹에서 다운로드 설정 그룹으로 이동
 
 ### 완료 (2026-10-09, v2.10.0)
 - [x] OpenVPN VPN 지원 (브라우저 전용) — ics-openvpn의 openvpn 2.x 안드로이드 바이너리 임베드(assets/vpn/openvpn.<abi>, GPL v2 — 출처/라이선스는 assets/vpn/NOTICE.md). VpnService.Builder의 addAllowedApplication(자기 패키지)로 **브라우저 트래픽만 VPN 경유**, 나머지 앱은 영향 없음. management unix 소켓 연동: OPENTUN tun fd 전달, PROTECTFD 소켓 보호, Auth 사용자/비밀번호 쿼리 응답, IFCONFIG/DNS/ROUTE 수집해 인터페이스 구성
