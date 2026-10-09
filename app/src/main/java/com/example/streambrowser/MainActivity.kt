@@ -135,6 +135,7 @@ class MainActivity : Activity() {
         setContentView(R.layout.activity_main)
 
         prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        VideoJsBridge.imageMinWidth = prefs.getInt("img_min_px", 300)
         AdBlocker.init(this)
         WebCleaner.init(this)
 
@@ -605,7 +606,7 @@ class MainActivity : Activity() {
                     }
                     // 보안 인증(Cloudflare 등) 페이지에는 주입 건 넘어감 — 인증 스크립트가 훅을 감지해 체크가 안 나타나는 문제 방지
                     if (com.example.streambrowser.browser.SniffingWebViewClient.isSecurityChallengeUrl(url)) return@runOnUiThread
-                    runCatching { view.evaluateJavascript(VideoJsBridge.SCANNER_JS, null) }
+                    runCatching { view.evaluateJavascript("window.__sbMinImg=${VideoJsBridge.imageMinWidth};" + VideoJsBridge.SCANNER_JS, null) }
                     // Brave 스타일 요소 숨김 (##규칙 CSS 주입)
                     val css = AdBlocker.hideCss()
                     if (css.isNotEmpty()) {
@@ -1249,6 +1250,9 @@ class MainActivity : Activity() {
                 }
             )),
             MenuGroup(R.string.group_general, R.drawable.ic_settings, listOf(
+                MenuEntry(s(R.string.vpn_title), R.drawable.ic_lock, null) {
+                    runCatching { startActivity(Intent(this, com.example.streambrowser.ui.VpnActivity::class.java)) }
+                },
                 MenuEntry(getString(R.string.menu_search_engine) + ": " + searchEngineLabel(), R.drawable.ic_search, null) {
                     showSearchEngineDialog()
                 },
@@ -1262,6 +1266,9 @@ class MainActivity : Activity() {
                 },
                 MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
                     showTextSizeDialog()
+                },
+                MenuEntry(getString(R.string.menu_img_min) + ": " + prefs.getInt("img_min_px", 300) + "px", R.drawable.ic_image, null) {
+                    showImageMinDialog()
                 },
                 MenuEntry(s(R.string.menu_home_setting), R.drawable.ic_home, null) {
                     showHomeDialog()
@@ -2085,6 +2092,16 @@ class MainActivity : Activity() {
             val zoom = (v / 5) * 5
             prefs.edit().putInt("text_zoom", zoom).apply()
             tabs.forEach { it.web.settings.textZoom = zoom }
+            rebuildMenu()
+        }
+    }
+
+    /** 이미지 다운로드 목록에 올릴 최소 가로 픽셀 (100~2000, 50 단위) */
+    private fun showImageMinDialog() {
+        showIntPickerDialog(getString(R.string.menu_img_min), 100, 2000, prefs.getInt("img_min_px", 300)) { v ->
+            val px = ((v + 25) / 50) * 50
+            prefs.edit().putInt("img_min_px", px).apply()
+            VideoJsBridge.imageMinWidth = px
             rebuildMenu()
         }
     }

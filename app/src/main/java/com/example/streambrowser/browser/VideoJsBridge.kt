@@ -81,6 +81,10 @@ class VideoJsBridge(private val owner: WebView? = null) {
         @Volatile
         var onVideoStateChange: ((Boolean) -> Unit)? = null
 
+        /** 이미지 다운로드 목록에 올릴 최소 가로 픽셀 (설정에서 변경) */
+        @Volatile
+        var imageMinWidth: Int = 300
+
         /**
          * 페이지에 주입할 스캐너 스크립트.
          * HTML <head>에 삽입되므로 플레이어 스크립트보다 먼저 실행되어 XHR/fetch를 훅할 수 있다.
@@ -210,14 +214,15 @@ class VideoJsBridge(private val owner: WebView? = null) {
   setInterval(__sbReportVideo, 1500);
   __sbReportVideo();
 
-  /* 1-2) 큰 이미지 수집 (300px 미만 아이콘/배너 제외) */
+  /* 1-2) 큰 이미지 수집 (설정된 최소 폭 미만 아이콘/배너 제외) */
   function collectImages(){
     try{
+      var minW = window.__sbMinImg || 300;
       var imgs = document.querySelectorAll('img');
       for (var i=0; i<imgs.length; i++){
         var el = imgs[i];
         var w = el.naturalWidth || el.width || 0;
-        if (w < 300) continue;
+        if (w < minW) continue;
         var src = el.currentSrc || el.src;
         if (src && /^https?:/.test(src)) window.StreamBrowser.addImage(src, location.href);
       }

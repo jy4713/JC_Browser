@@ -4,9 +4,14 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.9.0 (versionCode 52)
+- 현재 버전: 2.10.0 (versionCode 53)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-09, v2.10.0)
+- [x] OpenVPN VPN 지원 (브라우저 전용) — ics-openvpn의 openvpn 2.x 안드로이드 바이너리 임베드(assets/vpn/openvpn.<abi>, GPL v2 — 출처/라이선스는 assets/vpn/NOTICE.md). VpnService.Builder의 addAllowedApplication(자기 패키지)로 **브라우저 트래픽만 VPN 경유**, 나머지 앱은 영향 없음. management unix 소켓 연동: OPENTUN tun fd 전달, PROTECTFD 소켓 보호, Auth 사용자/비밀번호 쿼리 응답, IFCONFIG/DNS/ROUTE 수집해 인터페이스 구성
+- [x] VPN 프로파일 관리 (메뉴 → 일반 → VPN) — .ovpn 추가(파일 선택+이름 입력), 여러 개 한번에 import(파일 이름을 이름으로), 이름 변경, 삭제, 연결/해제. auth-user-pass 있는 프로파일은 연결 시 아이디/비밀번호 입력(저장), 없는 프로파일은 그대로 사용. 첫 연결 시 시스템 VPN 권한(VpnService.prepare) 승인
+- [x] 이미지 다운로드 최소 크기 설정 (메뉴 → 일반 → 이미지 다운로드 최소 크기, 100~2000px, 기본 300) — 페이지 스캐너 JS에 window.__sbMinImg 로 주입
 
 ### 완료 (2026-10-08, v2.9.0)
 - [x] 일반 파일 다운로드(zip/pdf 등, 파일 탭) 진행 표시 개선 — 진행 바(퍼센트) + 다운로드 속도(KB/s, MB/s) 표시. 시스템 다운로드 매니저의 500ms 갱신 주기로 수신량 차이를 계산해 속도 산출

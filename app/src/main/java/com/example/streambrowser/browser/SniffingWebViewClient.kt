@@ -150,7 +150,7 @@ class SniffingWebViewClient(
             // 챌린지 페이지면 원본 그대로 둔다 (인증 스크립트가 주입을 감지하지 않게)
             if (isSecurityChallengePage(html)) return null
             if ("__sbScanner" !in html) {
-                val script = "<script>${VideoJsBridge.SCANNER_JS}</script>"
+                val script = "<script>window.__sbMinImg=${VideoJsBridge.imageMinWidth};${VideoJsBridge.SCANNER_JS}</script>"
                 val m = Regex("(?i)<head[^>]*>").find(html)
                 html = if (m != null) {
                     html.replaceRange(m.range.endInclusive + 1, m.range.endInclusive + 1, script)

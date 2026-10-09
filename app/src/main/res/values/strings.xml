@@ -64,6 +64,7 @@
     <string name="theme_system">System default</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_light">Light</string>
+    <string name="menu_img_min">Image download minimum size</string>
     <string name="menu_text_size">Text size</string>
     <string name="menu_capture">Screenshot</string>
     <string name="menu_pip">Picture-in-picture</string>
@@ -305,4 +306,21 @@
     <string name="rate_unlimited">unlimited</string>
 
     <string name="menu_torrent_no_seed">Stop upload when download completes</string>
+    <string name="vpn_title">VPN</string>
+    <string name="vpn_add">Add</string>
+    <string name="vpn_import_multi">Import multiple</string>
+    <string name="vpn_connect">Connect</string>
+    <string name="vpn_disconnect">Disconnect</string>
+    <string name="vpn_rename">Rename</string>
+    <string name="vpn_name_title">Profile name</string>
+    <string name="vpn_delete_confirm">Delete this profile?</string>
+    <string name="vpn_import_failed">Could not load the ovpn file</string>
+    <string name="vpn_imported">%1d profiles added</string>
+    <string name="vpn_empty">No VPN profiles. Add an .ovpn file.</string>
+    <string name="vpn_state_connected">Connected — %1s</string>
+    <string name="vpn_state_connected_short">Connected</string>
+    <string name="vpn_state_connecting">Connecting… — %1s</string>
+    <string name="vpn_state_wait">Waiting to reconnect… — %1s</string>
+    <string name="vpn_state_error">Error — %1s</string>
+    <string name="vpn_state_disconnected">Disconnected (browser only)</string>
 </resources>
