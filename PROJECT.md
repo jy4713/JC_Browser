@@ -4,11 +4,14 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.4 (versionCode 58)
+- 현재 버전: 2.11.5 (versionCode 59)
 
 ## 이슈 트래커
 
-### 완료 (2026-10-09, v2.11.4)
+#### 완료 (2026-10-09, v2.11.5)
+- [x] **네이버 등 일부 사이트 무한 로딩/추천 콘텐츠 실패 수정 (치명)** — 원인 2가지: ① 스캐너 JS 주입을 위해 가로채던 문서 판별이 `Accept: */*` + 확장자 없는 모든 GET을 잡아냈는데, 네이버 추천 피드 같은 fetch 기반 API가 정확히 이 조건에 걸려 중간에서 한 번 더 받은 뒤 폐기(API 실패/중복 실행). 스트리밍·롱폴 엔드포인트면 읽기가 멈춰 로딩이 끝나지 않았음 → Sec-Fetch-Dest(크롬 80+)로 document/iframe만 가로채도록 변경, 구형 웹뷰는 Accept에 text/html 명시된 경우만. ② 가로챈 HTML 문서 응답의 Set-Cookie가 여러 개면 `", "`로 합쳐져(Expires 날짜에 쉼표) 쿠키 파싱이 깨짐 — 네이버 메인 쿠키(NNB 등)가 전부 엉망이 돼 같은 URL의 API가 계속 실패, 새로고침핼도 반복됐음 → Set-Cookie는 응답 헤더에서 빼고 원본 값 각각을 CookieManager에 직접 저장
+
+## 완료 (2026-10-09, v2.11.4)
 - [x] **OpenVPN 즉시 종료 진단 강화** — openvpn 프로세스가 출력 0줄로 바로 죽는 케이스를 추적하기 위해: `--log <cache>/jcovpn.log` 인자 추가(openvpn 자체 로그 파일), 로그 스레드 EOF 시 `exitValue()` 종료 코드 기록 + 로그 파일 덤프(비어있으면 "크래시 추정", 있으면 마지막 15줄) 후 ERROR 상태 전환. 다음 테스트에서 로그 콘솔의 `exit=` 라인과 덤프로 원인 확정 가능
 - [x] **앱 전체 하드코딩 문자열 리소스화 (언어 혼용 수정)** — 즐겨찾기/다운로드/히스토리/토렌트/VPN 화면과 전체 레이아웃에 하드코딩돼 있던 한글·영어 문자열을 전부 strings.xml(ko/en)로 이동. 시스템/한국어/영어 설정에 따라 UI 언어가 일관되게 표시됨. 접근성 설명(contentDescription) 17개 신규 키 추가
 - [x] **JcUi 통합 스타일 키트** — `ui/JcUi.kt` 신규: 파스텔 팔레트(blue #7C9BD4 / green #6FA88C / red #D08484 / slate #8E99A8 / amber #D4A574) + 높이 40dp 고정 알약 버튼 + 40dp 원형 아이콘 버튼 + 모서리 16dp 카드. VpnActivity의 지역 스타일 헬퍼를 JcUi 위임으로 교체해 화면별 색감/버튼 크기 불일치 해소 시작

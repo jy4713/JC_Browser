@@ -72,29 +72,24 @@ class SniffingWebViewClient(
                 VideoStore.add(view, DetectedVideo(url = url, page = view.url ?: "", kind = kind))
             }
             // HTML 문서(메인 프레임 + iframe)면 스캐너 JS 주입
-            // - accept에 text/html이 있거나, 확장자 없는 */* 문서 요청(iframe이 */*로 오는 경우 많음)도 시도
-            //   (주입 여부는 응답 content-type이 text/html일 때만 확정 — 낶에서 2차 확인)
-            if (request.method == "GET" && looksLikeDocument(accept, request.url)) {
+            // - fetch/XHR(API)는 Sec-Fetch-Dest로 구분해 제외 — 가로채면 API가 깨지거나(네이버 추천 피드 등)
+            //   스트리밍/롱폴 엔드포인트면 읽기가 멈춰 페이지 로딩이 끝나지 않음
+            if (request.method == "GET" && looksLikeDocument(request)) {
                 injectScanner(view, request)?.let { return it }
             }
         }
         return null
     }
 
-    /** 문서(HTML) 요청 여부 — accept 헤더 + URL 확장자로 판별 */
-    private fun looksLikeDocument(accept: String, uri: Uri): Boolean {
-        val a = accept.lowercase()
-        if ("text/html" in a) return true
-        // */* 요청 중 확장자 없는 것(iframe 문서 등)만 시도 — 스크립트/이미지 등 정적 파일 제외
-        if ("*/*" !in a) return false
-        val path = uri.path ?: ""
-        val ext = path.substringAfterLast('.', "")
-        if (ext.length > 4) return false
-        return ext !in setOf(
-            "js", "css", "png", "jpg", "jpeg", "gif", "webp", "svg", "ico",
-            "woff", "woff2", "ttf", "otf", "eot", "mp4", "webm", "mp3", "m3u8", "ts",
-            "json", "xml", "txt", "pdf", "zip", "wasm"
-        )
+    /** 문서(HTML) 요청 여부 — Sec-Fetch-Dest(모던 웹뷰, 크롬 80+)가 있으면 그것으로 판별.
+     *  없는 구형 웹뷰는 Accept에 text/html이 명시된 경우만 (fetch와 XHR의 애스터리스크-슬래시 Accept는 제외 — API 깨짐 방지) */
+    private fun looksLikeDocument(request: WebResourceRequest): Boolean {
+        val dest = request.requestHeaders.entries
+            .firstOrNull { it.key.equals("Sec-Fetch-Dest", ignoreCase = true) }
+            ?.value?.lowercase()
+        if (dest != null) return dest == "document" || dest == "iframe"
+        val a = (request.requestHeaders["Accept"] ?: "").lowercase()
+        return "text/html" in a
     }
 
     /** HTML 응답을 직접 받아 <head> 뒤에 스캐너 스크립트를 삽입 (iframe 낶의 video 태그도 수집) */
@@ -131,11 +126,22 @@ class SniffingWebViewClient(
                 java.util.zip.GZIPInputStream(conn.inputStream)
             } else conn.inputStream
             val data = bodyStream.use { it.readBytes() }
+
+            // Set-Cookie은 응답 헤더 맵 하나로 못 넘기는데(여러 개면 쉼표로 합쳐져 Expires의 쉼표 때문에 쿠키 파싱이 깨짐),
+            // 원본 값 각각을 CookieManager에 직접 저장한다. 그렇지 않으면 메인 문서 쿠키(네이버 NNB 등)가 깨져
+            // 같은 URL의 API(추천 피드 등)가 계속 실패함
+            val cookies = conn.headerFields.entries
+                .firstOrNull { it.key.equals("Set-Cookie", ignoreCase = true) }
+                ?.value?.filterNotNull()
+            val finalUrl = conn.url.toString()
+
             // 캐시 관련 헤더를 원본 응답에서 그대로 전달 — 재방문/뒤로가기 시 문서 캐시 히트로 빨라짐
             // 단 X-Frame-Options/CSP는 제외: iframe 문서를 우리가 재전송하면 프레임 임베딩이 막혀 플레이어가 깨짐
+            // Set-Cookie도 제외: 위에서 CookieManager에 직접 저장함
             val hopByHop = setOf(
                 "transfer-encoding", "content-encoding", "content-length", "connection",
-                "x-frame-options", "content-security-policy", "content-security-policy-report-only"
+                "x-frame-options", "content-security-policy", "content-security-policy-report-only",
+                "set-cookie"
             )
             val respHeaders = mutableMapOf<String, String>()
             conn.headerFields.forEach { (k, v) ->
@@ -144,6 +150,9 @@ class SniffingWebViewClient(
                 }
             }
             conn.disconnect()
+            cookies?.forEach { c ->
+                runCatching { CookieManager.getInstance().setCookie(finalUrl, c) }
+            }
 
             val cs = runCatching { charset(charset) }.getOrElse { Charsets.UTF_8 }
             var html = String(data, cs)
