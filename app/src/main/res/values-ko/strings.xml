@@ -337,6 +337,10 @@
     <string name="vpn_log_hide">로그 숨기기</string>
     <string name="vpn_username">아이디</string>
     <string name="vpn_password">비밀번호</string>
+    <string name="vpn_multi_auth_title">공통 인증 정보 설정</string>
+    <string name="vpn_multi_auth_msg">가져온 %1$d개 프로파일에 같은 아이디/비밀번호를 적용합니다</string>
+    <string name="vpn_multi_auth_apply">적용</string>
+    <string name="vpn_multi_auth_skip">건너뛰기</string>
     <string name="vpn_err_no_profile">프로파일을 찾을 수 없습니다</string>
     <string name="vpn_err_binary">OpenVPN 바이너리를 준비하지 못했습니다 (지원하지 않는 CPU)</string>
     <string name="vpn_err_mgmt_socket">management 소켓 생성 실패</string>

@@ -720,6 +720,7 @@ class VpnActivity : Activity() {
             }
             REQ_PICK_MULTI -> {
                 var count = 0
+                val importedIds = mutableListOf<String>()
                 val d = data ?: return
                 // 멀티: 파일 이름으로 이름 넣기
                 val clip = d.clipData
@@ -727,15 +728,17 @@ class VpnActivity : Activity() {
                     for (i in 0 until clip.itemCount) {
                         val uri = clip.getItemAt(i).uri
                         val nm = runCatching { uri.lastPathSegment?.substringAfterLast('/')?.removeSuffix(".ovpn") }.getOrNull()
-                        if (VpnProfiles.import(this, uri, nm) != null) count++
+                        VpnProfiles.import(this, uri, nm)?.let { importedIds += it.id; count++ }
                     }
                 } else if (d.data != null) {
                     val uri = d.data!!
                     val nm = runCatching { uri.lastPathSegment?.substringAfterLast('/')?.removeSuffix(".ovpn") }.getOrNull()
-                    if (VpnProfiles.import(this, uri, nm) != null) count++
+                    VpnProfiles.import(this, uri, nm)?.let { importedIds += it.id; count++ }
                 }
                 JcToast.show(this, getString(R.string.vpn_imported, count))
                 refreshProfiles()
+                // 가져온 프로파일 전체에 공통 아이디/비밀번호 적용 옵션
+                if (importedIds.isNotEmpty()) multiAuthDialog(importedIds)
             }
             REQ_VPN_PREPARE -> {
                 val sp = getSharedPreferences("settings", MODE_PRIVATE)
@@ -770,6 +773,33 @@ class VpnActivity : Activity() {
                 refreshProfiles()
             }
             .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    /** 멀티 import 후 가져온 프로파일 전체에 공통 아이디/비밀번호 적용 */
+    private fun multiAuthDialog(ids: List<String>) {
+        val density = resources.displayMetrics.density
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val pd = (24 * density).toInt()
+            setPadding(pd, pd / 2, pd, 0)
+        }
+        val user = EditText(this).apply { hint = getString(R.string.vpn_username) }
+        val pass = passwordBox(getString(R.string.vpn_password), "")
+        box.addView(user); box.addView(pass.view)
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.vpn_multi_auth_title))
+            .setMessage(getString(R.string.vpn_multi_auth_msg, ids.size))
+            .setView(box)
+            .setPositiveButton(R.string.vpn_multi_auth_apply) { _, _ ->
+                val u = user.text.toString()
+                val p = pass.edit.text.toString()
+                if (u.isNotEmpty() || p.isNotEmpty()) {
+                    ids.forEach { VpnProfiles.saveAuth(this, it, u, p) }
+                    refreshProfiles()
+                }
+            }
+            .setNegativeButton(R.string.vpn_multi_auth_skip, null)
             .show()
     }
 

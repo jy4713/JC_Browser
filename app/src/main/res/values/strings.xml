@@ -339,6 +339,10 @@
     <string name="vpn_log_hide">Hide log</string>
     <string name="vpn_username">Username</string>
     <string name="vpn_password">Password</string>
+    <string name="vpn_multi_auth_title">Set common credentials</string>
+    <string name="vpn_multi_auth_msg">Apply the same username/password to %1$d imported profiles</string>
+    <string name="vpn_multi_auth_apply">Apply</string>
+    <string name="vpn_multi_auth_skip">Skip</string>
     <string name="vpn_err_no_profile">Profile not found</string>
     <string name="vpn_err_binary">Could not prepare the OpenVPN binary (unsupported CPU)</string>
     <string name="vpn_err_mgmt_socket">Failed to create management socket</string>
