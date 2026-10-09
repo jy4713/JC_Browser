@@ -190,14 +190,15 @@ class VpnActivity : Activity() {
         }
         inner.addView(cardBox, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        // [프로파일 관리] [로그] 버튼 행
+        // [프로파일 관리] [로그] 버튼 행 — 동일 폭으로 양쪽 꽉 채움
         val pillRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, pad, 0, 0)
         }
-        pillRow.addView(pill(getString(R.string.vpn_manage), colorPrimary, R.drawable.ic_settings) { showScreen(profiles = true) })
+        pillRow.addView(pill(getString(R.string.vpn_manage), colorPrimary, R.drawable.ic_settings) { showScreen(profiles = true) },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         btnLog = pill(getString(R.string.vpn_log), colorTextSec, R.drawable.ic_code) { toggleLog() }
-        pillRow.addView(btnLog, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        pillRow.addView(btnLog, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
             marginStart = padPx(10)
         })
         inner.addView(pillRow)
@@ -390,14 +391,15 @@ class VpnActivity : Activity() {
         })
         root.addView(bar)
 
-        // 추가 / 멀티 가져오기
+        // 추가 / 멀티 가져오기 — 동일 폭으로 양쪽 꽉 채움
         val btns = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, padPx(14), 0, padPx(10))
         }
-        btns.addView(pill(getString(R.string.vpn_add), colorPrimary, R.drawable.ic_add) { showAddChooser() })
+        btns.addView(pill(getString(R.string.vpn_add), colorPrimary, R.drawable.ic_add) { showAddChooser() },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         btns.addView(pill(getString(R.string.vpn_import_multi), colorTextSec, R.drawable.ic_folder) { pickMulti() },
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = padPx(10) })
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = padPx(10) })
         root.addView(btns)
 
         val scroll = ScrollView(this)

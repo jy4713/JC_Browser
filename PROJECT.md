@@ -4,9 +4,13 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.16 (versionCode 70)
+- 현재 버전: 2.11.17 (versionCode 71)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-09, v2.11.17)
+- [x] **오버레이 차단 강화** — 켜놔도 오버레이가 보이던 사례(로딩 직후가 아니라 늦게 뜨는 전체화면 딤/모달) 수정. ① 타이밍 패스 1.5초/4초에 8초 추가 ② 20초간 MutationObserver로 DOM 추가 감시 — 늦게 추가되는 레이어도 즉시 제거 ③ 휴리스틱 보강: 화면 80% 이상을 덮는 고정 레이어 + 닫기 수단(close/dismiss/skip/닫기) 있으면 광고 키워드/iframe 없어도 제거 ④ display:none/visibility:hidden 요소 스킵, 빈 영역 스킵으로 오탐 감소
+- [x] **버튼 느낌 보강 + 두 버튼 행 균등 폭 (UI만)** — 투명 버튼에 라벨 색 8% 은은한 톤 배경을 입혀 버튼 느낌이 보이도록 통일 (JcUi `soft()` + rippleBg softColor, XML은 bg_btn_soft_blue/green/red/gray 신규). VPN 두 버튼 행(프로파일 관리/로그, 추가/여러 개 가져오기)은 동일 폭으로 양 끝까지 꽉 채움 (weight=1). 탭 다이얼로그(새 탭/모두 닫기), 즐겨찾기(가져오기/내보내기) 에도 soft 배경 + 사이 간격 적용. 기타 라벨 버튼(광고 필터 추가 2곳, 동영상 다운로드, 선택 다운로드, 토렌트 목록)도 soft_blue 적용
 
 #### 완료 (2026-10-09, v2.11.16)
 - [x] **전 화면 버튼 스타일 통일 (기능 변경 없음, UI만)** — VPN 화면의 파스텔 알약(채움) 버튼을 탭/즐겨찾기와 동일한 컨셉(투명 배경+물결 ripple, 아이콘+텍스트 13sp)으로 변경. JcUi 공통 키트 재작성: `pill` = 플랫 라벨 버튼(rippleBg 사용), `circleIcon` = 40dp 투명+ripple 아이콘 버튼, 색상을 탭/즐겨찾기 팔레트(#1A73E8/#188038/#D93025/#5F6368/#F9AB00)로 통일. VPN 버튼에 아이콘 추가(프로파일 관리·로그·추가·가져오기·연결·해제), ic_add 벡터 추가. XML 채움 버튼 4곳(bg_btn_primary)도 ripple + primary 텍스트로 변경 — activity_main(선택 다운로드), activity_adfilters(필터 추가/규칙 추가), item_video(다운로드). 전 화면이 bg_btn_ripple 동일 컨셉으로 통일됨

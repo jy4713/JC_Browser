@@ -95,8 +95,9 @@ object WebCleaner {
 
     /**
      * 화면을 가리는 고정 레이어 휴리스틱 제거.
-     * 조건: position fixed/sticky + z-index 999+ + 큰 면적 + (광고 키워드 id/class | iframe 포함)
-     * 페이지 로드 직후 + 1.5초 + 4초에 반복 (지연 로딩 오버레이 대응)
+     * 조건: position fixed/sticky + z-index 999+ + 큰 면적 + (광고 키워드 id/class | iframe 포함 | 닫기 수단)
+     * 페이지 로드 직후 + 1.5초 + 4초 + 8초 반복 (지연 로딩 오버레이 대응)
+     * 이후 20초간 DOM 감시(MutationObserver)로 늦게 추가되는 오버레이도 제거
      */
     fun overlayJs(): String = """
 (function(){
@@ -106,25 +107,53 @@ object WebCleaner {
     var c = el.className;
     return (typeof c === 'string') ? c : ((c && c.baseVal) ? c.baseVal : '');
   }
+  function hasClose(el){
+    var h = el.innerHTML ? el.innerHTML.slice(0, 3000) : '';
+    return /close|dismiss|skip|닫기|닫음/i.test(h);
+  }
   function hit(el){
     var st = window.getComputedStyle(el);
     if (st.position !== 'fixed' && st.position !== 'sticky') return false;
+    if (st.display === 'none' || st.visibility === 'hidden') return false;
     var z = parseInt(st.zIndex || '0'); if (!(z >= 999)) return false;
     var r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return false;
     if (r.width < vw * 0.3 || r.height < vh * 0.15) return false;
     var tag = (el.id || '') + ' ' + cls(el);
     if (/ad|popup|pop_|banner|overlay|sponsor|advert|prm|notice/i.test(tag)) return true;
     if (el.querySelector('iframe')) return true;
-    if (r.top < 10 && r.height < vh * 0.5 && /close|dismiss|skip/i.test(el.innerHTML.slice(0, 400))) return true;
+    if (r.top < 10 && r.height < vh * 0.5 && /close|dismiss|skip/i.test((el.innerHTML || '').slice(0, 400))) return true;
+    // 화면 대부분을 덮는 고정 레이어 + 닫기 수단이 있는 경우 (이름/iframe 없는 전체화면 딤/모달)
+    if (r.width >= vw * 0.8 && r.height >= vh * 0.5 && hasClose(el)) return true;
     return false;
   }
-  function clean(){
-    var els = document.querySelectorAll('body *');
+  function scan(root){
+    var els = root.querySelectorAll('*');
     for (var i = 0; i < els.length; i++) { if (hit(els[i])) els[i].remove(); }
   }
+  function clean(){ scan(document.body); }
   clean();
   setTimeout(clean, 1500);
   setTimeout(clean, 4000);
+  setTimeout(clean, 8000);
+  // 늦게 추가되는 오버레이 감시 (20초간)
+  try {
+    var mo = new MutationObserver(function(muts){
+      for (var i = 0; i < muts.length; i++) {
+        var nodes = muts[i].addedNodes;
+        for (var j = 0; j < nodes.length; j++) {
+          var n = nodes[j];
+          if (n.nodeType !== 1) continue;
+          if (!document.documentElement.contains(n)) continue;
+          if (n.tagName === 'SCRIPT' || n.tagName === 'STYLE' || n.tagName === 'LINK') continue;
+          if (hit(n)) { n.remove(); continue; }
+          if (n.querySelectorAll) scan(n);
+        }
+      }
+    });
+    mo.observe(document.body, {childList: true, subtree: true});
+    setTimeout(function(){ mo.disconnect(); }, 20000);
+  } catch(e) {}
 })();
 """.trimIndent()
 }

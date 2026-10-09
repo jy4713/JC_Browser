@@ -50,14 +50,18 @@ object JcUi {
     fun cardBg(ctx: Context): Int =
         themedColor(ctx, android.R.attr.colorBackgroundFloating, Color.WHITE)
 
-    /** 투명 배경 + 물결 배경 (bg_btn_ripple 과 동일 컨셉) */
-    fun rippleBg(ctx: Context, radiusDp: Int = 24): RippleDrawable {
+    /** 은은한 색 배경 + 물결 (버튼 느낌이 보이는 ripple) */
+    fun rippleBg(ctx: Context, radiusDp: Int = 24, softColor: Int = Color.TRANSPARENT): RippleDrawable {
         val content = GradientDrawable().apply {
-            setColor(Color.TRANSPARENT)
+            setColor(softColor)
             cornerRadius = dp(ctx, radiusDp).toFloat()
         }
         return RippleDrawable(ColorStateList.valueOf(0x1A000000), content, null)
     }
+
+    /** 라벨 색의 은은한 톤 (alpha 8%) — 버튼 배경용 */
+    fun soft(color: Int): Int =
+        Color.argb(0x14, Color.red(color), Color.green(color), Color.blue(color))
 
     /** 플랫 라벨 버튼 — 투명+ripple, 아이콘+텍스트, 13sp */
     fun pill(
@@ -74,7 +78,7 @@ object JcUi {
             setPadding(w, h, w, h)
             minimumWidth = dp(ctx, 72)
             minimumHeight = dp(ctx, 40)
-            background = rippleBg(ctx)
+            background = rippleBg(ctx, 20, soft(color))
             if (iconRes != 0) {
                 ctx.getDrawable(iconRes)?.mutate()?.let { d ->
                     d.setTint(color)
