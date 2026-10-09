@@ -20,6 +20,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Switch
 import android.widget.TextView
 import com.example.streambrowser.R
 import com.example.streambrowser.util.JcToast
@@ -201,6 +202,11 @@ class VpnActivity : Activity() {
         })
         inner.addView(pillRow)
 
+        // 사설 IP(LAN) VPN 경유 설정 카드
+        inner.addView(buildPrivateIpSetting(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = padPx(12)
+        })
+
         // 로그 콘솔 (터미널 스타일, 기본 숨김)
         txtLog = TextView(this).apply {
             textSize = 11f
@@ -227,6 +233,51 @@ class VpnActivity : Activity() {
     }
 
     // ---------------- 로그 콘솔 ----------------
+
+    /** 사설 IP(LAN) VPN 경유 토글 — 켜면 192.168.x.x 등도 VPN 통과, 끄면(기본) VPN 우회 후 직접 접속 */
+    private fun buildPrivateIpSetting(): LinearLayout {
+        val sp = getSharedPreferences("settings", MODE_PRIVATE)
+        val card = makeCard()
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val texts = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val title = TextView(this).apply {
+            text = getString(R.string.vpn_private_ip_title)
+            textSize = 15f
+            setTextColor(colorText)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }
+        val summary = TextView(this).apply {
+            textSize = 12f
+            setTextColor(colorTextSec)
+        }
+        texts.addView(title)
+        texts.addView(summary)
+        val sw = Switch(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = padPx(12) }
+        }
+        fun refresh() {
+            val on = sp.getBoolean("vpn_private_ip", false)
+            sw.isChecked = on
+            summary.text = getString(if (on) R.string.vpn_private_ip_on else R.string.vpn_private_ip_off)
+        }
+        sw.setOnCheckedChangeListener { _, on ->
+            sp.edit().putBoolean("vpn_private_ip", on).apply()
+            refresh()
+        }
+        refresh()
+        row.addView(texts)
+        row.addView(sw)
+        card.addView(row)
+        return card
+    }
 
     private fun toggleLog() {
         logVisible = !logVisible

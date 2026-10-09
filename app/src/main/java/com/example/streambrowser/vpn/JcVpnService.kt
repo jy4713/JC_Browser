@@ -9,6 +9,7 @@ import android.content.Intent
 import android.net.LocalServerSocket
 import android.net.LocalSocket
 import android.net.LocalSocketAddress
+import android.net.IpPrefix
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -430,13 +431,25 @@ class JcVpnService : VpnService() {
                             "OPENTUN" -> {
                                 logLine("mgmt", getString(R.string.vpn_log_opentun_try))
                                 val pfd = openTun(profile.name, cfg)
-                                if (pfd != null && sendFd(s, pfd)) {
-                                    logLine("mgmt", getString(R.string.vpn_log_opentun_ok))
-                                    tunPfd = pfd
-                                } else {
-                                    runCatching { pfd?.close() }
-                                    setState("ERROR", profile.name, getString(R.string.vpn_err_tun))
-                                    mgmtCmd(s, "needok 'OPENTUN' cancel\n")
+                                when {
+                                    pfd == null -> {
+                                        // establish() 실패 원인 구분: prepare() 가 Intent 를 돌려주면 권한 없음,
+                                        // null 이면 권한은 있는데 다른 VPN 앱이 인터페이스를 점유 중 (Android 는 VPN 1개만 허용)
+                                        val notPrepared = runCatching { VpnService.prepare(this) != null }.getOrDefault(false)
+                                        val msg = getString(if (notPrepared) R.string.vpn_err_tun_perm else R.string.vpn_err_tun_occupied)
+                                        logLine("ovpn-log", msg)
+                                        setState("ERROR", profile.name, msg)
+                                        mgmtCmd(s, "needok 'OPENTUN' cancel\n")
+                                    }
+                                    sendFd(s, pfd) -> {
+                                        logLine("mgmt", getString(R.string.vpn_log_opentun_ok))
+                                        tunPfd = pfd
+                                    }
+                                    else -> {
+                                        runCatching { pfd.close() }
+                                        setState("ERROR", profile.name, getString(R.string.vpn_err_tun_fd))
+                                        mgmtCmd(s, "needok 'OPENTUN' cancel\n")
+                                    }
                                 }
                             }
                             "PROTECTFD" -> {
@@ -523,6 +536,20 @@ class JcVpnService : VpnService() {
         b.setSession(profileName)
         // ★ 핵심: 이 앱(브라우저) 트래픽만 VPN 을 타게 제한
         b.addAllowedApplication(packageName)
+        // 사설 IP(LAN) 우회 — 설정이 꺼져 있으면(기본) 192.168.x.x 등은 VPN 을 타지 않고 직접 접속.
+        // excludeRoute 는 Android 13(API 33) 부터 지원 (낮은 버전에서는 경고만 남기고 전체 경유)
+        val routePrivate = getSharedPreferences("settings", MODE_PRIVATE)
+            .getBoolean("vpn_private_ip", false)
+        if (!routePrivate) {
+            if (Build.VERSION.SDK_INT >= 33) {
+                listOf("10.0.0.0" to 8, "172.16.0.0" to 12, "192.168.0.0" to 16, "169.254.0.0" to 16,
+                    "fc00::" to 7, "fe80::" to 10).forEach { (addr, prefix) ->
+                    runCatching { b.excludeRoute(IpPrefix(java.net.InetAddress.getByName(addr), prefix)) }
+                }
+            } else {
+                logLine("ovpn-log", getString(R.string.vpn_private_ip_need_13))
+            }
+        }
         b.establish()
     }.getOrNull()
 

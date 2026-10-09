@@ -344,6 +344,13 @@
     <string name="vpn_err_mgmt_socket">Failed to create management socket</string>
     <string name="vpn_err_exec">Failed to start OpenVPN: %1s</string>
     <string name="vpn_err_tun">Failed to create VPN interface (check system VPN permission)</string>
+    <string name="vpn_err_tun_perm">Failed to create VPN interface — VPN permission missing (reinstall the app or grant VPN permission)</string>
+    <string name="vpn_err_tun_occupied">Failed to create VPN interface — another VPN app is active. Android allows only one VPN, so disable the other VPN and retry</string>
+    <string name="vpn_err_tun_fd">VPN interface opened but failed to hand it to openvpn</string>
+    <string name="vpn_private_ip_title">Route private IPs (LAN) via VPN</string>
+    <string name="vpn_private_ip_on">Private IPs (192.168.x.x, 10.x, 172.16–31.x) are also reached through the VPN</string>
+    <string name="vpn_private_ip_off">Private IPs bypass the VPN — router/local servers (e.g. 192.168.0.128:9091) are reached directly</string>
+    <string name="vpn_private_ip_need_13">LAN bypass works on Android 13 and above only</string>
     <string name="vpn_err_auth">Auth failed — check username/password</string>
     <string name="vpn_err_died">OpenVPN process exited (code %1s) — check the log</string>
     <string name="vpn_notif_connecting">Connecting…</string>

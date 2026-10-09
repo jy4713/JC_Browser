@@ -342,6 +342,13 @@
     <string name="vpn_err_mgmt_socket">management 소켓 생성 실패</string>
     <string name="vpn_err_exec">OpenVPN 실행 실패: %1s</string>
     <string name="vpn_err_tun">VPN 인터페이스 생성 실패 (시스템 VPN 권한 확인)</string>
+    <string name="vpn_err_tun_perm">VPN 인터페이스 생성 실패 — VPN 권한이 없습니다 (앱을 다시 설치하거나 VPN 권한을 허용하세요)</string>
+    <string name="vpn_err_tun_occupied">VPN 인터페이스 생성 실패 — 다른 VPN 앱이 사용 중입니다. Android는 VPN을 하나만 허용하므로 다른 VPN을 끄고 다시 시도하세요</string>
+    <string name="vpn_err_tun_fd">VPN 인터페이스는 열렸지만 openvpn에 전달하지 못했습니다</string>
+    <string name="vpn_private_ip_title">사설 IP(LAN)도 VPN 경유</string>
+    <string name="vpn_private_ip_on">사설 IP(192.168.x.x, 10.x, 172.16~31.x)도 VPN을 통해 접속합니다</string>
+    <string name="vpn_private_ip_off">사설 IP는 VPN을 우회합니다 — 공유기/로컬 서버(예: 192.168.0.128:9091)에 직접 접속합니다</string>
+    <string name="vpn_private_ip_need_13">LAN 우회 기능은 Android 13 이상에서만 동작합니다</string>
     <string name="vpn_err_auth">인증 실패 — 아이디/비밀번호를 확인하세요</string>
     <string name="vpn_err_died">OpenVPN 프로세스가 종료되었습니다 (코드 %1s) — 로그를 확인하세요</string>
     <string name="vpn_notif_connecting">연결 중…</string>
