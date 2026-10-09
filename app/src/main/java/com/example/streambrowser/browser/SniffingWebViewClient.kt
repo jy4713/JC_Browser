@@ -93,8 +93,10 @@ class SniffingWebViewClient(
             .firstOrNull { it.key.equals("Sec-Fetch-Dest", ignoreCase = true) }
             ?.value?.lowercase()
         if (dest != null) return dest == "image"
+        // Accept 에 image/ 와 함께 text/html 이 섞인 네비게이션 요청(크롬 기본 Accept:
+        // text/html,...,image/avif,image/webp,*/*)은 문서 로딩이므로 절대 차단 금지
         val a = (request.requestHeaders["Accept"] ?: "").lowercase()
-        if ("image/" in a) return true
+        if ("image/" in a && "text/html" !in a && "text/css" !in a) return true
         val ext = (u.path ?: "").substringAfterLast('.', "").lowercase()
         return ext in setOf("png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "avif", "bmp")
     }

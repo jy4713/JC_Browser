@@ -126,7 +126,13 @@ class MainActivity : Activity() {
     private val UA_DESKTOP =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+    // 프린트용: attach 시 래핑 전 원본 base context 저장 (outerContext = Activity).
+    // 언어/테마 래퍼(createConfigurationContext 결과)가 base 가 되면 PrintManager 의
+    // mContext 가 Activity 가 아니게 되어 "Can print only from an activity" 예외 발생
+    private var baseBeforeWrap: Context? = null
+
     override fun attachBaseContext(newBase: Context) {
+        baseBeforeWrap = newBase
         super.attachBaseContext(LocaleHelper.wrap(com.example.streambrowser.util.ThemeHelper.wrap(newBase)))
     }
 
@@ -2460,7 +2466,8 @@ class MainActivity : Activity() {
             com.example.streambrowser.util.JcToast.show(this, getString(R.string.print_failed))
             return
         }
-        val pm = getSystemService(Context.PRINT_SERVICE) as? android.print.PrintManager
+        // 래핑된 base 대신 원본 base context 로 PrintManager 획득 (mContext 가 Activity 여야 함)
+        val pm = (baseBeforeWrap ?: this).getSystemService(Context.PRINT_SERVICE) as? android.print.PrintManager
         if (pm == null) {
             com.example.streambrowser.util.JcToast.show(this, getString(R.string.print_failed))
             return

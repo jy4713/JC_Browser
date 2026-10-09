@@ -185,6 +185,10 @@ class JcVpnService : VpnService() {
             "--management-client",
             "--management-query-passwords",
             "--management-hold",
+            // 서버가 push 하는 block-ipv6 등 우리 빌드가 모르는 옵션은 무시.
+            // 그대로 두면 "Options error: Unrecognized option ... [PUSH-OPTIONS]" 로
+            // 프로세스가 fatal 종료되고 management 상태가 깨져 연결 실패로 이어짐
+            "--ignore-unknown-option", "block-ipv6",
             "--route-noexec",
             "--ifconfig-noexec",
             "--auth-retry", "interact",

@@ -4,9 +4,14 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.7 (versionCode 61)
+- 현재 버전: 2.11.8 (versionCode 62)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-09, v2.11.8)
+- [x] **Block Images 켜면 페이지 전체 백지 버그 수정 (치명)** — 원인: `isImageRequest`의 Accept 판별이 `"image/" in accept`만 검사해서, 크롬 네비게이션 기본 Accept(`text/html,...,image/avif,image/webp,*/*`)에 `image/`가 섞여 있어 **메인 HTML 문서를 이미지로 오인해 차단** (구글 등 전부 백지). Accept 분기를 `image/` 포함 + `text/html`/`text/css` 미포함 조건으로 강화해 문서/스타일은 절대 차단되지 않도록 수정. Sec-Fetch-Dest 기반 판별은 기존 그대로
+- [x] **VPN 서버 push 옵션 fatal 수정** — 로그로 원인 확정: 인증(AUTH)까지 정상 진행 후 서버가 push한 `block-ipv6`를 우리 openvpn 빌드가 인식하지 못해 `Options error: Unrecognized option ... [PUSH-OPTIONS]` → 프로세스 fatal 종료 → 이어서 management 상태가 깨져 `PERSIST_TUN_ACTION` 응답이 "unrecognized" 처리되며 최종 실패. argv에 `--ignore-unknown-option block-ipv6` 추가로 push 옵션을 무시하고 연결 진행. (NEED-OK 응답은 기존 범용 처리로 이미 응답 중)
+- [x] **프린트 "Can print only from an activity" 수정** — 원인: AOSP PrintManager가 print() 시 `mContext instanceof Activity` 검사를 하는데, attachBaseContext에서 언어/테마 래퍼(`createConfigurationContext` 결과)가 base로 교체되면서 PrintManager의 mContext가 Activity가 아닌 ContextImpl이 됨. attach 시 래핑 **전 원본 base context**(outerContext=Activity)를 저장해 두고 printPage에서 PrintManager를 그 context로부터 획득하도록 변경
 
 #### 완료 (2026-10-09, v2.11.7)
 - [x] **VPN management 소켓 방향 불일치 수정 (치명)** — openvpn `--management <path> unix`는 기본이 서버 모드라 openvpn이 같은 경로에 자기 소켓을 열어 우리 accept()와 만나지 못함 (로그: openvpn은 "listening", 우리는 accept 대기 → 둘 다 기다림). `--management-client` 추가로 openvpn이 우리 소켓에 연결하도록 변경
