@@ -394,6 +394,11 @@
     <string name="history_delete_one">이 기록을 삭제하시겠습니까?</string>
     <string name="torrent_magnet_timeout">(magnet metadata timeout — seeds 없음 또는 DHT 대기)</string>
     <string name="common_save">저장</string>
+    <string name="http_auth_title">로그인이 필요합니다</string>
+    <string name="http_auth_msg">%1s 서버가 아이디/비밀번호를 요구합니다</string>
+    <string name="http_auth_id">아이디</string>
+    <string name="http_auth_pw">비밀번호</string>
+    <string name="http_auth_remember">이 기기에 저장</string>
     <string name="cd_back">뒤로</string>
     <string name="cd_forward_nav">앞으로</string>
     <string name="cd_refresh">새로고침</string>

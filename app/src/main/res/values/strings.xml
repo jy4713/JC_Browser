@@ -396,6 +396,11 @@
     <string name="history_delete_one">Delete this history entry?</string>
     <string name="torrent_magnet_timeout">(magnet metadata timeout — no seeds or still waiting on DHT)</string>
     <string name="common_save">Save</string>
+    <string name="http_auth_title">Sign in required</string>
+    <string name="http_auth_msg">The server %1s is requesting a username and password</string>
+    <string name="http_auth_id">Username</string>
+    <string name="http_auth_pw">Password</string>
+    <string name="http_auth_remember">Save on this device</string>
     <string name="cd_back">Back</string>
     <string name="cd_forward_nav">Forward</string>
     <string name="cd_refresh">Refresh</string>

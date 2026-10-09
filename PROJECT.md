@@ -4,9 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.12 (versionCode 66)
+- 현재 버전: 2.11.13 (versionCode 67)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-09, v2.11.13)
+- [x] **HTTP 401(BASIC/DIGEST) 인증 입력 창 추가** — 서버가 인증을 요구하는 페이지(로컬 서비스, 공유기 관리 등)에 접속하면 그냥 401 에러 페이지만 보여주던 것을 수정. `onReceivedHttpAuthRequest` 구현: 아이디/비밀번호 입력 다이얼로그 표시 → 확인 시 `handler.proceed()` 로 재시도, 취소/백그라운드 시 취소. "이 기기에 저장" 체크 시 호스트별로 저장(SharedPreferences base64)해 이후 접속은 다이얼로그 없이 자동 인증 (Chrome/Firefox 동작과 동일)
 
 #### 완료 (2026-10-09, v2.11.12)
 - [x] **VPN OPENTUN 실패 근본 원인 수정 (치명)** — v2.11.11 진단 로그(`openTun: IFCONFIG 없음`)로 원인 확정: argv의 `--ifconfig-noexec` / `--route-noexec` 플래그가 do_ifconfig()/do_route()를 **아예 건드리지 않게** 만들어, 안드로이드 빌드가 management로 위임하던 IFCONFIG/ROUTE/ROUTE6 NEED-OK 쿼리가 오지 않았던 것. 로컬 IP 없이 OPENTUN만 날아와 tun 생성이 실패했던 흐름. openvpn 소스(init.c `ifconfig_noexec_enabled`/`route_noexec_enabled`)로 검증 후 두 플래그 제거 — 안드로이드(TARGET_ANDROID)는 이 플래그 없이도 시스템 ifconfig/route 명령을 실행하지 않고 전부 management 쿼리로만 처리 (ifconfig_order/route_order 모두 BEFORE_TUN 이라 OPENTUN 전에 필요 정보 수집 완료)

@@ -5,13 +5,16 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.SystemClock
 import android.net.http.SslError
+import android.text.InputType
 import android.webkit.CookieManager
+import android.webkit.HttpAuthHandler
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import com.example.streambrowser.R
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -309,6 +312,79 @@ class SniffingWebViewClient(
             .setNegativeButton(ctx.getString(com.example.streambrowser.R.string.btn_cancel)) { _, _ -> handler.cancel() }
             .setOnCancelListener { handler.cancel() }
             .show()
+    }
+
+    /**
+     * HTTP 401 (BASIC/DIGEST 인증) — 서버가 인증을 요구하면 아이디/비밀번호 입력 창 표시.
+     * 저장된 인증 정보가 있으면 다이얼로그 없이 바로 사용 (Chrome/Firefox 동작과 동일).
+     */
+    override fun onReceivedHttpAuthRequest(
+        view: WebView, handler: HttpAuthHandler, host: String, realm: String
+    ) {
+        val ctx = view.context
+        savedAuth(ctx, host)?.let { (u, p) ->
+            handler.proceed(u, p)
+            return
+        }
+        if (ctx !is android.app.Activity || ctx.isFinishing || ctx.isDestroyed) {
+            handler.cancel()
+            return
+        }
+        val dp = ctx.resources.displayMetrics.density
+        fun px(n: Int) = (n * dp).toInt()
+        val lay = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(px(24), px(8), px(24), 0)
+        }
+        val edId = android.widget.EditText(ctx).apply {
+            hint = ctx.getString(R.string.http_auth_id)
+        }
+        val edPw = android.widget.EditText(ctx).apply {
+            hint = ctx.getString(R.string.http_auth_pw)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val chk = android.widget.CheckBox(ctx).apply {
+            text = ctx.getString(R.string.http_auth_remember)
+            isChecked = true
+        }
+        lay.addView(edId)
+        lay.addView(edPw)
+        lay.addView(chk)
+        val where = if (realm.isNotBlank()) "$host ($realm)" else host
+        android.app.AlertDialog.Builder(ctx)
+            .setTitle(ctx.getString(R.string.http_auth_title))
+            .setMessage(ctx.getString(R.string.http_auth_msg, where))
+            .setView(lay)
+            .setPositiveButton(ctx.getString(com.example.streambrowser.R.string.btn_ok)) { _, _ ->
+                val u = edId.text.toString()
+                val p = edPw.text.toString()
+                if (chk.isChecked && (u.isNotEmpty() || p.isNotEmpty())) saveAuth(ctx, host, u, p)
+                handler.proceed(u, p)
+            }
+            .setNegativeButton(ctx.getString(com.example.streambrowser.R.string.btn_cancel)) { _, _ -> handler.cancel() }
+            .setOnCancelListener { handler.cancel() }
+            .show()
+    }
+
+    /** 호스트별 저장 인증 정보 — "http_auth" 프리프에 host → base64("user:pass") */
+    private fun authPrefs(ctx: android.content.Context) =
+        ctx.getSharedPreferences("http_auth", android.content.Context.MODE_PRIVATE)
+
+    private fun savedAuth(ctx: android.content.Context, host: String): Pair<String, String>? {
+        val raw = authPrefs(ctx).getString(host, null) ?: return null
+        val dec = runCatching {
+            String(android.util.Base64.decode(raw, android.util.Base64.NO_WRAP), Charsets.UTF_8)
+        }.getOrNull() ?: return null
+        val i = dec.indexOf(':')
+        if (i < 0) return null
+        return dec.substring(0, i) to dec.substring(i + 1)
+    }
+
+    private fun saveAuth(ctx: android.content.Context, host: String, u: String, p: String) {
+        val enc = android.util.Base64.encodeToString(
+            "$u:$p".toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP
+        )
+        authPrefs(ctx).edit().putString(host, enc).apply()
     }
 
     /**
