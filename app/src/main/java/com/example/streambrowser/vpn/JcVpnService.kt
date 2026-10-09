@@ -498,16 +498,14 @@ class JcVpnService : VpnService() {
 
     /** ancillary 데이터로 fd 전송 (openvpn 쪽에서 OPENTUN fd 로 수신) */
     private fun sendFd(s: LocalSocket, pfd: ParcelFileDescriptor): Boolean = runCatching {
-        val setInt: Method = FileDescriptor::class.java.getDeclaredMethod("setInt\$", Int::class.java)
-        val fdToSend = FileDescriptor()
-        setInt.invoke(fdToSend, pfd.fd)
-        s.setFileDescriptorsForSend(arrayOf(fdToSend))
+        // pfd.fileDescriptor 를 그대로 전달 (SCM_RIGHTS 로 수신측에 복제됨) — setInt$ 같은 숨은 API 불필요
+        s.setFileDescriptorsForSend(arrayOf(pfd.fileDescriptor))
         // 빈 명령이 아닌 실제 명령과 함께 별도 전송 — needok 응답 전에 fd 가 먼저 도착해야 함
         s.outputStream.write("needok 'OPENTUN' ok\n".toByteArray())
         s.outputStream.flush()
         s.setFileDescriptorsForSend(null)
         true
-    }.getOrDefault(false)
+    }.onFailure { logLine("ovpn-log", "sendFd 실패: ${it.javaClass.simpleName}: ${it.message}") }.getOrDefault(false)
 
     private fun protectFd(fd: FileDescriptor) {
         runCatching {
@@ -520,7 +518,10 @@ class JcVpnService : VpnService() {
 
     /** VpnService.Builder 로 tun 생성 — 본 앱(브라우저) 트래픽만 VPN 경유 */
     private fun openTun(profileName: String, cfg: TunCfg): ParcelFileDescriptor? = runCatching {
-        if (cfg.localIp == null && cfg.localV6 == null) return null
+        if (cfg.localIp == null && cfg.localV6 == null) {
+            logLine("ovpn-log", "openTun: IFCONFIG 없음 — 로컬 IP 를 받지 못함")
+            return null
+        }
         val b = Builder()
         cfg.localIp?.let { b.addAddress(it, cfg.localPrefix) }
         cfg.localV6?.let { b.addAddress(it, cfg.v6Prefix) }
@@ -551,7 +552,7 @@ class JcVpnService : VpnService() {
             }
         }
         b.establish()
-    }.getOrNull()
+    }.onFailure { logLine("ovpn-log", "openTun 예외: ${it.javaClass.simpleName}: ${it.message}") }.getOrNull()
 
     private fun netmaskToPrefix(mask: String): Int {
         if (mask.contains(".")) {

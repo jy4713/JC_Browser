@@ -4,9 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.10 (versionCode 64)
+- 현재 버전: 2.11.11 (versionCode 65)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-09, v2.11.11)
+- [x] **sendFd 숨은 API 제거 + openTun 예외 로깅** — OPENTUN fd 전송에서 `FileDescriptor.setInt$` 리플렉션(숨은 API, 기기별 차단 가능)을 제거하고 `ParcelFileDescriptor.fileDescriptor`를 SCM_RIGHTS로 직접 전달하도록 단순화. openTun의 runCatching이 삼키던 예외와 establish() null 원인(IFCONFIG 누락 여부)을 로그 콘솔에 기록 — 다음 테스트에서 실패 지점이 정확히 구분됨
 
 #### 완료 (2026-10-09, v2.11.10)
 - [x] **OPENTUN 실패 진단 구분** — 로그상 PERSIST_TUN_ACTION까지 통과 후 OPENTUN에서 "VPN 인터페이스 생성 실패"로 종료. 기존엔 establish() 실패와 fd 전송 실패를 같은 메시지로 처리해 원인을 알 수 없었음 → ① establish() null 시 `VpnService.prepare()` 재확인으로 구분: Intent 반환 = 권한 없음 / null = **다른 VPN 앱 점유** (Android는 VPN 1개만 허용 — Surfshark 등 다른 VPN 앱이 켜져 있으면 실패) ② fd 전송 실패는 별도 메시지. 각 케이스를 로그 콘솔에도 기록
