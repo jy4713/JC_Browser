@@ -56,6 +56,11 @@ class VpnActivity : Activity() {
     private lateinit var statusView: LinearLayout
     private lateinit var cardBox: LinearLayout
     private lateinit var txtTitleMain: TextView
+    private lateinit var scrollMain: ScrollView
+    private lateinit var consoleBox: LinearLayout
+    private lateinit var txtLog: TextView
+    private lateinit var btnLog: TextView
+    private var logVisible = false
 
     // 관리 화면 위젯
     private lateinit var profilesView: LinearLayout
@@ -88,6 +93,7 @@ class VpnActivity : Activity() {
         showScreen(profiles = false)
 
         JcVpnService.onStateChange = { runOnUiThread { refreshAll() } }
+        JcVpnService.onLog = { line -> runOnUiThread { appendLogLine(line) } }
     }
 
     override fun onResume() {
@@ -103,6 +109,7 @@ class VpnActivity : Activity() {
 
     override fun onDestroy() {
         JcVpnService.onStateChange = null
+        JcVpnService.onLog = null
         super.onDestroy()
     }
 
@@ -213,12 +220,73 @@ class VpnActivity : Activity() {
         bar.addView(txtTitleMain)
         root.addView(bar)
 
+        // 내용 전체를 스크롤 — 로그 콘솔이 길어져도 화면 밖으로 안 나감
+        scrollMain = ScrollView(this)
+        val inner = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        scrollMain.addView(inner)
+
         cardBox = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, pad, 0, 0)
         }
-        root.addView(cardBox, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        inner.addView(cardBox, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        // [프로파일 관리] [로그] 버튼 행
+        val pillRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, pad, 0, 0)
+        }
+        pillRow.addView(pill(getString(R.string.vpn_manage), colorPrimary) { showScreen(profiles = true) })
+        btnLog = pill(getString(R.string.vpn_log), colorTextSec) { toggleLog() }
+        pillRow.addView(btnLog, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            marginStart = padPx(10)
+        })
+        inner.addView(pillRow)
+
+        // 로그 콘솔 (터미널 스타일, 기본 숨김)
+        txtLog = TextView(this).apply {
+            textSize = 11f
+            setTextColor(0xFF9CCC65.toInt())
+            typeface = android.graphics.Typeface.MONOSPACE
+        }
+        consoleBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val pd = padPx(12)
+            setPadding(pd, pd, pd, pd)
+            background = GradientDrawable().apply {
+                setColor(0xFF101418.toInt())
+                cornerRadius = padPx(12).toFloat()
+            }
+            visibility = View.GONE
+            addView(txtLog, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        inner.addView(consoleBox, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = padPx(12)
+        })
+
+        root.addView(scrollMain, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         return root
+    }
+
+    // ---------------- 로그 콘솔 ----------------
+
+    private fun toggleLog() {
+        logVisible = !logVisible
+        if (logVisible) {
+            txtLog.text = JcVpnService.logLines.joinToString("\n", postfix = "\n")
+            consoleBox.visibility = View.VISIBLE
+            btnLog.text = getString(R.string.vpn_log_hide)
+            handler.post { scrollMain.fullScroll(ScrollView.FOCUS_DOWN) }
+        } else {
+            consoleBox.visibility = View.GONE
+            btnLog.text = getString(R.string.vpn_log)
+        }
+    }
+
+    private fun appendLogLine(line: String) {
+        if (!logVisible || !::txtLog.isInitialized) return
+        txtLog.append("$line\n")
+        handler.post { scrollMain.fullScroll(ScrollView.FOCUS_DOWN) }
     }
 
     private fun renderStatusCard() {
@@ -287,13 +355,6 @@ class VpnActivity : Activity() {
             }
         }
         cardBox.addView(card)
-
-        // 프로파일 관리 버튼
-        val manage = pill(getString(R.string.vpn_manage), colorPrimary) { showScreen(profiles = true) }
-        cardBox.addView(manage, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            topMargin = padPx(20)
-        })
     }
 
     // ---------------- 프로파일 관리 화면 ----------------
@@ -528,17 +589,22 @@ class VpnActivity : Activity() {
             setText(initial)
             setPadding(paddingLeft, paddingTop, padPx(46), paddingBottom)
         }
+        // 표시 상태는 별도 플래그로 추적 — inputType 비트 검사는
+        // PASSWORD(0x80)/VISIBLE_PASSWORD(0x90) 비트가 겹쳐 항상 참이 되는 버그가 있음
+        var shown = false
         val eye = TextView(this).apply {
             text = "👁"
             textSize = 18f
             gravity = Gravity.CENTER
             alpha = 0.55f
             setOnClickListener {
-                val visible = edit.inputType and InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD != 0
+                shown = !shown
                 edit.inputType = InputType.TYPE_CLASS_TEXT or
-                    (if (visible) InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
+                    (if (shown) InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                     else InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                edit.typeface = android.graphics.Typeface.DEFAULT
                 edit.setSelection(edit.text.length)
-                alpha = if (visible) 0.55f else 1f
+                alpha = if (shown) 1f else 0.55f
             }
         }
         val fl = FrameLayout(this).apply {

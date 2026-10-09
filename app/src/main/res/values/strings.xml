@@ -335,4 +335,6 @@
     <string name="vpn_state_connecting_short">Connecting…</string>
     <string name="vpn_failed">Connection failed</string>
     <string name="vpn_edit">Edit profile</string>
+    <string name="vpn_log">Log</string>
+    <string name="vpn_log_hide">Hide log</string>
 </resources>

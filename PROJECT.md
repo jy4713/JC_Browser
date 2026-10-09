@@ -4,9 +4,14 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.2 (versionCode 56)
+- 현재 버전: 2.11.3 (versionCode 57)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-09, v2.11.3)
+- [x] **VPN 연결 "Connecting…" 무한 대기 수정 (치명)** — 원인: `LocalServerSocket(FileDescriptor)` 생성자는 bind만 하고 **listen()을 호출하지 않아** openvpn 이 management unix 소켓에 connect 하지 못하고 종료됐으나, 우리는 accept()에서 계속 대기해 상태가 CONNECTING 에 멈춤. `Os.listen(fd, 4)` 추가로 해결. 프로세스가 죽었는데 UI에 안 보이던 문제도 함께 수정 — stdout 스트림 종료 감지 시 마지막 fatal 라인("Cannot open…", "Options error:", "AUTH_FAILED" 등)으로 ERROR 상태 전환
+- [x] VPN 로그 콘솔 — 메인 화면 [로그] 버튼 on/off 로 터미널 스타일 콘솔(최대 300줄 링 버퍼) 표시. openvpn 출력/상태 전환/management 이벤트(HOLD/인증/OPENTUN 등)를 타임스탬프와 함께 기록. 화면 전체를 ScrollView 로 감싸 콘솔이 길어도 스크롤 가능
+- [x] 눈알(비밀번호 표시) 버그 수정 — inputType 비트 검사가 PASSWORD(0x80)/VISIBLE_PASSWORD(0x90) 비트 겹침으로 항상 참이 돼 토글이 안 먹던 것을 별도 플래그 추적으로 수정
 
 ### 완료 (2026-10-09, v2.11.2)
 - [x] 메뉴 VPN 중복 표시 제거 — "VPN" 그룹 헤더+하위 "VPN" 항목이 중복되던 것을 헤더 하나로 통합. MenuGroup에 direct(헤더 탭으로 바로 실행, 아코디언 없음)/label(동적 라벨) 옵션 추가

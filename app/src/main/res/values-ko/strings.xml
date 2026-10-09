@@ -333,4 +333,6 @@
     <string name="vpn_state_connecting_short">연결 중…</string>
     <string name="vpn_failed">연결 실패</string>
     <string name="vpn_edit">프로파일 수정</string>
+    <string name="vpn_log">로그</string>
+    <string name="vpn_log_hide">로그 숨기기</string>
 </resources>
