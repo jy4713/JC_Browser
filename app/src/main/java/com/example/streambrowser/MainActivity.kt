@@ -554,7 +554,7 @@ class MainActivity : Activity() {
             useWideViewPort = true
             userAgentString = if (prefs.getBoolean("desktop", false)) UA_DESKTOP else UA_MOBILE
             textZoom = prefs.getInt("text_zoom", 100)
-            blockNetworkImage = prefs.getBoolean("block_images", false)
+            blockNetworkImage = com.example.streambrowser.browser.WebCleaner.blockImages
             setSupportMultipleWindows(true)
             applyDarkMode(this)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -1255,8 +1255,8 @@ class MainActivity : Activity() {
             )),
             MenuGroup(R.string.group_privacy, R.drawable.ic_incognito, listOf(
                 MenuEntry(s(R.string.menu_block_images), R.drawable.ic_image, "block_images") {
-                    val on = !prefs.getBoolean("block_images", false)
-                    prefs.edit().putBoolean("block_images", on).apply()
+                    val on = !com.example.streambrowser.browser.WebCleaner.blockImages
+                    com.example.streambrowser.browser.WebCleaner.blockImages = on
                     tabs.forEach { runCatching { it.web.settings.blockNetworkImage = on } }
                 },
                 MenuEntry(s(R.string.menu_clear_data), R.drawable.ic_close, null) {
@@ -2456,22 +2456,35 @@ class MainActivity : Activity() {
     }
 
     private fun printPage() {
-        val web = current()?.web ?: return
-        val pm = getSystemService(Context.PRINT_SERVICE) as android.print.PrintManager
+        val web = current()?.web ?: run {
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.print_failed))
+            return
+        }
+        val pm = getSystemService(Context.PRINT_SERVICE) as? android.print.PrintManager
+        if (pm == null) {
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.print_failed))
+            return
+        }
+        val jobName = web.title?.takeIf { it.isNotBlank() } ?: "JC Browser"
         val attrs = android.print.PrintAttributes.Builder().build()
+        // 표준 어댑터(API 21+, 인자 없음) 먼저, 실패 시 구형 인자 버전으로 폴back.
+        // 예외 메시지를 토스트에 포함 — 기기별 인쇄 서비스 문제 원확인용
+        var err: String? = null
         var ok = runCatching {
-            pm.print("JC Browser", web.createPrintDocumentAdapter("JC Browser"), attrs)
+            pm.print(jobName, web.createPrintDocumentAdapter(), attrs)
             true
-        }.getOrDefault(false)
+        }.getOrElse { err = it.message ?: it.javaClass.simpleName; false }
         if (!ok) {
-            // 인자 없는 어댑터로 재시도 (구형 웹뷰/출력 서비스 호환)
             ok = runCatching {
                 @Suppress("DEPRECATION")
-                pm.print("JC Browser", web.createPrintDocumentAdapter(), attrs)
+                pm.print(jobName, web.createPrintDocumentAdapter(jobName), attrs)
                 true
-            }.getOrDefault(false)
+            }.getOrElse { err = it.message ?: it.javaClass.simpleName; false }
         }
-        if (!ok) com.example.streambrowser.util.JcToast.show(this, getString(R.string.print_failed))
+        if (!ok) {
+            com.example.streambrowser.util.JcToast.show(this,
+                getString(R.string.print_failed) + (err?.let { " — $it" } ?: ""), long = true)
+        }
     }
 
     /* ---------- 닫은 탭 복구 (Chrome/Firefox 공통) ---------- */

@@ -179,7 +179,10 @@ class JcVpnService : VpnService() {
         val argv = listOf(
             bin.absolutePath,
             "--config", profile.file.absolutePath,
+            // 우리가 bind+accept 하는 서버 모드 — openvpn은 클라이언트로 연결해 옴.
+            // 이 플래그 없이면 openvpn이 같은 경로에 자기 소켓을 열어 서로 못 만남
             "--management", sockPath, "unix",
+            "--management-client",
             "--management-query-passwords",
             "--management-hold",
             "--route-noexec",
@@ -223,9 +226,12 @@ class JcVpnService : VpnService() {
                     }
                 }
             } catch (_: Exception) {}
-            // stdout 이 닫힘 = 프로세스 종료. EOF 직후엔 아직 종료 처리가 안 끝난 경우가 있어 잠깐 대기
-            runCatching { proc.waitFor(3, java.util.concurrent.TimeUnit.SECONDS) }
-            val exitCode = runCatching { proc.exitValue() }.getOrNull()
+            // --log 사용 시 openvpn은 시작하자마 stdout(파이프)를 닫고 파일에만 기록함.
+            // EOF ≠ 종료: 프로세스가 실제로 죽을 때까지 블로킹 대기 (정상 연결 중엔 끝나지 않음)
+            val exitCode = try {
+                proc.waitFor()
+                runCatching { proc.exitValue() }.getOrNull()
+            } catch (_: Exception) { null }
             logLine("jc", getString(R.string.vpn_log_exit, exitCode?.toString() ?: "?"))
             dumpOpenvpnLog(ovpnLog)
             if (!stopRequested && state != "ERROR" && state != "DISCONNECTED") {

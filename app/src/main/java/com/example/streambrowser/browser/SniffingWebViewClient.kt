@@ -67,6 +67,10 @@ class SniffingWebViewClient(
             if (AdBlocker.isBlocked(host, url)) {
                 return AdBlocker.emptyResponse()
             }
+            // 이미지 차단 (데이터 절약): <img>뿐 아니라 CSS 배경/JS 삽입 이미지까지 요청 단계에서 차단
+            if (WebCleaner.blockImages && isImageRequest(request)) {
+                return AdBlocker.emptyResponse()
+            }
             val accept = request.requestHeaders["Accept"] ?: ""
             detect(url, accept)?.let { kind ->
                 VideoStore.add(view, DetectedVideo(url = url, page = view.url ?: "", kind = kind, headers = captureHeaders(request)))
@@ -79,6 +83,20 @@ class SniffingWebViewClient(
             }
         }
         return null
+    }
+
+    /** 이미지 요청 여부 — Sec-Fetch-Dest(모던) 우선, 없으면 Accept/확장자로 판별 */
+    private fun isImageRequest(request: WebResourceRequest): Boolean {
+        val u = request.url
+        if (u.scheme == "data" || u.scheme == "blob") return false
+        val dest = request.requestHeaders.entries
+            .firstOrNull { it.key.equals("Sec-Fetch-Dest", ignoreCase = true) }
+            ?.value?.lowercase()
+        if (dest != null) return dest == "image"
+        val a = (request.requestHeaders["Accept"] ?: "").lowercase()
+        if ("image/" in a) return true
+        val ext = (u.path ?: "").substringAfterLast('.', "").lowercase()
+        return ext in setOf("png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "avif", "bmp")
     }
 
     /** 감지 시점 요청에서 다운로드에 필요한 핵심 헤더만 뽑아 "K: V" 줄 목록으로 저장.

@@ -4,11 +4,17 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.6 (versionCode 60)
+- 현재 버전: 2.11.7 (versionCode 61)
 
 ## 이슈 트래커
 
-#### 완료 (2026-10-09, v2.11.6)
+#### 완료 (2026-10-09, v2.11.7)
+- [x] **VPN management 소켓 방향 불일치 수정 (치명)** — openvpn `--management <path> unix`는 기본이 서버 모드라 openvpn이 같은 경로에 자기 소켓을 열어 우리 accept()와 만나지 못함 (로그: openvpn은 "listening", 우리는 accept 대기 → 둘 다 기다림). `--management-client` 추가로 openvpn이 우리 소켓에 연결하도록 변경
+- [x] **VPN 프로세스 종료 오감지 수정** — `--log` 도입으로 openvpn이 시작하자마 stdout(파이프)을 닫아 EOF가 났는데, EOF를 "프로세스 종료"로 처리해 살아있는 프로세스를 ERROR로 표시하던 것을 실제 종료(waitFor 블로킹) 시점으로 변경
+- [x] **이미지 차단 실제 동작** — 기존 WebSettings.blockNetworkImage만으로는 CSS 배경/JS 삽입 이미지가 차단 안 됨 → shouldInterceptRequest에서 이미지 요청(Sec-Fetch-Dest: image 또는 Accept/확장자 판별)을 빈 응답으로 차단, 설정은 WebCleaner.blockImages로 통합
+- [x] **프린트 정비** — 표준 어댑터(인자 없음) 우선 순서로 정리, 작업 이름에 페이지 제목 사용, 실패 시 예외 메시지를 토스트에 포함해 원확인 가능하도록
+
+### 완료 (2026-10-09, v2.11.6)
 - [x] **VPN 즉시 에러(exit 132, SIGILL) 수정 (치명)** — 원인: 싣고 있던 libjcopenvpn.so(ics-openvpn 0.7.68)는 공유 라이브러리(SONAME 있음, PT_INTERP 없음)라 직접 exec하면 시작 즉시 SIGILL로 죽음. ics-openvpn 0.7.68부터는 minivpn 런처(assets/pie_openvpn)가 libopenvpn.so를 LD_LIBRARY_PATH로 로드해 실행하는 구조 → jniLibs에 libjcminivpn.so(실행 파일) + libopenvpn.so(라이브러리, SONAME 그대로) 배치, 서비스는 minivpn을 LD_LIBRARY_PATH=nativeLibraryDir로 실행하도록 변경
 - [x] VPN 로그 진단 보강 — EOF 직후 exitValue 레이스 제거(waitFor 3초 대기), jcovpn.log 파일이 없을 때도 "로그 파일 없음" 메시지를 콘솔에 남김 (이전엔 조용히 빠져서 덤프가 안 보였음)
 - [x] **다운로드에 재생 세션 헤더 적용** — 동영상 감지 시점에 페이지가 본 요청의 User-Agent/Referer/Origin/Cookie/Accept를 캡처해 DetectedVideo/DlItem에 저장, 다운로드(고속 분할 + ffmpeg 경로 모두)가 이 헤더를 그대로 사용 — 세션이 UA/쿠키에 묶인 사이트와 HLS AES-128 복호화 키 요청도 재생과 동일한 세션으로 받을 수 있음. UA 보충은 하드코딩 Chrome/120 대신 실제 웹뷰 기본 UA 사용. 이어받기(재개) 시에도 저장된 헤더 재사용

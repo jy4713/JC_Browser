@@ -28,6 +28,10 @@ object WebCleaner {
     @Volatile var appBlockEnabled = true
         set(v) { field = v; prefs?.edit()?.putBoolean("app_block", v)?.apply() }
 
+    /** 이미지 차단 (데이터 절약) — shouldInterceptRequest에서 img/css-bg 등 모든 이미지 요청 차단 */
+    @Volatile var blockImages = false
+        set(v) { field = v; prefs?.edit()?.putBoolean("block_images", v)?.apply() }
+
     private val overlayAllow = HashSet<String>()
     private val popupAllow = HashSet<String>()
     private val jsBlockHosts = HashSet<String>()
@@ -42,6 +46,7 @@ object WebCleaner {
             popupBlockAll = sp.getBoolean("popup_mode_all", true)
             jsBlockEnabled = sp.getBoolean("js_block", false)
             appBlockEnabled = sp.getBoolean("app_block", true)
+            blockImages = sp.getBoolean("block_images", false)
             overlayAllow.clear(); overlayAllow.addAll(sp.getStringSet("overlay_allow_hosts", emptySet())?.map { it.lowercase() } ?: emptyList())
             popupAllow.clear(); popupAllow.addAll(sp.getStringSet("popup_allow_hosts", emptySet())?.map { it.lowercase() } ?: emptyList())
             jsBlockHosts.clear(); jsBlockHosts.addAll(sp.getStringSet("js_block_hosts", emptySet())?.map { it.lowercase() } ?: emptyList())
