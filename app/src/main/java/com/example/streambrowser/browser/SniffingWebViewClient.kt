@@ -316,20 +316,36 @@ class SniffingWebViewClient(
 
     /**
      * HTTP 401 (BASIC/DIGEST 인증) — 서버가 인증을 요구하면 아이디/비밀번호 입력 창 표시.
-     * 저장된 인증 정보가 있으면 다이얼로그 없이 바로 사용 (Chrome/Firefox 동작과 동일).
+     * 저장된 인증 정보가 있으면 첫 시도에만 자동 사용 — 저장 정보가 틀려 서버가 또 401을
+     * 돌려볶으면(= 직전 시도 후 짧은 시간 내 재요청) 자동 재시도를 멈추고 입력 창을 다시 띄움.
+     * 자동 재시도를 계속하면 Chromium 이 ERR_TOO_MANY_RETRIES 로 포기하기 때문.
      */
+    @Volatile
+    private var authLastAt = 0L
+    private var authHost = ""
+    private var authRetries = 0
+
     override fun onReceivedHttpAuthRequest(
         view: WebView, handler: HttpAuthHandler, host: String, realm: String
     ) {
         val ctx = view.context
-        savedAuth(ctx, host)?.let { (u, p) ->
-            handler.proceed(u, p)
-            return
+        val now = SystemClock.elapsedRealtime()
+        // 이 콜백이 다시 불린 것 자체가 직전 시도가 거절됐다는 뜻
+        if (authHost == host && now - authLastAt < 15_000) authRetries++ else authRetries = 1
+        authHost = host
+        authLastAt = now
+        if (authRetries <= 1) {
+            savedAuth(ctx, host)?.let { (u, p) ->
+                handler.proceed(u, p)
+                return
+            }
         }
         if (ctx !is android.app.Activity || ctx.isFinishing || ctx.isDestroyed) {
             handler.cancel()
             return
         }
+        // 저장 정보가 틀려 거절당한 경우 — 기존 값을 채워 넣어 수정 입력 유도
+        val prefilled = if (authRetries > 1) savedAuth(ctx, host) else null
         val dp = ctx.resources.displayMetrics.density
         fun px(n: Int) = (n * dp).toInt()
         val lay = android.widget.LinearLayout(ctx).apply {
@@ -338,10 +354,12 @@ class SniffingWebViewClient(
         }
         val edId = android.widget.EditText(ctx).apply {
             hint = ctx.getString(R.string.http_auth_id)
+            prefilled?.let { setText(it.first) }
         }
         val edPw = android.widget.EditText(ctx).apply {
             hint = ctx.getString(R.string.http_auth_pw)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            prefilled?.let { setText(it.second) }
         }
         val chk = android.widget.CheckBox(ctx).apply {
             text = ctx.getString(R.string.http_auth_remember)
@@ -359,6 +377,7 @@ class SniffingWebViewClient(
                 val u = edId.text.toString()
                 val p = edPw.text.toString()
                 if (chk.isChecked && (u.isNotEmpty() || p.isNotEmpty())) saveAuth(ctx, host, u, p)
+                else authPrefs(ctx).edit().remove(host).apply()
                 handler.proceed(u, p)
             }
             .setNegativeButton(ctx.getString(com.example.streambrowser.R.string.btn_cancel)) { _, _ -> handler.cancel() }

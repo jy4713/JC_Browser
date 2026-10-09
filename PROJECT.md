@@ -4,9 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.13 (versionCode 67)
+- 현재 버전: 2.11.14 (versionCode 68)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-09, v2.11.14)
+- [x] **ERR_TOO_MANY_RETRIES (401 인증 재시도 루프) 수정** — 저장된 인증 정보가 틀린 경우 자동 proceed 가 무한 반복되며 Chromium 이 `net::ERR_TOO_MANY_RETRIES` 로 포기하던 문제. 콜백 재진입 = 직전 시도 거절로 간주: 저장 정보는 첫 시도에만 자동 사용, 거절당하면 자동 재시도를 멈추고 입력 창을 다시 표시(기존 값 프리필). 저장 체크 해제 시 해당 호스트 저장 정보 삭제
 
 #### 완료 (2026-10-09, v2.11.13)
 - [x] **HTTP 401(BASIC/DIGEST) 인증 입력 창 추가** — 서버가 인증을 요구하는 페이지(로컬 서비스, 공유기 관리 등)에 접속하면 그냥 401 에러 페이지만 보여주던 것을 수정. `onReceivedHttpAuthRequest` 구현: 아이디/비밀번호 입력 다이얼로그 표시 → 확인 시 `handler.proceed()` 로 재시도, 취소/백그라운드 시 취소. "이 기기에 저장" 체크 시 호스트별로 저장(SharedPreferences base64)해 이후 접속은 다이얼로그 없이 자동 인증 (Chrome/Firefox 동작과 동일)
