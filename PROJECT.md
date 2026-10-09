@@ -4,9 +4,14 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.1 (versionCode 55)
+- 현재 버전: 2.11.2 (versionCode 56)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-09, v2.11.2)
+- [x] 메뉴 VPN 중복 표시 제거 — "VPN" 그룹 헤더+하위 "VPN" 항목이 중복되던 것을 헤더 하나로 통합. MenuGroup에 direct(헤더 탭으로 바로 실행, 아코디언 없음)/label(동적 라벨) 옵션 추가
+- [x] 메뉴 VPN 항목에 현재 연결 상태 표시 — "VPN — kr-seo-udp"(연결됨) / "VPN — 연결 중…" / "VPN — 연결 실패"
+- [x] VPN 메인 화면에 뒤로 버튼 추가 (왼쪽 상단 ←, 화면 닫기) + 시스템 백키 처리: 프로파일 관리 화면이면 메인으로, 메인이면 종료
 
 ### 완료 (2026-10-09, v2.11.1)
 - [x] **OpenVPN 실행 실패 수정 (치명)** — "Cannot run program … error=13, Permission denied": 안드로이드 10+(targetSdk 29~)부터 앱 홈 디렉터리(filesDir) 파일 exec 금지. assets 추출 방식을 폐기하고 바이너리를 jniLibs(`libjcopenvpn.so`)로 이동해 `nativeLibraryDir`에서 실행 (ics-openvpn과 동일). 매니페스트 `extractNativeLibs="true"` + `packaging.jniLibs.useLegacyPackaging` 추가로 설치 시 실행 비트와 함께 추출. 부수 효과: .so 압축 저장으로 universal APK 158→81MB

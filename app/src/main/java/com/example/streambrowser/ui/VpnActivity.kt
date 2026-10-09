@@ -106,6 +106,11 @@ class VpnActivity : Activity() {
         super.onDestroy()
     }
 
+    /** 시스템 뒤로: 프로파일 관리 화면이면 메인으로, 메인이면 종료 */
+    override fun onBackPressed() {
+        if (showProfiles) showScreen(profiles = false) else super.onBackPressed()
+    }
+
     // ---------------- 화면 전환 ----------------
 
     private fun showScreen(profiles: Boolean) {
@@ -192,16 +197,26 @@ class VpnActivity : Activity() {
             setPadding(pad, pad, pad, pad)
         }
 
+        // 상단 바: 뒤로(화면 닫기) + 제목
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        bar.addView(roundIcon(getString(R.string.back), R.drawable.ic_arrow_back, colorText) { finish() })
         txtTitleMain = TextView(this).apply {
             text = getString(R.string.vpn_title)
             textSize = 22f
             setTextColor(colorText)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setPadding(0, 0, 0, pad)
+            setPadding(padPx(12), 0, 0, 0)
         }
-        root.addView(txtTitleMain, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        bar.addView(txtTitleMain)
+        root.addView(bar)
 
-        cardBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        cardBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, pad, 0, 0)
+        }
         root.addView(cardBox, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         return root
     }

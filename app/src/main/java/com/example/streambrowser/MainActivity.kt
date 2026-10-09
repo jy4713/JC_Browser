@@ -72,6 +72,7 @@ import com.example.streambrowser.download.ImageDownloader
 import com.example.streambrowser.download.ThumbLoader
 import com.example.streambrowser.download.VideoAdapter
 import com.example.streambrowser.util.LocaleHelper
+import com.example.streambrowser.vpn.JcVpnService
 import java.io.File
 
 class MainActivity : Activity() {
@@ -1036,7 +1037,11 @@ class MainActivity : Activity() {
     private class MenuGroup(
         val groupRes: Int,
         val iconRes: Int,
-        val items: List<MenuEntry>
+        val items: List<MenuEntry>,
+        /** 설정되면 아코디언 대신 헤더 탭으로 바로 실행 (하위 항목 없음) */
+        val direct: (() -> Unit)? = null,
+        /** 동적 라벨 (null 이면 groupRes 문자열) */
+        val label: (() -> String)? = null
     )
 
     private sealed class MenuRow {
@@ -1215,11 +1220,12 @@ class MainActivity : Activity() {
                     showImageMinDialog()
                 }
             )),
-            MenuGroup(R.string.vpn_title, R.drawable.ic_lock, listOf(
-                MenuEntry(s(R.string.vpn_title), R.drawable.ic_lock, null) {
+            MenuGroup(R.string.vpn_title, R.drawable.ic_lock, emptyList(),
+                direct = {
                     runCatching { startActivity(Intent(this, com.example.streambrowser.ui.VpnActivity::class.java)) }
-                }
-            )),
+                },
+                label = { vpnMenuLabel() }
+            ),
             MenuGroup(R.string.group_torrent, R.drawable.ic_download, listOf(
                 // 토렌트 지원: ON이면 .torrent/magnet을 토렌트로 받고(공유 파일 자동 다운로드), OFF면 .torrent만 일반 파일로
                 MenuEntry(s(R.string.menu_torrent_play), R.drawable.ic_play, "torrent_play") {
@@ -1302,11 +1308,23 @@ class MainActivity : Activity() {
         rows += MenuRow.Shortcut()
         for (g in menuGroups()) {
             rows += MenuRow.Header(g.groupRes)
-            if (expandedGroup == g.groupRes) {
+            // direct 실행 그룹(VPN)은 하위 항목 없음 — 헤더 탭으로 바로 실행
+            if (g.direct == null && expandedGroup == g.groupRes) {
                 g.items.forEach { rows += MenuRow.Child(it) }
             }
         }
         return rows
+    }
+
+    /** 메뉴 VPN 항목 라벨 — 현재 연결 상태를 함께 표시 */
+    private fun vpnMenuLabel(): String {
+        val base = getString(R.string.vpn_title)
+        return when (JcVpnService.state) {
+            "CONNECTED" -> "$base — ${JcVpnService.stateProfile}"
+            "CONNECTING", "AUTH", "ASSIGN_IP", "WAIT" -> "$base — ${getString(R.string.vpn_state_connecting_short)}"
+            "ERROR" -> "$base — ${getString(R.string.vpn_failed)}"
+            else -> base
+        }
     }
 
     private fun showMainMenu() {
@@ -1528,17 +1546,25 @@ class MainActivity : Activity() {
                 }
                 is MenuRow.Header -> {
                     h.group?.visibility = View.GONE
-                    h.icon?.setImageResource(
-                        menuGroups().firstOrNull { it.groupRes == r.groupRes }?.iconRes ?: R.drawable.ic_menu_vert
-                    )
-                    h.title?.text = getString(r.groupRes)
+                    val grp = menuGroups().firstOrNull { it.groupRes == r.groupRes }
+                    h.icon?.setImageResource(grp?.iconRes ?: R.drawable.ic_menu_vert)
+                    h.title?.text = grp?.label?.invoke() ?: getString(r.groupRes)
                     h.title?.setTypeface(h.title?.typeface, android.graphics.Typeface.BOLD)
-                    h.state?.visibility = View.VISIBLE
-                    h.state?.text = if (expandedGroup == r.groupRes) "▾" else "▸"
-                    h.state?.setTextColor(Color.parseColor("#9AA0A6"))
-                    h.itemView.setOnClickListener {
-                        expandedGroup = if (expandedGroup == r.groupRes) null else r.groupRes
-                        rebuildMenu()
+                    if (grp?.direct != null) {
+                        // 직접 실행 그룹: 화살표 없이 탭하면 바로 실행
+                        h.state?.visibility = View.GONE
+                        h.itemView.setOnClickListener {
+                            menuDialog?.dismiss()
+                            grp.direct.invoke()
+                        }
+                    } else {
+                        h.state?.visibility = View.VISIBLE
+                        h.state?.text = if (expandedGroup == r.groupRes) "▾" else "▸"
+                        h.state?.setTextColor(Color.parseColor("#9AA0A6"))
+                        h.itemView.setOnClickListener {
+                            expandedGroup = if (expandedGroup == r.groupRes) null else r.groupRes
+                            rebuildMenu()
+                        }
                     }
                 }
                 is MenuRow.Quick, is MenuRow.Child -> {
