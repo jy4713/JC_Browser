@@ -4,9 +4,13 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.8 (versionCode 62)
+- 현재 버전: 2.11.9 (versionCode 63)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-09, v2.11.9)
+- [x] **VPN PERSIST_TUN_ACTION 응답 오류 수정 (치명)** — 로그로 최종 원인 확정: 이번엔 block-ipv6 push 옵션이 무시된 채 OPTIONS IMPORT(라우트/DNS/tun-mtu)까지 정상 진행, DSSERVER/DNSSERVER 쿼리도 정상 응답. 죽은 지점은 `PERSIST_TUN_ACTION` 쿼리 — 이것은 ics-openvpn 안드로이드 빌드 전용 쿼리로 `needok 'PERSIST_TUN_ACTION' ok` 가 아니라 **액션 이름(`NOACTION`/`OPEN_BEFORE_CLOSE`)으로 응답**해야 함. 'ok' 로 응답하면 openvpn 소스상 ASSERT(0) fatal 종료 (`Got unrecognised 'ok' from management for PERSIST_TUN_ACTION query`). 우리는 매번 새 tun을 여는 구조이므로 `OPEN_BEFORE_CLOSE` 로 응답하도록 전용 브랜치 추가 (ics-openvpn GUI 소스와 동일 판단)
+- [x] NEED-STR 범용 응답 보정 — 알 수 없는 NEED-STR 쿼리에 `needok` 대신 `needstr` 명령으로 응답하도록 수정 (형식 불일치 시 쿼리 대기가 풀리지 않음)
 
 #### 완료 (2026-10-09, v2.11.8)
 - [x] **Block Images 켜면 페이지 전체 백지 버그 수정 (치명)** — 원인: `isImageRequest`의 Accept 판별이 `"image/" in accept`만 검사해서, 크롬 네비게이션 기본 Accept(`text/html,...,image/avif,image/webp,*/*`)에 `image/`가 섞여 있어 **메인 HTML 문서를 이미지로 오인해 차단** (구글 등 전부 백지). Accept 분기를 `image/` 포함 + `text/html`/`text/css` 미포함 조건으로 강화해 문서/스타일은 절대 차단되지 않도록 수정. Sec-Fetch-Dest 기반 판별은 기존 그대로

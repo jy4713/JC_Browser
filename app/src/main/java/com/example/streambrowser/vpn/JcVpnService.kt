@@ -385,6 +385,7 @@ class JcVpnService : VpnService() {
                         val p2 = arg.indexOf('\'', p1 + 1)
                         val needed = if (p1 >= 0 && p2 > p1) arg.substring(p1 + 1, p2) else ""
                         val extra = arg.substringAfter(":", "")
+                        val isNeedStr = line.startsWith(">NEED-STR:")
 
                         when (needed) {
                             "DNSSERVER", "DNS6SERVER" -> {
@@ -443,9 +444,21 @@ class JcVpnService : VpnService() {
                                 if (fd != null) protectFd(fd)
                                 mgmtCmd(s, "needok '$needed' ok\n")
                             }
+                            "PERSIST_TUN_ACTION" -> {
+                                // ics-openvpn 안드로이드 전용 쿼리 — 'ok' 가 아니라 tun 액션으로 응답해야 함.
+                                // 'ok' 로 응답하면 openvpn 이 "Got unrecognised ..." 후 ASSERT(0) fatal 종료.
+                                // 우리는 매번 새 tun 을 여는 구조(이전 tun 유지 안 함)이므로 OPEN_BEFORE_CLOSE 고정
+                                // (ics-openvpn 도 첫 연결/설정 변경 시 OPEN_BEFORE_CLOSE 응답)
+                                mgmtCmd(s, "needok 'PERSIST_TUN_ACTION' OPEN_BEFORE_CLOSE\n")
+                            }
                             else -> {
-                                // 알 수 없는 요청은 통과시켜 연결 자체는 진행
-                                mgmtCmd(s, "needok '$needed' ok\n")
+                                if (isNeedStr) {
+                                    // NEED-STR 은 needstr 명령으로 응답해야 대기가 풀림 (needok 로는 불일치 에러)
+                                    mgmtCmd(s, "needstr '$needed' \"\"\n")
+                                } else {
+                                    // 알 수 없는 요청은 통과시켜 연결 자체는 진행
+                                    mgmtCmd(s, "needok '$needed' ok\n")
+                                }
                             }
                         }
                     }
