@@ -69,7 +69,7 @@ class SniffingWebViewClient(
             }
             val accept = request.requestHeaders["Accept"] ?: ""
             detect(url, accept)?.let { kind ->
-                VideoStore.add(view, DetectedVideo(url = url, page = view.url ?: "", kind = kind))
+                VideoStore.add(view, DetectedVideo(url = url, page = view.url ?: "", kind = kind, headers = captureHeaders(request)))
             }
             // HTML 문서(메인 프레임 + iframe)면 스캐너 JS 주입
             // - fetch/XHR(API)는 Sec-Fetch-Dest로 구분해 제외 — 가로채면 API가 깨지거나(네이버 추천 피드 등)
@@ -79,6 +79,16 @@ class SniffingWebViewClient(
             }
         }
         return null
+    }
+
+    /** 감지 시점 요청에서 다운로드에 필요한 핵심 헤더만 뽑아 "K: V" 줄 목록으로 저장.
+     *  서버가 세션을 UA/Referer/쿠키에 묶는 경우 다운로드/복호화 키 요청이 이것을 그대로 재사용.
+     *  Accept-Encoding/Range/Host 등은 제외 (gzip 수신/분할 다운로드와 충돌) */
+    private fun captureHeaders(request: WebResourceRequest): String {
+        val keep = setOf("user-agent", "referer", "origin", "cookie", "accept")
+        return request.requestHeaders.entries
+            .filter { it.key.lowercase() in keep && it.value.isNotBlank() }
+            .joinToString("\r\n") { "${it.key}: ${it.value}" }
     }
 
     /** 문서(HTML) 요청 여부 — Sec-Fetch-Dest(모던 웹뷰, 크롬 80+)가 있으면 그것으로 판별.

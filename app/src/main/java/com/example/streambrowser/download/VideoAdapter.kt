@@ -237,7 +237,7 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
 
     private fun startDownload(ctx: Context, v: DetectedVideo, name: String, ext: String) {
         val id = System.currentTimeMillis()
-        DownloadStore.upsert(DlItem(id, v.url, v.page, v.kind, name, ext))
+        DownloadStore.upsert(DlItem(id, v.url, v.page, v.kind, name, ext, headers = v.headers))
         val i = Intent(ctx, VideoDownloadService::class.java).apply {
             putExtra(VideoDownloadService.EXTRA_ID, id)
             putExtra(VideoDownloadService.EXTRA_URL, v.url)
@@ -245,6 +245,7 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
             putExtra(VideoDownloadService.EXTRA_KIND, v.kind)
             putExtra(VideoDownloadService.EXTRA_NAME, name)
             putExtra(VideoDownloadService.EXTRA_EXT, ext)
+            putExtra(VideoDownloadService.EXTRA_HEADERS, v.headers)
         }
         ctx.startForegroundService(i)
         com.example.streambrowser.util.JcToast.show(ctx, ctx.getString(R.string.video_dl_started))

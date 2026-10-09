@@ -18,7 +18,9 @@ data class DlItem(
     var totalDurationMs: Long = -1,
     var file: File? = null,
     var currentTimeMs: Long = 0,
-    var speedBps: Long = 0
+    var speedBps: Long = 0,
+    /** 감지 시점에 페이지가 본 요청의 핵심 헤더("User-Agent: ..." 등 줄 목록). 재개 시에도 재사용 */
+    var headers: String = ""
 )
 
 /** 다운로드 상태 저장소 (앱 전역). 완료/취소/실패 항목은 SharedPreferences에 영속화 */
@@ -55,7 +57,8 @@ object DownloadStore {
                     status = runCatching { DlStatus.valueOf(o.optString("status", "DONE")) }
                         .getOrDefault(DlStatus.DONE),
                     doneBytes = o.optLong("doneBytes"),
-                    file = o.optString("file").takeIf { it.isNotEmpty() }?.let { File(it) }
+                    file = o.optString("file").takeIf { it.isNotEmpty() }?.let { File(it) },
+                    headers = o.optString("headers")
                 )
                 map[item.id] = item
             }
@@ -107,6 +110,7 @@ object DownloadStore {
                         put("status", item.status.name)
                         put("doneBytes", item.doneBytes)
                         put("file", item.file?.absolutePath ?: "")
+                        put("headers", item.headers)
                     })
                 }
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

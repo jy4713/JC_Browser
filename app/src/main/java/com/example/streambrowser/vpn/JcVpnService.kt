@@ -192,6 +192,8 @@ class JcVpnService : VpnService() {
 
         val pb = ProcessBuilder(argv)
         pb.environment()["TMPDIR"] = cacheDir.absolutePath
+        // minivpn이 libopenvpn.so를 찾을 수 있게 라이브러리 디렉터리 지정
+        pb.environment()["LD_LIBRARY_PATH"] = applicationInfo.nativeLibraryDir
         pb.redirectErrorStream(true)
 
         try {
@@ -221,7 +223,8 @@ class JcVpnService : VpnService() {
                     }
                 }
             } catch (_: Exception) {}
-            // stdout 이 닫힘 = 프로세스 종료. 사용자가 끈 게 아니라면 실패로 표시
+            // stdout 이 닫힘 = 프로세스 종료. EOF 직후엔 아직 종료 처리가 안 끝난 경우가 있어 잠깐 대기
+            runCatching { proc.waitFor(3, java.util.concurrent.TimeUnit.SECONDS) }
             val exitCode = runCatching { proc.exitValue() }.getOrNull()
             logLine("jc", getString(R.string.vpn_log_exit, exitCode?.toString() ?: "?"))
             dumpOpenvpnLog(ovpnLog)
@@ -262,6 +265,10 @@ class JcVpnService : VpnService() {
 
     /** openvpn 자체 로그 파일(--log)의 마지막 줄들을 콘솔에 덤프 — stdio 출력이 없을 때 원인 확인용 */
     private fun dumpOpenvpnLog(f: File) {
+        if (!f.exists()) {
+            logLine("jc", getString(R.string.vpn_log_missing))
+            return
+        }
         val lines = runCatching { f.readLines() }.getOrNull() ?: return
         if (lines.isEmpty()) {
             logLine("jc", getString(R.string.vpn_log_empty))
@@ -519,14 +526,20 @@ class JcVpnService : VpnService() {
     // ---------------- 바이너리 ----------------
 
     /**
-     * openvpn 실행 파일 — jniLibs(libjcopenvpn.so) 에서 실행.
-     * 안드로이드 10+(targetSdk 29~)부터 앱 홈 디렉터리(filesDir)의 파일 exec 가 금지되므로
-     * assets 추출 방식이 아닌 네이티브 라이브러리 디렉터리 실행 방식을 쓴다
-     * (ics-openvpn 과 동일 — 패키지 매니저가 실행 비트와 함께 추출해 둠).
+     * openvpn 실행 파일 확인 — ics-openvpn 0.7.68 구조를 따름:
+     * libopenvpn.so는 공유 라이브러리(SONAME 있고 PT_INTERP 없음)라 직접 exec하면
+     * 시작 즉시 SIGILL(exit 132)로 죽음. 반드시 minivpn 런처(libjcminivpn.so)가
+     * LD_LIBRARY_PATH로 libopenvpn.so를 로드해 실행해야 함.
+     * 안드로이드 10+(targetSdk 29~)부터 앱 홈 디렉터리 exec 금지이므로 패키지 매니저가
+     * 실행 비트와 함께 추출해 주는 nativeLibraryDir 방식 사용.
      */
     private fun extractBinary(): File? {
-        val f = File(applicationInfo.nativeLibraryDir, "libjcopenvpn.so")
-        return if (f.exists() && f.canExecute()) f else null
+        val libDir = applicationInfo.nativeLibraryDir
+        val launcher = File(libDir, "libjcminivpn.so")
+        val lib = File(libDir, "libopenvpn.so")
+        return if (launcher.exists() && launcher.canExecute() && lib.exists()) {
+            launcher
+        } else null
     }
 
     // ---------------- 알림 ----------------

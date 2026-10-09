@@ -304,6 +304,7 @@ class DownloadsActivity : Activity() {
             putExtra(VideoDownloadService.EXTRA_KIND, item.kind)
             putExtra(VideoDownloadService.EXTRA_NAME, item.name)
             putExtra(VideoDownloadService.EXTRA_EXT, item.ext)
+            putExtra(VideoDownloadService.EXTRA_HEADERS, item.headers)
         }
         startForegroundService(i)
     }

@@ -7,7 +7,9 @@ data class DetectedVideo(
     val url: String,
     val page: String,
     val kind: String, // HLS / DASH / MP4 / WEBM / FLV / BLOB / IMG / ...
-    val time: Long = System.currentTimeMillis()
+    val time: Long = System.currentTimeMillis(),
+    /** 감지 시점 요청의 핵심 헤더(User-Agent/Referer/Origin/Cookie) — "K: V" 줄 목록 */
+    val headers: String = ""
 ) {
     /** 다운로드 불가 여부 (blob: 등) */
     val unavailable: Boolean get() = url.startsWith("blob:") || url.startsWith("data:")

@@ -34,6 +34,7 @@ class VideoDownloadService : Service() {
         const val EXTRA_KIND = "kind"
         const val EXTRA_NAME = "name"
         const val EXTRA_EXT = "ext"
+        const val EXTRA_HEADERS = "headers"
 
         val sessions = ConcurrentHashMap<Long, Session>()
 
@@ -63,6 +64,11 @@ class VideoDownloadService : Service() {
         val ext = intent.getStringExtra(EXTRA_EXT)?.trim()?.removePrefix(".")?.ifEmpty { "mp4" } ?: "mp4"
 
         val item = DownloadStore.get(id) ?: DlItem(id, url, page, kind, name, ext).also { DownloadStore.upsert(it) }
+        // 감지 시점에 페이지가 본 요청의 핵심 헤더 — 없으면 저장된 항목 것 (재개 경로)
+        val captured = intent.getStringExtra(EXTRA_HEADERS)?.takeIf { it.isNotBlank() } ?: item.headers
+        if (item.headers.isBlank() && captured.isNotBlank()) {
+            item.headers = captured
+        }
 
         // 설정: 알림 표시 여부 / 다운로드 위치 (공용 Download 폴더면 완료 후 복사)
         val sp = getSharedPreferences("settings", MODE_PRIVATE)
@@ -84,7 +90,7 @@ class VideoDownloadService : Service() {
         }.start()
 
         Thread {
-            val headers = buildHeaders(page)
+            val headers = buildHeaders(page, captured)
 
             // Soul 스타일 고속 분할 병렬 다운로드 시도 (HLS는 세그먼트 병렬, 직접 파일은 Range 분할)
             if (sp.getBoolean("fast_dl", true)) {
@@ -230,12 +236,31 @@ class VideoDownloadService : Service() {
         if (!DownloadStore.hasRunning()) stopSelf(startId)
     }
 
-    private fun buildHeaders(page: String): String {
-        val cookie = runCatching { CookieManager.getInstance().getCookie(page) }.getOrNull()
+    /** 다운로드용 헤더 조립.
+     *  1) 감지 시점에 페이지가 본 요청에서 뽑은 User-Agent/Referer/Origin/Cookie/Accept 우선
+     *     (재생과 동일한 세션 — 복호화 키 요청에도 그대로 쓰임)
+     *  2) 빠진 것만 보충: UA는 실제 웹뷰 기본 UA, Cookie는 CookieManager(페이지 URL 기준), Referer는 페이지 URL */
+    private fun buildHeaders(page: String, captured: String): String {
         val sb = StringBuilder()
-        sb.append("User-Agent: Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36\r\n")
-        if (page.isNotEmpty()) sb.append("Referer: $page\r\n")
-        if (!cookie.isNullOrEmpty()) sb.append("Cookie: $cookie\r\n")
+        var hasUa = false; var hasCookie = false; var hasReferer = false
+        captured.lines().filter { it.contains(":") }.forEach { line ->
+            val k = line.substringBefore(":").trim()
+            when (k.lowercase()) {
+                "user-agent" -> hasUa = true
+                "cookie" -> hasCookie = true
+                "referer" -> hasReferer = true
+            }
+            sb.append(line.trimEnd()).append("\r\n")
+        }
+        if (!hasUa) {
+            sb.append("User-Agent: ").append(android.webkit.WebSettings.getDefaultUserAgent(this)).append("\r\n")
+        }
+        if (!hasCookie && page.isNotEmpty()) {
+            runCatching { CookieManager.getInstance().getCookie(page) }?.getOrNull()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { sb.append("Cookie: ").append(it).append("\r\n") }
+        }
+        if (!hasReferer && page.isNotEmpty()) sb.append("Referer: $page\r\n")
         return sb.toString()
     }
 

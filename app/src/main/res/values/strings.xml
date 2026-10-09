@@ -407,4 +407,5 @@
     <string name="cd_restart">Restart</string>
     <string name="cd_close_tab">Close tab</string>
     <string name="open_torrent_hint">magnet:?xt=urn:btih:... or https://.../file.torrent</string>
+    <string name="vpn_log_missing">openvpn log file not found — process died before writing anything</string>
 </resources>

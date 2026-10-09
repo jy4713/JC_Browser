@@ -405,4 +405,5 @@
     <string name="cd_restart">재시작</string>
     <string name="cd_close_tab">탭 닫기</string>
     <string name="open_torrent_hint">magnet:?xt=urn:btih:... 또는 https://.../file.torrent</string>
+    <string name="vpn_log_missing">openvpn 로그 파일 없음 — 프로세스가 아무것도 쓰기 전에 죽음</string>
 </resources>
