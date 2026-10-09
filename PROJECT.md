@@ -4,9 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.11 (versionCode 65)
+- 현재 버전: 2.11.12 (versionCode 66)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-09, v2.11.12)
+- [x] **VPN OPENTUN 실패 근본 원인 수정 (치명)** — v2.11.11 진단 로그(`openTun: IFCONFIG 없음`)로 원인 확정: argv의 `--ifconfig-noexec` / `--route-noexec` 플래그가 do_ifconfig()/do_route()를 **아예 건드리지 않게** 만들어, 안드로이드 빌드가 management로 위임하던 IFCONFIG/ROUTE/ROUTE6 NEED-OK 쿼리가 오지 않았던 것. 로컬 IP 없이 OPENTUN만 날아와 tun 생성이 실패했던 흐름. openvpn 소스(init.c `ifconfig_noexec_enabled`/`route_noexec_enabled`)로 검증 후 두 플래그 제거 — 안드로이드(TARGET_ANDROID)는 이 플래그 없이도 시스템 ifconfig/route 명령을 실행하지 않고 전부 management 쿼리로만 처리 (ifconfig_order/route_order 모두 BEFORE_TUN 이라 OPENTUN 전에 필요 정보 수집 완료)
 
 #### 완료 (2026-10-09, v2.11.11)
 - [x] **sendFd 숨은 API 제거 + openTun 예외 로깅** — OPENTUN fd 전송에서 `FileDescriptor.setInt$` 리플렉션(숨은 API, 기기별 차단 가능)을 제거하고 `ParcelFileDescriptor.fileDescriptor`를 SCM_RIGHTS로 직접 전달하도록 단순화. openTun의 runCatching이 삼키던 예외와 establish() null 원인(IFCONFIG 누락 여부)을 로그 콘솔에 기록 — 다음 테스트에서 실패 지점이 정확히 구분됨

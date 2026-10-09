@@ -190,8 +190,11 @@ class JcVpnService : VpnService() {
             // 그대로 두면 "Options error: Unrecognized option ... [PUSH-OPTIONS]" 로
             // 프로세스가 fatal 종료되고 management 상태가 깨져 연결 실패로 이어짐
             "--ignore-unknown-option", "block-ipv6",
-            "--route-noexec",
-            "--ifconfig-noexec",
+            // ★ 절대 넣으면 안 됨: --route-noexec / --ifconfig-noexec.
+            // 안드로이드 빌드(TARGET_ANDROID)는 ifconfig/route 를 시스템 명령 없이
+            // management NEED-OK 쿼리(IFCONFIG/ROUTE/ROUTE6)로 위임하는데, noexec 플래그가
+            // do_ifconfig()/do_route() 자체를 건드리지 않게 만들어 쿼리가 아예 오지 않음 —
+            // 로컬 IP 를 모른 채 OPENTUN 만 날아와 tun 생성 실패로 끝남 (2026-10-09 원인 확정)
             "--auth-retry", "interact",
             "--log", ovpnLog.absolutePath,
             "--verb", "3",
