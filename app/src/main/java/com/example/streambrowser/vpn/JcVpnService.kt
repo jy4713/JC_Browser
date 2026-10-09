@@ -27,7 +27,7 @@ import kotlin.concurrent.thread
 /**
  * 브라우저 전용 OpenVPN 서비스.
  *
- * ics-openvpn의 openvpn 2.x 안드로이드 바이너리(assets/vpn/openvpn.<abi>)를 실행하고,
+ * ics-openvpn의 openvpn 2.x 안드로이드 바이너리(jniLibs/libjcopenvpn.so, GPL v2 — 출처는 assets/vpn/NOTICE.md)를 실행하고,
  * management unix 소켓으로 연동한다:
  *  - >PASSWORD  → Auth 사용자/비밀번호 응답 (auth-user-pass 대응)
  *  - >NEED-OK OPENTUN → VpnService.Builder로 만든 tun fd 를 소켓 ancillary 데이터로 전달
@@ -454,24 +454,17 @@ class JcVpnService : VpnService() {
         else "\"$e\""
     }
 
-    // ---------------- 바이너리 추출 ----------------
+    // ---------------- 바이너리 ----------------
 
+    /**
+     * openvpn 실행 파일 — jniLibs(libjcopenvpn.so) 에서 실행.
+     * 안드로이드 10+(targetSdk 29~)부터 앱 홈 디렉터리(filesDir)의 파일 exec 가 금지되므로
+     * assets 추출 방식이 아닌 네이티브 라이브러리 디렉터리 실행 방식을 쓴다
+     * (ics-openvpn 과 동일 — 패키지 매니저가 실행 비트와 함께 추출해 둠).
+     */
     private fun extractBinary(): File? {
-        val abi = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            Build.SUPPORTED_ABIS.firstOrNull { a ->
-                assets.list("vpn")?.any { it == "openvpn.$a" } == true
-            }
-        } else null ?: return null
-        val target = File(filesDir, "vpn/openvpn")
-        if (target.exists() && target.length() > 1_000_000) return target
-        target.parentFile?.mkdirs()
-        runCatching {
-            assets.open("vpn/openvpn.$abi").use { input ->
-                target.outputStream().use { out -> input.copyTo(out) }
-            }
-            target.setExecutable(true, true)
-        }.onFailure { return null }
-        return if (target.canExecute()) target else null
+        val f = File(applicationInfo.nativeLibraryDir, "libjcopenvpn.so")
+        return if (f.exists() && f.canExecute()) f else null
     }
 
     // ---------------- 알림 ----------------

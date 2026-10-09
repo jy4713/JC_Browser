@@ -333,4 +333,6 @@
     <string name="vpn_add_file">Import from file</string>
     <string name="vpn_paste_hint">Paste the .ovpn config text</string>
     <string name="vpn_state_connecting_short">Connecting…</string>
+    <string name="vpn_failed">Connection failed</string>
+    <string name="vpn_edit">Edit profile</string>
 </resources>

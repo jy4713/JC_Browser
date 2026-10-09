@@ -11,8 +11,8 @@ android {
         applicationId = "com.example.streambrowser"
         minSdk = 24
         targetSdk = 34
-        versionCode = 54
-        versionName = "2.11.0"
+        versionCode = 55
+        versionName = "2.11.1"
     }
 
     buildTypes {
@@ -40,6 +40,12 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    // extractNativeLibs 와 함께: 설치 시 .so 륔 압축 해제해 nativeLibraryDir 에 배치 (실행용)
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
     kotlinOptions {
         jvmTarget = "17"

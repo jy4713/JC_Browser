@@ -336,7 +336,8 @@ class VpnActivity : Activity() {
             return
         }
         val st = JcVpnService.state
-        val activeId = if (st != "DISCONNECTED" && st != "ERROR") connectedProfileId() else null
+        // ERROR 도 실패한 항목으로 표시 (서비스는 이미 멈췄지만 어떤 프로파일이 실패했는지 보여줘야 함)
+        val activeId = if (st != "DISCONNECTED") connectedProfileId() else null
         var first = true
         for (p in profiles) {
             if (!first) {
@@ -365,19 +366,36 @@ class VpnActivity : Activity() {
             textSize = 15f
             setTextColor(colorText)
         }
+        // 부제목: 국가/파일명 + 연결 상태
+        val info = StringBuilder()
+        if (p.country.length == 2) info.append(flagEmoji(p.country)).append(' ').append(p.country)
+        if (p.fileName.isNotEmpty()) {
+            if (info.isNotEmpty()) info.append(" · ")
+            info.append(p.fileName)
+        }
         val sub = TextView(this).apply {
             textSize = 12f
             when {
                 active && st == "CONNECTED" -> {
-                    text = getString(R.string.vpn_state_connected_short)
+                    if (info.isNotEmpty()) info.append(" · ")
+                    info.append(getString(R.string.vpn_state_connected_short))
+                    text = info.toString()
                     setTextColor(colorGreen)
                 }
+                active && st == "ERROR" -> {
+                    if (info.isNotEmpty()) info.append(" · ")
+                    info.append(getString(R.string.vpn_failed))
+                    text = info.toString()
+                    setTextColor(colorRed)
+                }
                 active -> {
-                    text = getString(R.string.vpn_state_connecting_short)
+                    if (info.isNotEmpty()) info.append(" · ")
+                    info.append(getString(R.string.vpn_state_connecting_short))
+                    text = info.toString()
                     setTextColor(colorPrimary)
                 }
                 else -> {
-                    text = ""
+                    text = info.toString()
                     setTextColor(colorTextSec)
                 }
             }
@@ -385,14 +403,17 @@ class VpnActivity : Activity() {
         col.addView(name); col.addView(sub)
         row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
-        // 연결 / 해제 알약 버튼
+        // 연결 / 해제 알약 버튼 — 실패 시에는 다시 연결(재시도)
         row.addView(
-            if (active) pill(getString(R.string.vpn_disconnect), colorRed) { disconnect() }
-            else pill(getString(R.string.vpn_connect), colorGreen) { connect(p) },
+            when {
+                active && st == "ERROR" -> pill(getString(R.string.vpn_connect), colorGreen) { connect(p) }
+                active -> pill(getString(R.string.vpn_disconnect), colorRed) { disconnect() }
+                else -> pill(getString(R.string.vpn_connect), colorGreen) { connect(p) }
+            },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = padPx(8) }
         )
-        // 이름 변경
-        row.addView(roundIcon(getString(R.string.vpn_rename), android.R.drawable.ic_menu_edit, colorTextSec) { renameDialog(p) })
+        // 이름/인증정보 수정
+        row.addView(roundIcon(getString(R.string.vpn_edit), android.R.drawable.ic_menu_edit, colorTextSec) { editDialog(p) })
         // 삭제
         row.addView(roundIcon(getString(R.string.action_remove), android.R.drawable.ic_delete, colorRed) { confirmDelete(p, active) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = padPx(8) })
@@ -469,20 +490,50 @@ class VpnActivity : Activity() {
             setPadding(pd, pd / 2, pd, 0)
         }
         val user = EditText(this).apply { hint = "Username"; setText(p.username) }
-        val pass = EditText(this).apply {
-            hint = "Password"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setText(p.password)
-        }
-        box.addView(user); box.addView(pass)
+        val pass = passwordBox("Password", p.password)
+        box.addView(user); box.addView(pass.view)
         AlertDialog.Builder(this)
             .setTitle(p.name)
             .setView(box)
             .setPositiveButton(R.string.vpn_connect) { _, _ ->
-                VpnProfiles.saveAuth(this, p.id, user.text.toString(), pass.text.toString())
-                startConnect(p.id, user.text.toString(), pass.text.toString())
+                VpnProfiles.saveAuth(this, p.id, user.text.toString(), pass.edit.text.toString())
+                startConnect(p.id, user.text.toString(), pass.edit.text.toString())
             }
             .setNegativeButton(R.string.btn_cancel, null)
             .show()
+    }
+
+    /** 비밀번호 입력 + 눈알(표시 토글) 을 담은 컨테이너 */
+    private class PassBox(val edit: EditText, val view: FrameLayout)
+
+    private fun passwordBox(hint: String, initial: String): PassBox {
+        val edit = EditText(this).apply {
+            this.hint = hint
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText(initial)
+            setPadding(paddingLeft, paddingTop, padPx(46), paddingBottom)
+        }
+        val eye = TextView(this).apply {
+            text = "👁"
+            textSize = 18f
+            gravity = Gravity.CENTER
+            alpha = 0.55f
+            setOnClickListener {
+                val visible = edit.inputType and InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD != 0
+                edit.inputType = InputType.TYPE_CLASS_TEXT or
+                    (if (visible) InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
+                edit.setSelection(edit.text.length)
+                alpha = if (visible) 0.55f else 1f
+            }
+        }
+        val fl = FrameLayout(this).apply {
+            addView(edit, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(eye, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                gravity = Gravity.CENTER_VERTICAL or Gravity.END
+                marginEnd = padPx(10)
+            })
+        }
+        return PassBox(edit, fl)
     }
 
     private fun startConnect(id: String, user: String, pass: String) {
@@ -556,8 +607,9 @@ class VpnActivity : Activity() {
         when (requestCode) {
             REQ_PICK_ONE -> {
                 val uri = data?.data ?: return
-                // 파일 이름을 기본값으로 한 이름 입력 다이얼로그
-                val defName = runCatching { uri.lastPathSegment?.substringAfterLast('/')?.removeSuffix(".ovpn") }.getOrNull() ?: "VPN"
+                // SAF 에서는 lastPathSegment 가 msf:123 같은 ID 일 수 있으니 표시명 우선 조회
+                val disp = VpnProfiles.displayNameOf(this, uri)
+                val defName = disp?.removeSuffix(".ovpn") ?: "VPN"
                 val edit = EditText(this).apply { setText(defName) }
                 val density = resources.displayMetrics.density
                 val box = LinearLayout(this).apply {
@@ -606,20 +658,25 @@ class VpnActivity : Activity() {
         }
     }
 
-    private fun renameDialog(p: VpnProfiles.Profile) {
-        val edit = EditText(this).apply { setText(p.name) }
+    /** 이름 + 크리덴셜 수정 다이얼로그 (연필 버튼) */
+    private fun editDialog(p: VpnProfiles.Profile) {
         val density = resources.displayMetrics.density
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             val pd = (24 * density).toInt()
             setPadding(pd, pd / 2, pd, 0)
-            addView(edit)
         }
+        val name = EditText(this).apply { hint = getString(R.string.vpn_name_title); setText(p.name) }
+        val user = EditText(this).apply { hint = "Username"; setText(p.username) }
+        val pass = passwordBox("Password", p.password)
+        box.addView(name); box.addView(user); box.addView(pass.view)
         AlertDialog.Builder(this)
-            .setTitle(R.string.vpn_rename)
+            .setTitle(R.string.vpn_edit)
             .setView(box)
             .setPositiveButton(R.string.btn_ok) { _, _ ->
-                VpnProfiles.rename(this, p.id, edit.text.toString())
+                val nm = name.text.toString().trim()
+                if (nm.isNotEmpty() && nm != p.name) VpnProfiles.rename(this, p.id, nm)
+                VpnProfiles.saveAuth(this, p.id, user.text.toString(), pass.edit.text.toString())
                 refreshProfiles()
             }
             .setNegativeButton(R.string.btn_cancel, null)
@@ -630,6 +687,14 @@ class VpnActivity : Activity() {
 
     private fun connectedProfileId(): String? =
         getSharedPreferences("settings", MODE_PRIVATE).getString("vpn_active_id", null)
+
+    /** ISO 국가 코드 → 깃발 이모지 (예: KR → 🇰🇷) */
+    private fun flagEmoji(code: String): String {
+        if (code.length != 2) return ""
+        val base = 0x1F1E6
+        return String(Character.toChars(base + (code[0].uppercaseChar() - 'A'))) +
+            String(Character.toChars(base + (code[1].uppercaseChar() - 'A')))
+    }
 
     private fun formatRate(bytesPerSec: Long): String {
         if (bytesPerSec < 1024) return "$bytesPerSec B/s"

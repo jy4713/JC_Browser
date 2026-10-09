@@ -4,9 +4,17 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.0 (versionCode 54)
+- 현재 버전: 2.11.1 (versionCode 55)
 
 ## 이슈 트래커
+
+### 완료 (2026-10-09, v2.11.1)
+- [x] **OpenVPN 실행 실패 수정 (치명)** — "Cannot run program … error=13, Permission denied": 안드로이드 10+(targetSdk 29~)부터 앱 홈 디렉터리(filesDir) 파일 exec 금지. assets 추출 방식을 폐기하고 바이너리를 jniLibs(`libjcopenvpn.so`)로 이동해 `nativeLibraryDir`에서 실행 (ics-openvpn과 동일). 매니페스트 `extractNativeLibs="true"` + `packaging.jniLibs.useLegacyPackaging` 추가로 설치 시 실행 비트와 함께 추출. 부수 효과: .so 압축 저장으로 universal APK 158→81MB
+- [x] 프로파일 이름 개선 — SAF 선택 시 `lastPathSegment`가 MediaStore ID(msf:173060)를 반환하던 문제 수정: contentResolver의 DISPLAY_NAME으로 실제 파일명 조회. 이미 msf:xxx로 저장된 프로파일은 로드 시 remote 호스트 라벨+프로토콜 이름(예: kr-seo-udp)으로 자동 복구
+- [x] 국가 표기 — ovpn의 remote 호스트 첫 라벨에서 국가 코드 추출(예: kr-seo.prod.x.com → KR), 목록 부제목에 깃발 이모지+코드+파일명 표시
+- [x] 프로파일 목록 자연 정렬 (msf:2 < msf:10, 숫자 수치 비교)
+- [x] 연결 상태 표시 — 목록 항목에서 연결 중(파랑)/연결됨(초록)/연결 실패(빨강, 에러 메시지는 메인 카드에) 단계 표시, 실패 시 버튼은 다시 "연결"(재시도)
+- [x] 크리덴셜 관리 — 연필 버튼을 이름 변경+아이디/비밀번호 수정 다이얼로그로 확장, 비밀번호 필드에 눈알(표시/숨김) 토글 추가 (연결 시 인증 입력창에도 동일 적용)
 
 ### 완료 (2026-10-09, v2.11.0)
 - [x] VPN 화면 전면 재디자인 (일반 VPN 앱 스타일) — 메뉴에서 VPN을 별도 그룹으로 분리. 첫 화면: 상태 카드(연결된 프로파일 이름 + 실시간 속도 ▼다운/▲업 + 연결 시간 + 연결 해제 버튼, 미연결 시 자물쇠 아이콘+안내) 아래에 "프로파일 관리" 버튼. 관리 화면: 추가(직접 입력/파일 1개 선택), 여러 개 가져오기, 목록 항목마다 연결(초록 알약)/연결 해제(빨강 알약)+이름 변경+삭제, 연결 진행 상태가 항목 아래에 표시. 버튼을 둥근 알약/원형 스타일로 개선
