@@ -252,11 +252,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="32dp"
                 android:layout_marginStart="6dp"
-                android:background="@drawable/bg_btn_primary"
+                android:background="@drawable/bg_btn_ripple"
                 android:paddingStart="12dp"
                 android:paddingEnd="12dp"
                 android:text="@string/dl_selected"
-                android:textColor="#FFFFFF"
+                android:textAllCaps="false"
+                android:textColor="@color/primary"
                 android:textSize="12sp"
                 android:visibility="gone" />
 

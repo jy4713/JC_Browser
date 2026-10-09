@@ -4,9 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.15 (versionCode 69)
+- 현재 버전: 2.11.16 (versionCode 70)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-09, v2.11.16)
+- [x] **전 화면 버튼 스타일 통일 (기능 변경 없음, UI만)** — VPN 화면의 파스텔 알약(채움) 버튼을 탭/즐겨찾기와 동일한 컨셉(투명 배경+물결 ripple, 아이콘+텍스트 13sp)으로 변경. JcUi 공통 키트 재작성: `pill` = 플랫 라벨 버튼(rippleBg 사용), `circleIcon` = 40dp 투명+ripple 아이콘 버튼, 색상을 탭/즐겨찾기 팔레트(#1A73E8/#188038/#D93025/#5F6368/#F9AB00)로 통일. VPN 버튼에 아이콘 추가(프로파일 관리·로그·추가·가져오기·연결·해제), ic_add 벡터 추가. XML 채움 버튼 4곳(bg_btn_primary)도 ripple + primary 텍스트로 변경 — activity_main(선택 다운로드), activity_adfilters(필터 추가/규칙 추가), item_video(다운로드). 전 화면이 bg_btn_ripple 동일 컨셉으로 통일됨
 
 #### 완료 (2026-10-09, v2.11.15)
 - [x] **VPN 멀티 import 공통 인증 설정** — .ovpn 파일 여러 개를 한번에 가져올 때 가져온 프로파일마다 일일이 아이디/비밀번호를 넣어야 하던 것을 수정. import 완료 후 "공통 인증 정보 설정" 다이얼로그 표시: 아이디/비밀번호(눈알 표시 포함)를 한 번 입력하면 가져온 프로파일 전체에 적용, 건너뛰기로 개별 설정 유지. 적용/건너뛰기 문자열 한국어/영어 동시 유지

@@ -1,8 +1,10 @@
 package com.example.streambrowser.ui
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.os.Build
 import android.view.Gravity
 import android.view.View
@@ -14,20 +16,20 @@ import android.widget.TextView
 /**
  * JC Browser 공통 UI 스타일 키트.
  *
- * 모든 화면에서 동일한 버튼/색감/폰트를 쓰도록 통일한다.
- * - 파스텔 팔레트 (차분한 톤, 다크모드에서도 튀지 않음)
- * - pill: 높이 40dp 고정 둥근 버튼
- * - circleIcon: 40dp 원형 아이콘 버튼
- * - card: 모서리 16dp 부유 카드
+ * 모든 화면에서 탭/즐겨찾기와 동일한 버튼 컨셉을 쓰도록 통일한다.
+ * - 투명 배경 + 물결(ripple) 버튼 (bg_btn_ripple 과 동일 컨셉)
+ * - 라벨 버튼: 아이콘+텍스트, 13sp
+ * - 아이콘 버튼: 40dp, 투명+ripple
+ * - 색상: 탭/즐겨찾기 팔레트 (#1A73E8 / #188038 / #D93025 / #5F6368 / #F9AB00)
  */
 object JcUi {
 
-    // 파스텔 팔레트
-    val blue: Int = Color.parseColor("#7C9BD4")
-    val green: Int = Color.parseColor("#6FA88C")
-    val red: Int = Color.parseColor("#D08484")
-    val slate: Int = Color.parseColor("#8E99A8")
-    val amber: Int = Color.parseColor("#D4A574")
+    // 탭/즐겨찾기 팔레트
+    val blue: Int = Color.parseColor("#1A73E8")
+    val green: Int = Color.parseColor("#188038")
+    val red: Int = Color.parseColor("#D93025")
+    val slate: Int = Color.parseColor("#5F6368")
+    val amber: Int = Color.parseColor("#F9AB00")
 
     fun dp(ctx: Context, n: Int): Int =
         (n * ctx.resources.displayMetrics.density).toInt()
@@ -48,27 +50,45 @@ object JcUi {
     fun cardBg(ctx: Context): Int =
         themedColor(ctx, android.R.attr.colorBackgroundFloating, Color.WHITE)
 
-    /** 둥근 알약 버튼 — 높이 40dp, 라벨 14sp, 흰색 라벨 */
-    fun pill(ctx: Context, text: String, bg: Int, onClick: (View) -> Unit): TextView {
-        val h = dp(ctx, 9)
-        val w = dp(ctx, 18)
+    /** 투명 배경 + 물결 배경 (bg_btn_ripple 과 동일 컨셉) */
+    fun rippleBg(ctx: Context, radiusDp: Int = 24): RippleDrawable {
+        val content = GradientDrawable().apply {
+            setColor(Color.TRANSPARENT)
+            cornerRadius = dp(ctx, radiusDp).toFloat()
+        }
+        return RippleDrawable(ColorStateList.valueOf(0x1A000000), content, null)
+    }
+
+    /** 플랫 라벨 버튼 — 투명+ripple, 아이콘+텍스트, 13sp */
+    fun pill(
+        ctx: Context, text: String, color: Int, iconRes: Int = 0,
+        onClick: (View) -> Unit
+    ): TextView {
+        val h = dp(ctx, 10)
+        val w = dp(ctx, 12)
         return TextView(ctx).apply {
             this.text = text
-            setTextColor(Color.WHITE)
-            textSize = 14f
+            setTextColor(color)
+            textSize = 13f
             gravity = Gravity.CENTER
             setPadding(w, h, w, h)
             minimumWidth = dp(ctx, 72)
             minimumHeight = dp(ctx, 40)
-            background = GradientDrawable().apply {
-                setColor(bg)
-                cornerRadius = dp(ctx, 20).toFloat()
+            background = rippleBg(ctx)
+            if (iconRes != 0) {
+                ctx.getDrawable(iconRes)?.mutate()?.let { d ->
+                    d.setTint(color)
+                    val sz = dp(ctx, 18)
+                    d.setBounds(0, 0, sz, sz)
+                    compoundDrawablePadding = dp(ctx, 6)
+                    setCompoundDrawables(d, null, null, null)
+                }
             }
             setOnClickListener(onClick)
         }
     }
 
-    /** 원형 아이콘 버튼 — 40dp */
+    /** 원형 아이콘 버튼 — 40dp, 투명+ripple */
     fun circleIcon(
         ctx: Context, desc: String, iconRes: Int, tint: Int,
         onClick: (View) -> Unit
@@ -78,10 +98,7 @@ object JcUi {
             contentDescription = desc
             setImageResource(iconRes)
             setColorFilter(tint)
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(0x14000000)
-            }
+            background = rippleBg(ctx, 20)
             setOnClickListener(onClick)
             layoutParams = LinearLayout.LayoutParams(size, size)
         }

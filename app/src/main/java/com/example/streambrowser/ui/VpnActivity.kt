@@ -143,9 +143,9 @@ class VpnActivity : Activity() {
     private val colorGreen get() = JcUi.green
     private val colorRed get() = JcUi.red
 
-    /** 둥근 알약 버튼 */
-    private fun pill(text: String, bg: Int, onClick: (View) -> Unit): TextView =
-        JcUi.pill(this, text, bg, onClick)
+    /** 플랫 라벨 버튼 (탭/즐겨찾기 컨셉: 투명+ripple, 아이콘+텍스트) */
+    private fun pill(text: String, color: Int, iconRes: Int = 0, onClick: (View) -> Unit): TextView =
+        JcUi.pill(this, text, color, iconRes, onClick)
 
     /** 원형 아이콘 버튼 */
     private fun roundIcon(desc: String, iconRes: Int, tint: Int, onClick: (View) -> Unit): ImageButton =
@@ -195,8 +195,8 @@ class VpnActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, pad, 0, 0)
         }
-        pillRow.addView(pill(getString(R.string.vpn_manage), colorPrimary) { showScreen(profiles = true) })
-        btnLog = pill(getString(R.string.vpn_log), colorTextSec) { toggleLog() }
+        pillRow.addView(pill(getString(R.string.vpn_manage), colorPrimary, R.drawable.ic_settings) { showScreen(profiles = true) })
+        btnLog = pill(getString(R.string.vpn_log), colorTextSec, R.drawable.ic_code) { toggleLog() }
         pillRow.addView(btnLog, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             marginStart = padPx(10)
         })
@@ -337,7 +337,7 @@ class VpnActivity : Activity() {
                 speed.text = getString(R.string.vpn_speed_down, formatRate(JcVpnService.rxRate)) +
                     "   " + getString(R.string.vpn_speed_up, formatRate(JcVpnService.txRate))
                 time.text = getString(R.string.vpn_connected_time, formatDuration(System.currentTimeMillis() - JcVpnService.connectedSince))
-                val btn = pill(getString(R.string.vpn_disconnect), colorRed) { disconnect() }
+                val btn = pill(getString(R.string.vpn_disconnect), colorRed, R.drawable.ic_close) { disconnect() }
                 card.addView(btn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                     gravity = Gravity.CENTER_HORIZONTAL
                     topMargin = padPx(16)
@@ -395,8 +395,8 @@ class VpnActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, padPx(14), 0, padPx(10))
         }
-        btns.addView(pill(getString(R.string.vpn_add), colorPrimary) { showAddChooser() })
-        btns.addView(pill(getString(R.string.vpn_import_multi), colorTextSec) { pickMulti() },
+        btns.addView(pill(getString(R.string.vpn_add), colorPrimary, R.drawable.ic_add) { showAddChooser() })
+        btns.addView(pill(getString(R.string.vpn_import_multi), colorTextSec, R.drawable.ic_folder) { pickMulti() },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = padPx(10) })
         root.addView(btns)
 
@@ -491,9 +491,9 @@ class VpnActivity : Activity() {
         // 연결 / 해제 알약 버튼 — 실패 시에는 다시 연결(재시도)
         row.addView(
             when {
-                active && st == "ERROR" -> pill(getString(R.string.vpn_connect), colorGreen) { connect(p) }
-                active -> pill(getString(R.string.vpn_disconnect), colorRed) { disconnect() }
-                else -> pill(getString(R.string.vpn_connect), colorGreen) { connect(p) }
+                active && st == "ERROR" -> pill(getString(R.string.vpn_connect), colorGreen, R.drawable.ic_play) { connect(p) }
+                active -> pill(getString(R.string.vpn_disconnect), colorRed, R.drawable.ic_close) { disconnect() }
+                else -> pill(getString(R.string.vpn_connect), colorGreen, R.drawable.ic_play) { connect(p) }
             },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = padPx(8) }
         )
