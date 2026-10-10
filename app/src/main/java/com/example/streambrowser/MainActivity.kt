@@ -112,9 +112,10 @@ class MainActivity : Activity() {
     private var pendingFileCallback: android.webkit.ValueCallback<Array<Uri>>? = null
     private val REQ_FILE_PICK = 8
 
-    /** 백업/복원 요청 코드 — 9=저장(클라우드), 10=열기 */
+    /** 백업/복원 요청 코드 — 9=저장(클라우드), 10=열기, 11=로컬 저장 폴터 선택 */
     private val REQ_BACKUP_SAVE = 9
     private val REQ_BACKUP_OPEN = 10
+    private val REQ_BACKUP_TREE = 11
     private var pendingBackupBytes: ByteArray? = null
 
     private lateinit var videoAdapter: VideoAdapter
@@ -1713,7 +1714,6 @@ class MainActivity : Activity() {
                     val grp = menuGroups().firstOrNull { it.groupRes == r.groupRes }
                     h.icon?.setImageResource(grp?.iconRes ?: R.drawable.ic_menu_vert)
                     h.title?.text = grp?.label?.invoke() ?: getString(r.groupRes)
-                    h.title?.setTypeface(h.title?.typeface, android.graphics.Typeface.BOLD)
                     if (grp?.direct != null) {
                         // 직접 실행 그룹: 화살표 없이 탭하면 바로 실행
                         h.state?.visibility = View.GONE
@@ -1885,63 +1885,15 @@ class MainActivity : Activity() {
                             runCatching { startActivityForResult(i, REQ_BACKUP_SAVE) }
                                 .onFailure { pendingBackupBytes = null }
                         } else {
-                            saveBackupLocal(encrypted)
+                            // 로컬 저장 — 저장할 폴터를 사용자가 직접 지정 (SAF 트리 피커)
+                            val i = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+                            runCatching { startActivityForResult(i, REQ_BACKUP_TREE) }
+                                .onFailure { pendingBackupBytes = null }
                         }
                     }
                     .show()
             }
         }
-    }
-
-    /** 로컬 백업 — 공용 Download/JC Browser 폴더에 MediaStore 로 저장 */
-    private fun saveBackupLocal(bytes: ByteArray) {
-        val name = "JCBrowser-backup-" +
-            java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US)
-                .format(java.util.Date()) + ".jcbak"
-        if (android.os.Build.VERSION.SDK_INT >= 29) {
-            val ok = runCatching {
-                val values = android.content.ContentValues().apply {
-                    put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name)
-                    put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/octet-stream")
-                    put(android.provider.MediaStore.Downloads.RELATIVE_PATH,
-                        android.os.Environment.DIRECTORY_DOWNLOADS + "/JC Browser")
-                }
-                val uri = contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                    ?: throw java.io.IOException("insert failed")
-                contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
-                    ?: throw java.io.IOException("open failed")
-            }.isSuccess
-            com.example.streambrowser.util.JcToast.show(
-                this,
-                getString(if (ok) R.string.backup_done else R.string.backup_failed)
-            )
-        } else {
-            // API 28 이하: 외부 저장소 직접 쓰기 (WRITE_EXTERNAL_STORAGE 필요)
-            if (checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
-                android.content.pm.PackageManager.PERMISSION_GRANTED
-            ) {
-                requestPermissions(arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 91)
-                pendingBackupBytes = bytes
-                return
-            }
-            writeBackupLocalLegacy(bytes, name)
-        }
-    }
-
-    private fun writeBackupLocalLegacy(bytes: ByteArray, name: String) {
-        val ok = runCatching {
-            val dir = java.io.File(
-                android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOWNLOADS
-                ), "JC Browser"
-            )
-            dir.mkdirs()
-            java.io.File(dir, name).writeBytes(bytes)
-        }.isSuccess
-        com.example.streambrowser.util.JcToast.show(
-            this,
-            getString(if (ok) R.string.backup_done else R.string.backup_failed)
-        )
     }
 
     /** 복원 — 파일 선택 → 비밀번호 → 범위 확인 → 적용 */
@@ -3066,6 +3018,28 @@ class MainActivity : Activity() {
         if (requestCode == REQ_BACKUP_OPEN && resultCode == RESULT_OK) {
             handleBackupPicked(data)
         }
+        // 로컬 백업 — 사용자가 지정한 폴터 안에 .jcbak 파일 생성 후 저장
+        if (requestCode == REQ_BACKUP_TREE) {
+            val bytes = pendingBackupBytes
+            pendingBackupBytes = null
+            if (resultCode == RESULT_OK && bytes != null) {
+                val name = "JCBrowser-backup-" +
+                    java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US)
+                        .format(java.util.Date()) + ".jcbak"
+                val ok = runCatching {
+                    val tree = data?.data ?: throw java.io.IOException("no tree")
+                    val doc = android.provider.DocumentsContract.createDocument(
+                        contentResolver, tree, "application/octet-stream", name
+                    ) ?: throw java.io.IOException("create failed")
+                    contentResolver.openOutputStream(doc)?.use { it.write(bytes) }
+                        ?: throw java.io.IOException("open failed")
+                }.isSuccess
+                com.example.streambrowser.util.JcToast.show(
+                    this,
+                    getString(if (ok) R.string.backup_done else R.string.backup_failed)
+                )
+            }
+        }
         if ((requestCode == 1 || requestCode == 2) && resultCode == RESULT_OK) {
             data?.getStringExtra("url")?.let { current()?.web?.loadUrl(it) }
         }
@@ -3122,18 +3096,6 @@ class MainActivity : Activity() {
         requestCode: Int, permissions: Array<out String>, grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 91) {
-            val bytes = pendingBackupBytes
-            pendingBackupBytes = null
-            val name = "JCBrowser-backup-" +
-                java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US)
-                    .format(java.util.Date()) + ".jcbak"
-            if (bytes != null && grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                writeBackupLocalLegacy(bytes, name)
-            } else {
-                com.example.streambrowser.util.JcToast.show(this, getString(R.string.backup_failed))
-            }
-        }
     }
 
     /** 현재 탭 제목 (다운로드 기본 파일명 등에 사용) */

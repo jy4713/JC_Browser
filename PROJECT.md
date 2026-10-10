@@ -4,9 +4,13 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.28 (versionCode 82)
+- 현재 버전: 2.11.29 (versionCode 83)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.29)
+- [x] 백업 로컬 저장 시 폴터 직접 지정 — 기존엔 Downloads/JC Browser 고정(MediaStore)이었던 것을 SAF 트리 피커(ACTION_OPEN_DOCUMENT_TREE)로 사용자가 저장 폴터를 선택하도록 변경, 선택한 폴터에 DocumentsContract.createDocument 로 저장. 사용 안 하게 된 MediaStore/레거시 저장 함수와 권한 콜백 정리
+- [x] 메뉴 그룹 헤더의 볼드 제거 — 어떤 항목은 볼드/어떤 건 일반으로 섞여 보이던 것을 모두 일반 글씨로 통일
 
 #### 완료 (2026-10-10, v2.11.28)
 - [x] 메뉴(General)에서 "모든 탭 닫기" 제거 — 탭 메뉴(하단 탭 시트)에 동일 기능이 있어 중복. 탭 시트의 모든 탭 닫기는 그대로 정상 동작, 사용처 없어진 확인 다이얼로그 함수 정리
