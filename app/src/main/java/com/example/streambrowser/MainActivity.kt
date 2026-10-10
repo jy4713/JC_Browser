@@ -1285,7 +1285,7 @@ class MainActivity : Activity() {
                 MenuEntry(s(R.string.menu_copy_url), R.drawable.ic_copy, null) { copyCurrentUrl() },
                 MenuEntry(s(R.string.menu_open_external), R.drawable.ic_open_in_new, null) { openInExternalApp() },
                 MenuEntry(s(R.string.menu_system_downloads), R.drawable.ic_download, null) { openSystemDownloads() },
-                MenuEntry(s(R.string.menu_print), R.drawable.ic_list, null) { printPage() }
+                MenuEntry(s(R.string.menu_print), R.drawable.ic_print, null) { printPage() }
             )),
             MenuGroup(R.string.group_cleaner, R.drawable.ic_shield, listOf(
                 MenuEntry(s(R.string.menu_adblock), R.drawable.ic_adblock, "adblock") {
@@ -1360,10 +1360,10 @@ class MainActivity : Activity() {
                     val on = !prefs.getBoolean("fast_dl", true)
                     prefs.edit().putBoolean("fast_dl", on).apply()
                 },
-                MenuEntry(getString(R.string.menu_dl_split, prefs.getInt("dl_split", 8)), R.drawable.ic_folder, null) {
+                MenuEntry(getString(R.string.menu_dl_split, prefs.getInt("dl_split", 8)), R.drawable.ic_tune, null) {
                     showSplitDialog()
                 },
-                MenuEntry(getString(R.string.menu_dl_conn, prefs.getInt("dl_conn", 4)), R.drawable.ic_folder, null) {
+                MenuEntry(getString(R.string.menu_dl_conn, prefs.getInt("dl_conn", 4)), R.drawable.ic_tune, null) {
                     showConnDialog()
                 },
                 MenuEntry(getString(R.string.menu_dl_max, prefs.getInt("dl_max_concurrent", 2)), R.drawable.ic_tune, null) {
@@ -1386,7 +1386,7 @@ class MainActivity : Activity() {
                 },
                 label = { vpnMenuLabel() }
             ),
-            MenuGroup(R.string.group_torrent, R.drawable.ic_download, listOf(
+            MenuGroup(R.string.group_torrent, R.drawable.ic_torrent, listOf(
                 // 토렌트 지원: ON이면 .torrent/magnet을 토렌트로 받고(공유 파일 자동 다운로드), OFF면 .torrent만 일반 파일로
                 MenuEntry(s(R.string.menu_torrent_play), R.drawable.ic_play, "torrent_play") {
                     val on = !prefs.getBoolean("torrent_play", false)
@@ -1414,7 +1414,7 @@ class MainActivity : Activity() {
                 }
             )),
             MenuGroup(R.string.group_privacy, R.drawable.ic_incognito, listOf(
-                MenuEntry(s(R.string.menu_clear_data), R.drawable.ic_close, null) {
+                MenuEntry(s(R.string.menu_clear_data), R.drawable.ic_delete, null) {
                     confirmClearData()
                 }
             )),
@@ -1429,11 +1429,11 @@ class MainActivity : Activity() {
                     val on = !prefs.getBoolean("restore_tabs", true)
                     prefs.edit().putBoolean("restore_tabs", on).apply()
                 },
-                MenuEntry(s(R.string.menu_video_tap), R.drawable.ic_play, "video_tap_menu") {
+                MenuEntry(s(R.string.menu_video_tap), R.drawable.ic_video, "video_tap_menu") {
                     val on = !prefs.getBoolean("video_tap_menu", false)
                     prefs.edit().putBoolean("video_tap_menu", on).apply()
                 },
-                MenuEntry(s(R.string.menu_backup), R.drawable.ic_download, null) {
+                MenuEntry(s(R.string.menu_backup), R.drawable.ic_backup, null) {
                     showBackupDialog()
                 }
             )),
@@ -1441,10 +1441,10 @@ class MainActivity : Activity() {
                 MenuEntry(getString(R.string.menu_theme) + ": " + themeModeLabel(), R.drawable.ic_dark, null) {
                     showThemeDialog()
                 },
-                MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
+                MenuEntry(s(R.string.menu_text_size), R.drawable.ic_text_size, null) {
                     showTextSizeDialog()
                 },
-                MenuEntry(s(R.string.menu_language), R.drawable.ic_menu_vert, null) {
+                MenuEntry(s(R.string.menu_language), R.drawable.ic_globe, null) {
                     showLanguageDialog()
                 }
             )),
@@ -1459,7 +1459,7 @@ class MainActivity : Activity() {
                 }
             )),
             // About/Exit — 상위 레벨에서 헤더 탭으로 바로 실행 (VPN 과 동일한 방식)
-            MenuGroup(R.string.menu_about, R.drawable.ic_search, emptyList(),
+            MenuGroup(R.string.menu_about, R.drawable.ic_info, emptyList(),
                 direct = { showAbout() }),
             MenuGroup(R.string.menu_exit, R.drawable.ic_close, emptyList(),
                 direct = { finish() })

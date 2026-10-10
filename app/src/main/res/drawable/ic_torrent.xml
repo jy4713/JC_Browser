@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 자석 모양 (토렌트) -->
+    <path
+        android:fillColor="#5F6368"
+        android:pathData="M5,2h5v9a3,3 0 0 0 6,0V2h5v9a8,8 0 0 1 -16,0V2z" />
+    <path
+        android:fillColor="#5F6368"
+        android:pathData="M5,2h5v4H5V2zM14,2h5v4h-5V2z" />
+</vector>
