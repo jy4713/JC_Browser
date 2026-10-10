@@ -23,7 +23,7 @@ import java.net.URL
  * WebView 요청을 가로채서
  * 1) 광고/트래커 차단 (AdBlocker)
  * 2) 스트리밍 미디어(m3u8/mpd/mp4 등) 감지 (VideoStore에 등록)
- * 3) HTML 응답에 영상 소스 스캐너 JS 주입 (iframe 플레이어 낶부까지 커버)
+ * 3) HTML 응답에 영상 소스 스캐너 JS 주입 (iframe 플레이어 내부까지 커버)
  * 4) http(s) 외 스킴(intent:// 등) 처리
  * 5) SSL 오류 시 사용자 확인 (기본 차단) / 렌더 프로세스 종료 시 복구
  */
@@ -67,7 +67,11 @@ class SniffingWebViewClient(
             return AdBlocker.emptyResponse()
         }
         runCatching {
-            if (AdBlocker.isBlocked(host, url)) {
+            // 문서 내비게이션(메인 프레임 + iframe 메인 리소스)은 차단 금지 —
+            // 빈 응답을 받은 프레임은 통째로 실패해 "콘텐츠를 가져올 수 없습니다"가 뜸
+            // (인스타그램/외부 임베드 등). 서드파티 차단은 프레임 내의 리소스에만 적용
+            val isNav = looksLikeDocument(request)
+            if (!isNav && AdBlocker.isBlocked(host, url)) {
                 return AdBlocker.emptyResponse()
             }
             // 이미지 차단 (데이터 절약): <img>뿐 아니라 CSS 배경/JS 삽입 이미지까지 요청 단계에서 차단
@@ -81,7 +85,7 @@ class SniffingWebViewClient(
             // HTML 문서(메인 프레임 + iframe)면 스캐너 JS 주입
             // - fetch/XHR(API)는 Sec-Fetch-Dest로 구분해 제외 — 가로채면 API가 깨지거나(네이버 추천 피드 등)
             //   스트리밍/롱폴 엔드포인트면 읽기가 멈춰 페이지 로딩이 끝나지 않음
-            if (request.method == "GET" && looksLikeDocument(request)) {
+            if (request.method == "GET" && isNav) {
                 injectScanner(view, request)?.let { return it }
             }
         }
@@ -125,7 +129,7 @@ class SniffingWebViewClient(
         return "text/html" in a
     }
 
-    /** HTML 응답을 직접 받아 <head> 뒤에 스캐너 스크립트를 삽입 (iframe 낶의 video 태그도 수집) */
+    /** HTML 응답을 직접 받아 <head> 뒤에 스캐너 스크립트를 삽입 (iframe 내의 video 태그도 수집) */
     private fun injectScanner(view: WebView, request: WebResourceRequest): WebResourceResponse? {
         val urlStr = request.url.toString()
         if (urlStr.startsWith("data:") || urlStr.startsWith("about:")) return null
@@ -133,23 +137,55 @@ class SniffingWebViewClient(
         // 보안 인증(Cloudflare Turnstile/hCaptcha/reCAPTCHA) 관련 페이지에는 주입하지 않음
         // (JS 훅이 챌린지를 감지해 체크박스가 나타나지 않는 문제 방지)
         if (isSecurityChallengeHost(host)) return null
-        return runCatching {
-            val conn = URL(urlStr).openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            conn.instanceFollowRedirects = true
+
+        // 리다이렉트(302 등)를 수동으로 따라가며 각 hop 의 Set-Cookie 를 CookieManager에 저장.
+        // HttpURLConnection 의 자동 리다이렉트는 중간 응답의 Set-Cookie 를 버려서, 세션 쿠키가
+        // hop 중간에 심어지는 문서(공유 링크/임베드 등)는 재요청 결과가 깨져 iframe 이 실패함.
+        fun openConn(target: String): HttpURLConnection {
+            val c = URL(target).openConnection() as HttpURLConnection
+            c.requestMethod = "GET"
+            c.connectTimeout = 10000
+            c.readTimeout = 10000
+            c.instanceFollowRedirects = false
             request.requestHeaders.forEach { (k, v) ->
                 if (k.lowercase() !in setOf("accept-encoding", "connection", "content-length")) {
-                    conn.setRequestProperty(k, v)
+                    c.setRequestProperty(k, v)
                 }
             }
             runCatching {
-                CookieManager.getInstance().getCookie(urlStr)?.let { conn.setRequestProperty("Cookie", it) }
+                CookieManager.getInstance().getCookie(target)?.let { c.setRequestProperty("Cookie", it) }
             }
             // gzip 압축 명시 — 헤더 복사 단계에서 accept-encoding을 뺐으므로 여기서 직접 지정
             // (압축 없이 받으면 HTML 전송량이 3~5배 늘어 페이지 로딩이 느려짐)
-            conn.setRequestProperty("Accept-Encoding", "gzip")
+            c.setRequestProperty("Accept-Encoding", "gzip")
+            return c
+        }
+
+        /** 응답의 Set-Cookie 를 해당 응답 URL 기준으로 CookieManager에 저장 */
+        fun saveCookies(conn: HttpURLConnection) {
+            val respUrl = conn.url.toString()
+            conn.headerFields.entries
+                .firstOrNull { it.key.equals("Set-Cookie", ignoreCase = true) }
+                ?.value?.filterNotNull()
+                ?.forEach { ck -> runCatching { CookieManager.getInstance().setCookie(respUrl, ck) } }
+        }
+
+        return runCatching {
+            var conn = openConn(urlStr)
+            var hops = 0
+            while (hops < 10) {
+                val code = conn.responseCode
+                if (code in 300..399) {
+                    saveCookies(conn)
+                    val loc = conn.getHeaderField("Location") ?: break
+                    conn.disconnect()
+                    conn = openConn(URL(URL(conn.url.toString()), loc).toString())
+                    hops++
+                    continue
+                }
+                break
+            }
+            saveCookies(conn)
             if (conn.responseCode != 200) { conn.disconnect(); return null }
             val contentType = conn.contentType ?: ""
             if (!contentType.contains("text/html")) { conn.disconnect(); return null }
@@ -160,12 +196,7 @@ class SniffingWebViewClient(
             } else conn.inputStream
             val data = bodyStream.use { it.readBytes() }
 
-            // Set-Cookie은 응답 헤더 맵 하나로 못 넘기는데(여러 개면 쉼표로 합쳐져 Expires의 쉼표 때문에 쿠키 파싱이 깨짐),
-            // 원본 값 각각을 CookieManager에 직접 저장한다. 그렇지 않으면 메인 문서 쿠키(네이버 NNB 등)가 깨져
-            // 같은 URL의 API(추천 피드 등)가 계속 실패함
-            val cookies = conn.headerFields.entries
-                .firstOrNull { it.key.equals("Set-Cookie", ignoreCase = true) }
-                ?.value?.filterNotNull()
+            // 쿠키는 각 hop(위 saveCookies)에서 이미 CookieManager에 저장함 — 중복 저장 제거
             val finalUrl = conn.url.toString()
 
             // 캐시 관련 헤더를 원본 응답에서 그대로 전달 — 재방문/뒤로가기 시 문서 캐시 히트로 빨라짐
@@ -183,9 +214,6 @@ class SniffingWebViewClient(
                 }
             }
             conn.disconnect()
-            cookies?.forEach { c ->
-                runCatching { CookieManager.getInstance().setCookie(finalUrl, c) }
-            }
 
             val cs = runCatching { charset(charset) }.getOrElse { Charsets.UTF_8 }
             var html = String(data, cs)

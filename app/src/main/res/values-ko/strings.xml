@@ -130,6 +130,7 @@
     <string name="btn_add">추가</string>
     <string name="dlg_tabs_close">현재 탭 닫기</string>
     <string name="dlg_tabs_close_all">모든 탭 닫기</string>
+    <string name="close_all_tabs_confirm">모든 탭을 닫을까요?</string>
     <string name="dlg_new_tab">새 탭</string>
     <string name="dlg_tabs_count">탭</string>
     <string name="last_tab">마지막 탭은 닫을 수 없습니다</string>

@@ -132,6 +132,7 @@
     <string name="btn_add">Add</string>
     <string name="dlg_tabs_close">Close current tab</string>
     <string name="dlg_tabs_close_all">Close all tabs</string>
+    <string name="close_all_tabs_confirm">Close all tabs?</string>
     <string name="dlg_new_tab">New tab</string>
     <string name="dlg_tabs_count">Tabs</string>
     <string name="last_tab">Cannot close the last tab</string>

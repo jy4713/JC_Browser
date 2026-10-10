@@ -4,9 +4,14 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.17 (versionCode 71)
+- 현재 버전: 2.11.18 (versionCode 72)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.18)
+- [x] **공유 링크(goto 리다이렉트) 페이지의 임베드 iframe 실패 수정** — 다른 브라우저는 정상인데 우리 것만 "일시적으로 콘텐츠 정보를 가져올 수 없습니다"가 뜨던 문제. 원인 2개: ① **injectScanner 리다이렉트 쿠키 손실** — 302로 이어지는 문서를 우리가 재요청할 때 HttpURLConnection 자동 리다이렉트가 중간 hop 응답의 Set-Cookie 를 버려 세션이 깨짐 → 리다이렉트를 수동으로 따라가며 각 hop 의 Set-Cookie 를 CookieManager에 저장하도록 재작성 (최대 10 hop) ② **AdBlocker가 iframe 문서(프레임 내비게이션)까지 차단** — 서드파티 규칙에 걸린 임베드 문서가 빈 응답이 되어 프레임 전체가 실패 → Sec-Fetch-Dest가 document/iframe 이거나 Accept에 text/html 인 내비게이션 요청은 차단에서 제외 (uBO 와 동일 — 메인/프레임 문서는 차단하지 않고 그 낶의 리소스만 차단)
+- [x] **버튼 모양 변경 (UI만)** — 거의 네모에 코너 라운드 6dp(끝부분만 살짝), 바탕색과 비슷하게 투명도 4%로 더 연하게. JcUi soft() 알파 0x14→0x0A + 라운드 20→6dp, XML soft 드로어블 4종 동일 적용
+- [x] **모든 탭 닫기 확인 다이얼로그** — 탭 다이얼로그 [모든 탭 닫기]와 메뉴 [모든 탭 닫기] 둘 다 확인 후 실행 (문자열 close_all_tabs_confirm ko/en 추가)
 
 #### 완료 (2026-10-09, v2.11.17)
 - [x] **오버레이 차단 강화** — 켜놔도 오버레이가 보이던 사례(로딩 직후가 아니라 늦게 뜨는 전체화면 딤/모달) 수정. ① 타이밍 패스 1.5초/4초에 8초 추가 ② 20초간 MutationObserver로 DOM 추가 감시 — 늦게 추가되는 레이어도 즉시 제거 ③ 휴리스틱 보강: 화면 80% 이상을 덮는 고정 레이어 + 닫기 수단(close/dismiss/skip/닫기) 있으면 광고 키워드/iframe 없어도 제거 ④ display:none/visibility:hidden 요소 스킵, 빈 영역 스킵으로 오탐 감소

@@ -59,9 +59,9 @@ object JcUi {
         return RippleDrawable(ColorStateList.valueOf(0x1A000000), content, null)
     }
 
-    /** 라벨 색의 은은한 톤 (alpha 8%) — 버튼 배경용 */
+    /** 라벨 색의 옅은 톤 (alpha 4%) — 버튼 배경을 바탕과 비슷하게 */
     fun soft(color: Int): Int =
-        Color.argb(0x14, Color.red(color), Color.green(color), Color.blue(color))
+        Color.argb(0x0A, Color.red(color), Color.green(color), Color.blue(color))
 
     /** 플랫 라벨 버튼 — 투명+ripple, 아이콘+텍스트, 13sp */
     fun pill(
@@ -78,7 +78,7 @@ object JcUi {
             setPadding(w, h, w, h)
             minimumWidth = dp(ctx, 72)
             minimumHeight = dp(ctx, 40)
-            background = rippleBg(ctx, 20, soft(color))
+            background = rippleBg(ctx, 6, soft(color))
             if (iconRes != 0) {
                 ctx.getDrawable(iconRes)?.mutate()?.let { d ->
                     d.setTint(color)

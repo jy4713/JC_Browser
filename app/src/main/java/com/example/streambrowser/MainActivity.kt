@@ -974,12 +974,19 @@ class MainActivity : Activity() {
             dlg.dismiss()
         }
         dlg.findViewById<Button>(R.id.btnCloseAll).setOnClickListener {
-            // 모든 탭 닫고 홈 탭 하나만 새로 열기
-            tabs.forEach { runCatching { it.web.destroy() } }
-            tabs.clear()
-            current = 0
-            createTab(prefs.getString("home_url", HOME) ?: HOME)
-            dlg.dismiss()
+            // 모든 탭 닫고 홈 탭 하나만 새로 열기 (실수 방지 확인)
+            AlertDialog.Builder(this)
+                .setTitle(R.string.dlg_tabs_close_all)
+                .setMessage(R.string.close_all_tabs_confirm)
+                .setPositiveButton(R.string.btn_ok) { _, _ ->
+                    tabs.forEach { runCatching { it.web.destroy() } }
+                    tabs.clear()
+                    current = 0
+                    createTab(prefs.getString("home_url", HOME) ?: HOME)
+                    dlg.dismiss()
+                }
+                .setNegativeButton(R.string.btn_cancel, null)
+                .show()
         }
         dlg.show()
     }
@@ -1291,7 +1298,7 @@ class MainActivity : Activity() {
                     reopenClosedTab()
                 },
                 MenuEntry(s(R.string.menu_close_all_tabs), R.drawable.ic_close, null) {
-                    closeAllTabs()
+                    confirmCloseAllTabs()
                 },
                 MenuEntry(s(R.string.menu_restore_tabs), R.drawable.ic_tabs, "restore_tabs") {
                     val on = !prefs.getBoolean("restore_tabs", true)
@@ -2507,6 +2514,15 @@ class MainActivity : Activity() {
             }
         }
         com.example.streambrowser.util.JcToast.show(this, getString(R.string.none_closed))
+    }
+
+    private fun confirmCloseAllTabs() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.menu_close_all_tabs)
+            .setMessage(R.string.close_all_tabs_confirm)
+            .setPositiveButton(R.string.btn_ok) { _, _ -> closeAllTabs() }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
     }
 
     private fun closeAllTabs() {
