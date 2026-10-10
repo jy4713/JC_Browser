@@ -4,9 +4,13 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.27 (versionCode 81)
+- 현재 버전: 2.11.28 (versionCode 82)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.28)
+- [x] 메뉴(General)에서 "모든 탭 닫기" 제거 — 탭 메뉴(하단 탭 시트)에 동일 기능이 있어 중복. 탭 시트의 모든 탭 닫기는 그대로 정상 동작, 사용처 없어진 확인 다이얼로그 함수 정리
+- [x] **메뉴 스크롤 시 인덴테이션/레이아웃 깨짐 수정** — ① 메뉴 RecyclerView 가 `wrap_content` 높이라 스크롤 중 재활용/재측정 때마다 높이가 다시 계산돼 그리드 열과 들여쓰기가 흔들리는 문제: 첫 측정 후 최대 470dp 로 고정 clamp (짧은 메뉴는 여전히 wrap_content 유지) ② 하위 메뉴(Child)의 26dp 들여쓰기 패딩이 헤더 재활용 시 리셋 안 돼 깨지던 문제: Header 바인딩 시 패딩 리셋 추가
 
 #### 완료 (2026-10-10, v2.11.27)
 - [x] **다운로드 목록 "실행" 재생 실패 수정 — 확장자 없는 HLS 재생목록(master.txt 등) 인식** — 스캐너가 본문 기반으로 잡아낸 HLS 인데 URL 에 `.m3u8` 이 없어 PlayerActivity 가 일반 MP4 로 취급, `<video src>` 직접 재생 → `VIDEO ERROR code=4 network=3`(MEDIA_ERR_SRC_NOT_SUPPORTED). `DetectedVideo.kind`(HLS) 와 감지 시점 헤더를 PlayerActivity 에 전달해 ① HLS 판정을 kind 우선으로, ② hls.js `xhrSetup` 에 Referer/Cookie/UA 등 감지 헤더 적용 (CDN 헤더 검사 대응, 크로미엄 금지 헤더는 조용히 무시)

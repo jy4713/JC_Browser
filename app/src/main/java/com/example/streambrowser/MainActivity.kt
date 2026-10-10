@@ -1434,9 +1434,6 @@ class MainActivity : Activity() {
                 MenuEntry(s(R.string.menu_reopen_tab), R.drawable.ic_history, null) {
                     reopenClosedTab()
                 },
-                MenuEntry(s(R.string.menu_close_all_tabs), R.drawable.ic_close, null) {
-                    confirmCloseAllTabs()
-                },
                 MenuEntry(s(R.string.menu_restore_tabs), R.drawable.ic_tabs, "restore_tabs") {
                     val on = !prefs.getBoolean("restore_tabs", true)
                     prefs.edit().putBoolean("restore_tabs", on).apply()
@@ -1502,6 +1499,18 @@ class MainActivity : Activity() {
         val list = dlg.findViewById<RecyclerView>(R.id.listMenu) ?: return
         list.layoutManager = LinearLayoutManager(this)
         list.adapter = MenuSheetAdapter(buildMenuRows())
+        // wrap_content 높이에서 스크롤하면 아이템 재활용/재측정 때마다 높이가 다시 계산돼
+        // 레이아웃(그리드 열/들여쓰기)이 흔들리는 문제 — 첫 측정 후 최대 470dp 로 고정 clamp
+        list.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                list.viewTreeObserver.removeOnPreDrawListener(this)
+                val maxH = (470 * resources.displayMetrics.density).toInt()
+                if (list.height > maxH) {
+                    list.layoutParams = list.layoutParams.apply { height = maxH }
+                }
+                return true
+            }
+        })
     }
 
     /** 각 설정의 실제 동작 기본값 (메뉴 ON 표시와 일치시키기 위함) */
@@ -1699,6 +1708,8 @@ class MainActivity : Activity() {
                 }
                 is MenuRow.Header -> {
                     h.group?.visibility = View.GONE
+                    // 재활용 전에 Child 였던 뷰의 들여쓰기 패딩이 남지 않게 리셋
+                    h.itemView.setPaddingRelative(0, 0, 0, 0)
                     val grp = menuGroups().firstOrNull { it.groupRes == r.groupRes }
                     h.icon?.setImageResource(grp?.iconRes ?: R.drawable.ic_menu_vert)
                     h.title?.text = grp?.label?.invoke() ?: getString(r.groupRes)
@@ -2952,15 +2963,6 @@ class MainActivity : Activity() {
             }
         }
         com.example.streambrowser.util.JcToast.show(this, getString(R.string.none_closed))
-    }
-
-    private fun confirmCloseAllTabs() {
-        AlertDialog.Builder(this)
-            .setTitle(R.string.menu_close_all_tabs)
-            .setMessage(R.string.close_all_tabs_confirm)
-            .setPositiveButton(R.string.btn_ok) { _, _ -> closeAllTabs() }
-            .setNegativeButton(R.string.btn_cancel, null)
-            .show()
     }
 
     private fun closeAllTabs() {
