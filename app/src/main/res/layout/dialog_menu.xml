@@ -35,11 +35,10 @@
         android:paddingTop="4dp"
         android:paddingBottom="4dp" />
 
-    <androidx.recyclerview.widget.RecyclerView
+    <com.example.streambrowser.ui.MaxHeightRecyclerView
         android:id="@+id/listMenu"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:maxHeight="470dp"
         android:overScrollMode="never" />
 </LinearLayout>

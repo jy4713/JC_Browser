@@ -1186,6 +1186,13 @@ class MainActivity : Activity() {
         class Quick(val entry: MenuEntry) : MenuRow()
         class Header(val groupRes: Int) : MenuRow()
         class Child(val entry: MenuEntry) : MenuRow()
+        /** 매 rebuild 마다 새 인스턴스가 생성되므로 참조 비교 불가 — 안정적인 키로 diff 판정 */
+        val key: String
+            get() = when (this) {
+                is Header -> "H$groupRes"
+                is Quick -> "Q${entry.title}|${entry.prefKey}"
+                is Child -> "C${entry.title}|${entry.prefKey}"
+            }
     }
 
     private var menuDialog: Dialog? = null
@@ -1490,7 +1497,7 @@ class MainActivity : Activity() {
             setGravity(Gravity.BOTTOM)
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
-        dlg.setOnDismissListener { menuDialog = null; menuAdapter = null; menuRowCount = 0 }
+        dlg.setOnDismissListener { menuDialog = null; menuAdapter = null }
         refreshMenuContent(dlg)
         dlg.show()
     }
@@ -1522,44 +1529,34 @@ class MainActivity : Activity() {
         }
     }
 
-    /** 현재 메뉴 어댑터/행 수 — rebuild 시 어댑터 재사용과 축소 판정용 */
+    /** 현재 메뉴 어댑터 — rebuild 시 재사용해 스크롤 앵커 유지 */
     private var menuAdapter: MenuSheetAdapter? = null
-    private var menuRowCount = 0
 
     private fun refreshMenuContent(dlg: Dialog) {
         val grid = dlg.findViewById<GridLayout>(R.id.shortcutGrid)
         grid?.let { fillShortcutGrid(it) }
-        val list = dlg.findViewById<RecyclerView>(R.id.listMenu) ?: return
+        val list = dlg.findViewById<com.example.streambrowser.ui.MaxHeightRecyclerView>(R.id.listMenu) ?: return
         if (list.layoutManager == null) list.layoutManager = LinearLayoutManager(this)
         val rows = buildMenuRows()
         val adapter = menuAdapter.takeIf { list.adapter === it }
         if (adapter != null) {
-            // 같은 어댑터 갱신 — RecyclerView 가 스크롤 앵커를 유지해 펼친 그룹이 그 자리에서 펼쳐짐
             adapter.update(rows)
-            if (rows.size < menuRowCount) {
-                // 메뉴 접힘(축소) — 이전 고정 높이가 남지 않게 다시 wrap 으로 (아래 preDraw 가 재고정)
-                list.layoutParams = list.layoutParams.apply { height = ViewGroup.LayoutParams.WRAP_CONTENT }
-            }
         } else {
             list.adapter = MenuSheetAdapter(rows).also { menuAdapter = it }
         }
-        menuRowCount = rows.size
-        // wrap_content 높이에서 스크롤하면 아이템 재활용/재측정 때마다 높이가 다시 계산돼
-        // 레이아웃(들여쓰기)이 흔들리는 문제 — 첫 측정 후 고정 clamp.
-        // 상단 그리드가 항상 보여야 하므로 화면 높이에서 그리드/제목/패딩을 뺀 값까지 허용
-        list.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
-            override fun onPreDraw(): Boolean {
-                list.viewTreeObserver.removeOnPreDrawListener(this)
-                val density = resources.displayMetrics.density
-                val other = (grid?.height ?: 0) + (170 * density).toInt()
-                val maxByScreen = resources.displayMetrics.heightPixels - other
-                val maxH = minOf((470 * density).toInt(), maxByScreen)
-                if (list.height > maxH) {
-                    list.layoutParams = list.layoutParams.apply { height = maxH }
+        if (list.maxHeightPx == 0) {
+            list.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    list.viewTreeObserver.removeOnPreDrawListener(this)
+                    val density = resources.displayMetrics.density
+                    list.maxHeightPx = minOf(
+                        (470 * density).toInt(),
+                        resources.displayMetrics.heightPixels - (grid?.height ?: 0) - (170 * density).toInt()
+                    )
+                    return true
                 }
-                return true
-            }
-        })
+            })
+        }
     }
 
     /** 각 설정의 실제 동작 기본값 (메뉴 ON 표시와 일치시키기 위함) */
@@ -1714,10 +1711,25 @@ class MainActivity : Activity() {
         var rows: List<MenuRow>
     ) : RecyclerView.Adapter<MenuSheetAdapter.VH>() {
 
-        /** 같은 어댑터로 행 갱신 — 새 어댑터 교체 없이 스크롤 위치가 유지됨 */
+        /** 같은 어댑터로 행 갱신 — 키 기반 diff 로 삽입/삭제만 범위 notify 해
+         *  RecyclerView 가 스크롤 앵커를 유지해 펼친 그룹이 그 자리에서 펼쳐짐 */
         fun update(newRows: List<MenuRow>) {
+            val old = rows
             rows = newRows
-            notifyDataSetChanged()
+            val oldKeys = old.map { it.key }
+            val newKeys = newRows.map { it.key }
+            if (oldKeys == newKeys) { notifyItemRangeChanged(0, newRows.size); return }
+            var pre = 0
+            while (pre < minOf(old.size, newRows.size) && oldKeys[pre] == newKeys[pre]) pre++
+            var suf = 0
+            while (suf < minOf(old.size - pre, newRows.size - pre) &&
+                   oldKeys[old.size - 1 - suf] == newKeys[newRows.size - 1 - suf]) suf++
+            val oldMid = old.size - suf
+            val newMid = newRows.size - suf
+            if (newMid > pre) notifyItemRangeInserted(pre, newMid - pre)
+            if (oldMid > pre) notifyItemRangeRemoved(pre, oldMid - pre)
+            // 탭한 그룹 헤더(공통 접두어 마지막, 화살표 ▾↔▸) 상태 갱신
+            if (pre > 0) notifyItemChanged(pre - 1)
         }
 
         inner class VH(v: View, val type: Int) : RecyclerView.ViewHolder(v) {

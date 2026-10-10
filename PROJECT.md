@@ -4,10 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.32 (versionCode 86)
+- 현재 버전: 2.11.33 (versionCode 87)
 
 ## 이슈 트래커
 
+#### 완료 (2026-10-10, v2.11.33)
+- [x] **메뉴 펼침/접힘 시트 튐 재수정 (근본 접근 교체)** — v2.11.31/32 의 스크롤 복원·수동 높이 clamp 방식은 여전히 아래쪽 그룹 펼침/접힘에서 시트 높이 재측정 때 "툭툭 튀는" 현상이 남아 있었음. 수정: ① 메뉴 RecyclerView 를 커스텀 `MaxHeightRecyclerView` 로 교체 — `android:maxHeight` 미적용 문제를 측정 스펙을 `AT_MOST(max)` 로 교체하는 방식으로 해결해 내용 적으면 wrap(내용만큼), 많으면 최대 높이로 결정적 고정. 측정이 매 프레임 안정적이라 레이아웃 파라미터 수동 clamp(불안정 원인) 제거 ② 어댑터 갱신을 `notifyDataSetChanged` 대신 키 기반 diff (`MenuRow.key` — Header=groupRes, Quick/Child=title+prefKey) 로 변경: 펼침=삽입, 접힘=삭제만 `notifyItemRangeInserted/Removed` 로 알려 RecyclerView 가 스크롤 앵커를 정확히 유지하고 그 자리에서 부드럽게 펼쳐짐. 같은 행 구성(토글 rebuild)은 `notifyItemRangeChanged` 로 상태만 갱신. 사용 안 하게 된 `menuRowCount` 필드 정리
 #### 완료 (2026-10-10, v2.11.32)
 - [x] **메뉴 펼침 시 튕기며 맨 위로 올라가던 문제 재수정** — v2.11.31 의 스크롤 복원이 동작하지 않던 원인: rebuild 때마다 새 LinearLayoutManager 를 생성해 빈 상태에서 스크롤 상태를 저장하고 있었음 + 높이를 매번 WRAP_CONTENT 로 초기화해 시트가 튐. 수정: ① 어댑터를 재사용하고 notifyDataSetChanged 로 갱신 — RecyclerView 가 스크롤 앵커를 자동 유지해 펼친 그룹이 그 자리에서 바로 펼쳐짐 ② 높이 wrap 초기화는 메뉴가 접혀 내용이 줄어들 때만 수행
 
