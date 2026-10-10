@@ -11,8 +11,13 @@ android {
         applicationId = "com.example.streambrowser"
         minSdk = 24
         targetSdk = 34
-        versionCode = 78
-        versionName = "2.11.24"
+        versionCode = 79
+        versionName = "2.11.25"
+    }
+
+    // 로그/디버깅에서 BuildConfig.VERSION_NAME 접근용 (AGP 8 기본값은 false)
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {

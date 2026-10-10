@@ -74,6 +74,7 @@ class SniffingWebViewClient(
                 // 차단 필터가 스트리밍 CDN 호스트까지 걸러버리면 재생과 다운로드가 둘 다 먹통이 되는
                 // 사례가 있어 미디어는 무조건 통과시키고 목록에만 등록 (uBO와 동일 정책)
                 VideoStore.add(view, DetectedVideo(url = url, page = view.url ?: "", kind = mediaKind, headers = captureHeaders(request)))
+                android.util.Log.d("JC_Sniff", "media $mediaKind $url")
             } else {
                 // 문서 남비게이션(메인 프레임 + iframe 메인 리소스)은 차단 금지 —
                 // 빈 응답을 받은 프레임은 통째로 실패해 "콘텐츠를 가져올 수 없습니다"가 뜸
@@ -90,8 +91,14 @@ class SniffingWebViewClient(
             // HTML 문서(메인 프레임 + iframe)면 스캐너 JS 주입
             // - fetch/XHR(API)는 Sec-Fetch-Dest로 구분해 제외 — 가로채면 API가 깨지거나(네이버 추천 피드 등)
             //   스트리밍/롱폴 엔드포인트면 읽기가 멈춰 페이지 로딩이 끝나지 않음
-            if (request.method == "GET" && looksLikeDocument(request)) {
-                injectScanner(view, request)?.let { return it }
+            if (request.method == "GET") {
+                if (looksLikeDocument(request)) {
+                    injectScanner(view, request)?.let { return it }
+                } else if (request.isForMainFrame) {
+                    // 메인 프레임 GET인데 문서로 판정 안 됨 — 판정 기준(Sec-Fetch-Dest/Accept) 미달,
+                    // 이 경우 스캐너 주입이 안 돼 스트리밍 감지가 통째로 빠지므로 로그로 추적
+                    android.util.Log.d("JC_Sniff", "mainFrame not doc accept=${request.requestHeaders["Accept"]} $url")
+                }
             }
         }
         return null
@@ -138,13 +145,20 @@ class SniffingWebViewClient(
     private fun injectScanner(view: WebView, request: WebResourceRequest): WebResourceResponse? {
         val urlStr = request.url.toString()
         if (urlStr.startsWith("data:") || urlStr.startsWith("about:")) return null
+        android.util.Log.i("JC_Sniff", "inject try $urlStr mainFrame=${request.isForMainFrame}")
         val host = request.url.host ?: ""
         // 보안 인증(Cloudflare Turnstile/hCaptcha/reCAPTCHA) 관련 페이지에는 주입하지 않음
         // (JS 훅이 챌린지를 감지해 체크박스가 나타나지 않는 문제 방지)
-        if (isSecurityChallengeHost(host)) return null
+        if (isSecurityChallengeHost(host)) {
+            android.util.Log.d("JC_Sniff", "inject skip challenge host $host")
+            return null
+        }
         // 네이버 계열은 문서를 우리가 재전송하면 블로그 임베드가 "콘텐츠를 가져올 수 없습니다"로
         // 깨지는 사례가 있어 제외 — 네이버는 스트리밍 스니핑 대상이 아니니 네이티브 로딩 유지
-        if (host == "naver.com" || host.endsWith(".naver.com")) return null
+        if (host == "naver.com" || host.endsWith(".naver.com")) {
+            android.util.Log.d("JC_Sniff", "inject skip naver $urlStr")
+            return null
+        }
 
         // 리다이렉트(302 등)를 수동으로 따라가며 각 hop 의 Set-Cookie 를 CookieManager에 저장.
         // HttpURLConnection 의 자동 리다이렉트는 중간 응답의 Set-Cookie 를 버려서, 세션 쿠키가
@@ -247,7 +261,10 @@ class SniffingWebViewClient(
             val cs = runCatching { charset(charset) }.getOrElse { Charsets.UTF_8 }
             var html = String(data, cs)
             // 챌린지 페이지면 원본 그대로 둔다 (인증 스크립트가 주입을 감지하지 않게)
-            if (isSecurityChallengePage(html)) return null
+            if (isSecurityChallengePage(html)) {
+                android.util.Log.d("JC_Sniff", "inject skip challenge page $finalUrl")
+                return null
+            }
             if ("__sbScanner" !in html) {
                 val script = "<script>window.__sbMinImg=${VideoJsBridge.imageMinWidth};${VideoJsBridge.SCANNER_JS}</script>"
                 val m = Regex("(?i)<head[^>]*>").find(html)
@@ -257,9 +274,12 @@ class SniffingWebViewClient(
                     script + html
                 }
             }
+            android.util.Log.i("JC_Sniff", "inject OK $finalUrl")
             WebResourceResponse("text/html", charset, ByteArrayInputStream(html.toByteArray(cs))).apply {
                 if (respHeaders.isNotEmpty()) responseHeaders = respHeaders
             }
+        }.onFailure {
+            android.util.Log.w("JC_Sniff", "inject error $urlStr ${it.javaClass.simpleName}: ${it.message}")
         }.getOrNull()
     }
 
@@ -509,6 +529,11 @@ class SniffingWebViewClient(
     }
 
     companion object {
+        init {
+            // 로그 캡처 시 설치된 앱 버전 확인용 — 스캐너 로깅이 이 줄로 시작되는지도 확인 가능
+            android.util.Log.i("JC_Sniff", "JC Browser ${com.example.streambrowser.BuildConfig.VERSION_NAME} (${com.example.streambrowser.BuildConfig.VERSION_CODE}) sniff init")
+        }
+
         /** magnet / .torrent 링크 처리 콜백 — MainActivity가 설정 (토렌트 기능) */
         @Volatile var onTorrentLink: ((android.content.Context, String) -> Unit)? = null
 

@@ -24,6 +24,7 @@ class VideoJsBridge(private val owner: WebView? = null) {
             ".flv" in url -> "FLV"
             else -> "MEDIA"
         }
+        android.util.Log.d("JC_Sniff", "js addVideo kind=$kind tag=$tag $url")
         VideoStore.add(owner, DetectedVideo(url = url, page = page, kind = kind))
     }
 

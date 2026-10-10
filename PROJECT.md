@@ -4,9 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.24 (versionCode 78)
+- 현재 버전: 2.11.25 (versionCode 79)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.25)
+- [x] **스트리밍 감지 미동작 추적용 전면 로깅** — 사용자 기기 로그(`adb logcat -s JC_Sniff:V`)에서 iframe(jwplayer/hls.js)이 정상 로딩·재생 중(`frameRate=29.97`)인데 m3u8 흔적과 JC_Sniff 로그가 0건으로, 주입 시도 자체 여부를 알 수 없던 문제. `injectScanner` 진입/성공(`inject OK`)/스킵 사유(챌린지 호스트·페이지·네이버)/예외, 네이티브 미디어 감지(`media`), JS 스캐너의 `addVideo` 콜백, 문서 판정 실패 메인프레임(`mainFrame not doc`)까지 전부 Logcat 남김. 앱 시작 시 `JC Browser x.y.z (code)` 시작 로그로 설치 버전 확인 가능. BuildConfig 접근용 `buildFeatures.buildConfig = true` 활성화
 
 #### 완료 (2026-10-10, v2.11.24)
 - [x] **스트리밍 감지 실패 근본 원인 수정 — iframe 스캐너 주입 시 Referer 보충** — 사이트 분석 결과: 영상은 크로스오리진 iframe(호스트가 수시로 바뀌는 영상 호스팅, 예: FirePlayer/JWPlayer) 안에서 hls.js 가 m3u8 을 XHR 로 받아가는 구조. WebView 의 `shouldInterceptRequest` 는 요청 헤더에서 **Referer 를 빼고** 낚는 경우가 많아(Chromium), 스캐너 주입용 iframe HTML 재요청이 리퍼러 없이 나가 서버가 404 를 돌림 → 폴드백(원본 로딩)으로 스캐너 없이 로드돼 재생은 되는데 다운로드 목록이 텅 빔(실제 curl 로 리퍼러 유무에 따라 404/200 확인). 수정: 주입 재요청 시 복사된 헤더에 Referer 가 없고 메인 프레임이 아니면 `view.url`(부모 페이지)을 Referer 로 보충. 주입 실패/비-HTML 응답 시 Logcat(`JC_Sniff`) 경고 남김
