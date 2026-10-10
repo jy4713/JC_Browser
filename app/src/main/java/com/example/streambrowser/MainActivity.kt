@@ -599,7 +599,7 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             runCatching { wv.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true) }
         }
-        wv.webViewClient = SniffingWebViewClient(
+        val sniffClient = SniffingWebViewClient(
             onPageStartedCb = { view, url ->
                 runOnUiThread {
                     if (view == current()?.web && !editUrl.isFocused) {
@@ -662,6 +662,10 @@ class MainActivity : Activity() {
             },
             onRenderProcessGoneCb = { gone -> recoverRenderProcess(gone) }
         )
+        wv.webViewClient = sniffClient
+        // 스캐너 주입 재요청용 UA 캐시 — shouldInterceptRequest 는 백그라운드 스레드에서
+        // 불려 view.settings 에 직접 접근하면 스레드 체크 예외가 나므로 메인 스레드에서 여기서 저장
+        sniffClient.userAgent = wv.settings.userAgentString
         chromeClient = object : WebChromeClient() {
             override fun onCreateWindow(
                 view: WebView, isDialog: Boolean, isUserGesture: Boolean,
@@ -1240,6 +1244,9 @@ class MainActivity : Activity() {
                 prefs.edit().putBoolean("desktop", on).apply()
                 tabs.forEach {
                     it.web.settings.userAgentString = if (on) UA_DESKTOP else UA_MOBILE
+                    // 스캐너 주입 재요청용 UA 캐시도 함께 갱신 (백그라운드에선 view.settings 접근 불가)
+                    (it.web.webViewClient as? com.example.streambrowser.browser.SniffingWebViewClient)
+                        ?.userAgent = if (on) UA_DESKTOP else UA_MOBILE
                     it.web.reload()
                 }
                 rebuildMenu()

@@ -37,6 +37,18 @@ class SniffingWebViewClient(
     @Volatile
     private var lastGestureAt = 0L
 
+    /* WebView 메서드(view.url, view.settings 등)는 WebView 를 생성한 스레드(메인)에서만
+     * 호출 가능 — 최신 System WebView 는 백그라운드 스레드에서 호출하면 RuntimeException.
+     * shouldInterceptRequest 는 'ThreadPoolForeg' 등 백그라운드에서 불리므로 직접 접근 금지,
+     * 메인 스레드 콜백/설정 시점에 값을 아래 캐시에 저장하고 백그라운드에서는 캐시만 읽음 */
+    @Volatile
+    var userAgent: String = ""
+    @Volatile
+    private var pageUrlCached: String = ""
+
+    /** 현재 페이지 URL (백그라운드 스레드에서 안전하게 읽을 수 있는 캐시) */
+    fun currentPageUrl(): String = pageUrlCached
+
     /** 호스트에서 베이스 도메인(등록 도메인) 추출 — 서브도메인 순환 사이트를 같은 사이트로 취급 */
     private fun baseDomain(host: String): String {
         val labels = host.lowercase().trimEnd('.').split('.')
@@ -73,7 +85,7 @@ class SniffingWebViewClient(
                 // 스트리밍 미디어(m3u8/mpd/mp4 등)는 광고 차단·이미지 차단 대상이 아님.
                 // 차단 필터가 스트리밍 CDN 호스트까지 걸러버리면 재생과 다운로드가 둘 다 먹통이 되는
                 // 사례가 있어 미디어는 무조건 통과시키고 목록에만 등록 (uBO와 동일 정책)
-                VideoStore.add(view, DetectedVideo(url = url, page = view.url ?: "", kind = mediaKind, headers = captureHeaders(request)))
+                VideoStore.add(view, DetectedVideo(url = url, page = pageUrlCached, kind = mediaKind, headers = captureHeaders(request)))
                 android.util.Log.d("JC_Sniff", "media $mediaKind $url")
             } else {
                 // 문서 남비게이션(메인 프레임 + iframe 메인 리소스)은 차단 금지 —
@@ -170,8 +182,9 @@ class SniffingWebViewClient(
             c.readTimeout = 10000
             c.instanceFollowRedirects = false
             // User-Agent 명시 — WebView 의 requestHeaders 에 UA가 빠져 있으면 Java 기본 UA 가 나가
-            // 서버(네이버 등)가 다른 응답/에러 페이지를 돌려주는 원인이 됨
-            c.setRequestProperty("User-Agent", view.settings.userAgentString)
+            // 서버(네이버 등)가 다른 응답/에러 페이지를 돌려주는 원인이 됨.
+            // view.settings 는 백그라운드 스레드에서 접근 불가(WebView 스레드 체크)라 메인 스레드가 캐시한 값 사용
+            c.setRequestProperty("User-Agent", userAgent.ifBlank { DEFAULT_UA })
             request.requestHeaders.forEach { (k, v) ->
                 if (k.lowercase() !in setOf("accept-encoding", "connection", "content-length")) {
                     c.setRequestProperty(k, v)
@@ -180,14 +193,13 @@ class SniffingWebViewClient(
             /* WebView 의 shouldInterceptRequest 는 Referer 헤더를 목록에서 빼는 경우가 많음(Chromium).
              * 영상 호스팅 iframe 들은 리퍼러 없으면 404 → 폴드백(원본 로딩)으로 스캐너가 빠져
              * 재생은 되는데 다운로드 목록이 텅 비는 사례가 있음.
-             * iframe 문서(메인 프레임 아님)면 부모 페이지(view.url)를 Referer 로 보충해 재요청 성공률을 높임 */
+             * iframe 문서(메인 프레임 아님)면 부모 페이지를 Referer 로 보충해 재요청 성공률을 높임.
+             * view.url 대신 메인 스레드가 캐시한 페이지 URL 사용 (백그라운드 WebView 접근 금지) */
             if (!request.isForMainFrame &&
                 request.requestHeaders.keys.none { it.equals("Referer", ignoreCase = true) }
             ) {
-                runCatching {
-                    view.url?.takeIf { it.startsWith("http") }
-                        ?.let { c.setRequestProperty("Referer", it) }
-                }
+                pageUrlCached.takeIf { it.startsWith("http") }
+                    ?.let { c.setRequestProperty("Referer", it) }
             }
             runCatching {
                 CookieManager.getInstance().getCookie(target)?.let { c.setRequestProperty("Cookie", it) }
@@ -503,10 +515,12 @@ class SniffingWebViewClient(
     }
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+        pageUrlCached = url
         onPageStartedCb(view, url)
     }
 
     override fun onPageFinished(view: WebView, url: String) {
+        pageUrlCached = url
         onPageFinishedCb(view, url)
     }
 
@@ -529,6 +543,10 @@ class SniffingWebViewClient(
     }
 
     companion object {
+        /** 캐시된 UA 가 아직 없을 때의 폴드백 — 최신 모바일 크롬 UA */
+        private const val DEFAULT_UA =
+            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+
         init {
             // 로그 캡처 시 설치된 앱 버전 확인용 — 스캐너 로깅이 이 줄로 시작되는지도 확인 가능
             android.util.Log.i("JC_Sniff", "JC Browser ${com.example.streambrowser.BuildConfig.VERSION_NAME} (${com.example.streambrowser.BuildConfig.VERSION_CODE}) sniff init")

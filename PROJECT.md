@@ -4,9 +4,13 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.25 (versionCode 79)
+- 현재 버전: 2.11.26 (versionCode 80)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.26)
+- [x] **스트리밍 감지 실패의 진짜 근본 원인 수정 — 백그라운드 스레드 WebView 메서드 호출 예외** — 로그(`JC_Sniff`)로 확정: `shouldInterceptRequest` 는 `ThreadPoolForeg` 등 백그라운드 스레드에서 불리는데, 스캐너 주입 재요청 시 `view.settings.userAgentString` 접근이 최신 System WebView 의 스레드 체크(`All WebView methods must be called on the same thread`)에 걸려 **모든 주입이 예외로 실패** → 원본 로딩 폴드백 → 스캐너 없이 재생만 되고 다운로드 목록 텅 빔. 미디어 감지 경로의 `view.url` 도 동일 예외 위험이 있어 함께 수정. 최근 WebView 업데이트로 체크가 강화돼 "갑자기" 동작이 멈춘 것과 일치
+- [x] **수정 방식 — 메인 스레드 캐시** — `SniffingWebViewClient` 에 `@Volatile userAgent`/`pageUrlCached` 추가: UA 는 WebView 생성 시점과 데스크톱 모드 토글 시 메인 스레드에서 저장(폴드백 UA 상수 포함), 페이지 URL 은 `onPageStarted`/`onPageFinished`(메인 스레드)에서 갱신. 백그라운드 경로(`injectScanner`, 미디어 감지, Referer 보충)는 캐시만 읽도록 전환
 
 #### 완료 (2026-10-10, v2.11.25)
 - [x] **스트리밍 감지 미동작 추적용 전면 로깅** — 사용자 기기 로그(`adb logcat -s JC_Sniff:V`)에서 iframe(jwplayer/hls.js)이 정상 로딩·재생 중(`frameRate=29.97`)인데 m3u8 흔적과 JC_Sniff 로그가 0건으로, 주입 시도 자체 여부를 알 수 없던 문제. `injectScanner` 진입/성공(`inject OK`)/스킵 사유(챌린지 호스트·페이지·네이버)/예외, 네이티브 미디어 감지(`media`), JS 스캐너의 `addVideo` 콜백, 문서 판정 실패 메인프레임(`mainFrame not doc`)까지 전부 Logcat 남김. 앱 시작 시 `JC Browser x.y.z (code)` 시작 로그로 설치 버전 확인 가능. BuildConfig 접근용 `buildFeatures.buildConfig = true` 활성화
