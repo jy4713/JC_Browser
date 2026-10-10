@@ -16,6 +16,7 @@
     <string name="group_settings">Settings</string>
     <string name="group_privacy">Privacy &amp; security</string>
     <string name="group_general">General</string>
+    <string name="group_search">Search</string>
     <string name="menu_home_setting">Home page</string>
     <string name="dlg_home_title">Home page URL</string>
     <string name="menu_home_saved">Home page saved</string>

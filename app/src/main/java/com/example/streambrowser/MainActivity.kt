@@ -1411,24 +1411,6 @@ class MainActivity : Activity() {
                 }
             )),
             MenuGroup(R.string.group_general, R.drawable.ic_settings, listOf(
-                MenuEntry(getString(R.string.menu_search_engine) + ": " + searchEngineLabel(), R.drawable.ic_search, null) {
-                    showSearchEngineDialog()
-                },
-                MenuEntry(s(R.string.menu_suggest), R.drawable.ic_search, "suggest") {
-                    val on = !prefs.getBoolean("suggest", true)
-                    prefs.edit().putBoolean("suggest", on).apply()
-                    if (!on) suggestPopup?.dismiss()
-                },
-                MenuEntry(getString(R.string.menu_theme) + ": " + themeModeLabel(), R.drawable.ic_dark, null) {
-                    showThemeDialog()
-                },
-                MenuEntry(s(R.string.menu_video_tap), R.drawable.ic_play, "video_tap_menu") {
-                    val on = !prefs.getBoolean("video_tap_menu", false)
-                    prefs.edit().putBoolean("video_tap_menu", on).apply()
-                },
-                MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
-                    showTextSizeDialog()
-                },
                 MenuEntry(s(R.string.menu_home_setting), R.drawable.ic_home, null) {
                     showHomeDialog()
                 },
@@ -1439,19 +1421,40 @@ class MainActivity : Activity() {
                     val on = !prefs.getBoolean("restore_tabs", true)
                     prefs.edit().putBoolean("restore_tabs", on).apply()
                 },
-                MenuEntry(s(R.string.menu_language), R.drawable.ic_menu_vert, null) {
-                    showLanguageDialog()
+                MenuEntry(s(R.string.menu_video_tap), R.drawable.ic_play, "video_tap_menu") {
+                    val on = !prefs.getBoolean("video_tap_menu", false)
+                    prefs.edit().putBoolean("video_tap_menu", on).apply()
                 },
                 MenuEntry(s(R.string.menu_backup), R.drawable.ic_download, null) {
                     showBackupDialog()
-                },
-                MenuEntry(s(R.string.menu_about), R.drawable.ic_search, null) {
-                    showAbout()
-                },
-                MenuEntry(s(R.string.menu_exit), R.drawable.ic_close, null) {
-                    finish()
                 }
-            ))
+            )),
+            MenuGroup(R.string.group_display, R.drawable.ic_dark, listOf(
+                MenuEntry(getString(R.string.menu_theme) + ": " + themeModeLabel(), R.drawable.ic_dark, null) {
+                    showThemeDialog()
+                },
+                MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
+                    showTextSizeDialog()
+                },
+                MenuEntry(s(R.string.menu_language), R.drawable.ic_menu_vert, null) {
+                    showLanguageDialog()
+                }
+            )),
+            MenuGroup(R.string.group_search, R.drawable.ic_search, listOf(
+                MenuEntry(getString(R.string.menu_search_engine) + ": " + searchEngineLabel(), R.drawable.ic_search, null) {
+                    showSearchEngineDialog()
+                },
+                MenuEntry(s(R.string.menu_suggest), R.drawable.ic_search, "suggest") {
+                    val on = !prefs.getBoolean("suggest", true)
+                    prefs.edit().putBoolean("suggest", on).apply()
+                    if (!on) suggestPopup?.dismiss()
+                }
+            )),
+            // About/Exit — 상위 레벨에서 헤더 탭으로 바로 실행 (VPN 과 동일한 방식)
+            MenuGroup(R.string.menu_about, R.drawable.ic_search, emptyList(),
+                direct = { showAbout() }),
+            MenuGroup(R.string.menu_exit, R.drawable.ic_close, emptyList(),
+                direct = { finish() })
         )
     }
     private fun buildMenuRows(): List<MenuRow> {

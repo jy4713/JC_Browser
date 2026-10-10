@@ -4,9 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.29 (versionCode 83)
+- 현재 버전: 2.11.30 (versionCode 84)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.30)
+- [x] **메뉴 구조 재편성 — General 12개 → 용도별 분리** — 새 그룹 "화면/Display"(테마, 글자 크기, 언어), "검색/Search"(검색엔진, 검색어 제안) 추가. General 은 홈 설정/닫은 탭 다시 열기/탭 복원/동영상 탭 메뉴/백업 5개로 축소. About, Exit 는 상위 레벨 헤더에서 탭으로 바로 실행(VPN 방식). 나머지 그룹(Page, Web Cleaner, Download settings, Torrent, Privacy & security)은 기존 그룹핑이 적합해 유지
 
 #### 완료 (2026-10-10, v2.11.29)
 - [x] 백업 로컬 저장 시 폴터 직접 지정 — 기존엔 Downloads/JC Browser 고정(MediaStore)이었던 것을 SAF 트리 피커(ACTION_OPEN_DOCUMENT_TREE)로 사용자가 저장 폴터를 선택하도록 변경, 선택한 폴터에 DocumentsContract.createDocument 로 저장. 사용 안 하게 된 MediaStore/레거시 저장 함수와 권한 콜백 정리
