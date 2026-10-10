@@ -137,7 +137,7 @@ ${if (isHls) """<script>$hlsJs</script>
 </script>""" else ""}
 </body></html>"""
         if (url.startsWith("file://")) {
-            // 로컬 파일(토렌트 순차 재생 등): 같은 폴터에 플레이어 HTML을 쓰고 file://로 로드
+            // 로컬 파일(토렌트 순차 재생 등): 같은 폴더에 플레이어 HTML을 쓰고 file://로 로드
             // (loadDataWithBaseURL은 file 하위 리소스 접근이 막혀 불가)
             runCatching {
                 val path = url.removePrefix("file://")

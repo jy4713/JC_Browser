@@ -4,9 +4,17 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.20 (versionCode 74)
+- 현재 버전: 2.11.21 (versionCode 75)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.21)
+- [x] **백업 / 복원 기능 신규** — 메뉴 [일반] → [백업 / 복원]. 백업·복원 시 범위를 설정/즐겨찾기/VPN 프로파일에서 체크박스로 선택
+  - **저장 위치**: 클라우드(Google Drive / OneDrive 등 SAF 문서 선택기로 직접 지정) 또는 로컬(Download/JC Browser 폴더, MediaStore. API 28 이하는 WRITE_EXTERNAL_STORAGE(maxSdk 28 선언) 요청 후 직접 쓰기)
+  - **암호화**: 백업 시 사용자가 설정한 비밀번호(4자+)로 PBKDF2-HmacSHA256(12만 회) → AES-256/GCM 암호화. 파일 형식 JCBK1 헤더+salt+iv+암호문 — 비밀번호 없이는 열 수 없고 복원도 앱 안에서만 가능
+  - **백업 내용**: 설정(settings 프리퍼런스 전체, saved_tabs/saved_index/vpn_active_id 등 세션 상태키 제외), 즐겨찾기(폴더 구조 유지 JSON 트리), VPN 프로파일(ovpn 본문+이름+국가+아이디/비밀번호 포함)
+  - **복원**: 파일 선택 → 비밀번호 확인 → 파일에 들어있는 범위만 활성화된 체크박스 → 적용 후 recreate(). 즐겨찾기는 기존 내용 삭제 후 교체, VPN 프로파일은 전체 교체, 설정은 WebCleaner/AdBlocker 캐시 즉시 갱신
+  - 신규 파일: util/BackupManager.kt (암호화/수집/적용), VpnProfiles.exportAll/replaceAll, BookmarkRepo.exportTree/importTree/clearAll 추가. 문자열 22개 ko/en 추가
 
 #### 완료 (2026-10-10, v2.11.20)
 - [x] **데스크톱(UA) 모드 기본 OFF로 되돌림** — v2.11.19 의 기본 ON 을 모바일 기본으로 재변경 (WebView 생성/메뉴 토글/설정 초기화 4곳). 필요 시 메뉴에서 수동 전환 가능
@@ -156,7 +164,7 @@
 ### 완료 (2026-10-06, v2.8.0)
 - [x] 토렌트 전면 개편: "받으면서 재생" 제거 → 전체 파일 다운로드 방식. .torrent/magnet은 토렌트 지원 ON일 때만 공유 파일 자동 다운로드 (OFF면 .torrent만 일반 다운로드, magnet은 켜기 안내)
 - [x] 토렌트 다운로드 관리 화면 신규 (메뉴 → 다운로드 설정 → 토렌트 다운로드): 진행 중/완료/취소·실패 필터, 진행률+다운·업로드 속도+시드/피어 표시, 일시 중지/재시작/취소, 완료 항목 실행(영상은 내장 플레이어), 삭제 (취소·실패 항목은 받던 파일도 함께 삭제)
-- [x] 토렌트 설정 추가: 동시 다운로드 개수 (1~5), 다운/업로드 속도 제한 (KB/s, 0=무제한, libtorrent SettingsPack), 완료 파일은 기존 "다운로드 위치" 설정 폴터로 납품
+- [x] 토렌트 설정 추가: 동시 다운로드 개수 (1~5), 다운/업로드 속도 제한 (KB/s, 0=무제한, libtorrent SettingsPack), 완료 파일은 기존 "다운로드 위치" 설정 폴더로 납품
 - [x] HLS 재생 실패 대응: hls.js FATAL 또는 8초 무응답 시 네이티브 재생으로 자동 폴드백 + 에러 오버레이에 사유 표시 유지
 - [x] 톱니(⚙) 플로팅 버튼: video 태그 존재 시 항상 표시 → 전체화면에서 동영상 길게 누르기 시에만 2초간 표시 (Soul 스타일, 설정 안 하면 자동 숨김). 비전체화면 길게누르기는 기존처럼 바로 메뉴
 - [x] 프린트 실패 시 무인자 PrintDocumentAdapter로 재시도 + 실패 토스트

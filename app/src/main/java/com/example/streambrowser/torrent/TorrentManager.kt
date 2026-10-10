@@ -12,7 +12,7 @@ import java.io.File
  * 토렌트 다운로드 관리자 (libtorrent4j)
  * - .torrent / 마그넷 모두 "전체 파일 다운로드" 방식 (받으면서 재생 기능은 제거됨)
  * - 모든 Job(진행중/완료/취소)을 목록으로 유지 → TorrentDownloadsActivity에서 관리
- * - 완료 시 onJobDone 콜백으로 설정된 다운로드 폴터에 납품 (DownloadFolder)
+ * - 완료 시 onJobDone 콜백으로 설정된 다운로드 폴더에 납품 (DownloadFolder)
  */
 object TorrentManager {
 
@@ -37,7 +37,7 @@ object TorrentManager {
         @Volatile var error: String? = null
         @Volatile var exported: Boolean = false
 
-        /** 완료된 파일들 (저장 폴터 기준) */
+        /** 완료된 파일들 (저장 폴더 기준) */
         fun files(): List<File> {
             val fs = info.files()
             val base = File(saveDir, fs.filePath(0)).parentFile ?: return emptyList()

@@ -106,9 +106,14 @@ class MainActivity : Activity() {
     private lateinit var chromeClient: WebChromeClient
     private lateinit var prefs: SharedPreferences
 
-    /** 사이트 파일 업로드(input type=file) 콜백 대기 — REQ_FILE_PICK(5) 결과 수신 */
+    /** 사이트 파일 업로드(input type=file) 콜백 대기 — REQ_FILE_PICK(8) 결과 수신 */
     private var pendingFileCallback: android.webkit.ValueCallback<Array<Uri>>? = null
-    private val REQ_FILE_PICK = 5
+    private val REQ_FILE_PICK = 8
+
+    /** 백업/복원 요청 코드 — 9=저장(클라우드), 10=열기 */
+    private val REQ_BACKUP_SAVE = 9
+    private val REQ_BACKUP_OPEN = 10
+    private var pendingBackupBytes: ByteArray? = null
 
     private lateinit var videoAdapter: VideoAdapter
     private lateinit var imageAdapter: ImageAdapter
@@ -162,7 +167,7 @@ class MainActivity : Activity() {
             }
         }
 
-        // 토렌트 완료/실패 콜백 — 완료 시 설정된 다운로드 폴터로 납품, 시딩 중지 옵션이면 업로드 방지
+        // 토렌트 완료/실패 콜백 — 완료 시 설정된 다운로드 폴더로 납품, 시딩 중지 옵션이면 업로드 방지
         com.example.streambrowser.torrent.TorrentManager.onJobDone = { job ->
             runOnUiThread {
                 com.example.streambrowser.util.JcToast.show(
@@ -1372,6 +1377,9 @@ class MainActivity : Activity() {
                 MenuEntry(s(R.string.menu_language), R.drawable.ic_menu_vert, null) {
                     showLanguageDialog()
                 },
+                MenuEntry(s(R.string.menu_backup), R.drawable.ic_download, null) {
+                    showBackupDialog()
+                },
                 MenuEntry(s(R.string.menu_about), R.drawable.ic_search, null) {
                     showAbout()
                 },
@@ -1694,6 +1702,220 @@ class MainActivity : Activity() {
             .show()
     }
 
+    // ---------------- 백업 / 복원 ----------------
+
+    private val bk = com.example.streambrowser.util.BackupManager
+
+    /** 범위 선택(설정/즐겨찾기/VPN) 공용 다이얼로그 */
+    private fun showScopeDialog(
+        titleRes: Int, available: Set<String>, checkedDefault: Boolean,
+        onOk: (scopes: Set<String>) -> Unit
+    ) {
+        val keys = listOf(bk.SCOPE_SETTINGS, bk.SCOPE_BOOKMARKS, bk.SCOPE_VPN)
+            .filter { it in available }
+        val labels = keys.map {
+            when (it) {
+                bk.SCOPE_SETTINGS -> getString(R.string.backup_scope_settings)
+                bk.SCOPE_BOOKMARKS -> getString(R.string.backup_scope_bookmarks)
+                else -> getString(R.string.backup_scope_vpn)
+            }
+        }.toTypedArray()
+        val checked = BooleanArray(keys.size) { checkedDefault }
+        AlertDialog.Builder(this)
+            .setTitle(titleRes)
+            .setMultiChoiceItems(labels, checked) { _, which, isChecked -> checked[which] = isChecked }
+            .setPositiveButton(R.string.btn_ok) { d, _ ->
+                val scopes = keys.filterIndexed { i, _ -> checked[i] }.toSet()
+                if (scopes.isEmpty()) {
+                    d.dismiss()
+                    return@setPositiveButton
+                }
+                onOk(scopes)
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    /** 비밀번호 입력 공용 다이얼로그 */
+    private fun showPasswordDialog(titleRes: Int, msgRes: Int, onOk: (String) -> Unit) {
+        val ed = android.widget.EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            hint = getString(R.string.backup_password_hint)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(titleRes)
+            .setMessage(msgRes)
+            .setView(ed)
+            .setPositiveButton(R.string.btn_ok) { d, _ ->
+                val pw = ed.text.toString()
+                if (pw.length < 4) {
+                    com.example.streambrowser.util.JcToast.show(this, getString(R.string.backup_password_short))
+                    d.dismiss()
+                    return@setPositiveButton
+                }
+                onOk(pw)
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    private fun showBackupDialog() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.backup_dlg_title)
+            .setItems(arrayOf(getString(R.string.backup_action_backup), getString(R.string.backup_action_restore))) { d, which ->
+                d.dismiss()
+                if (which == 0) startBackupFlow() else startBackupRestore()
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    private fun startBackupFlow() {
+        val all = setOf(bk.SCOPE_SETTINGS, bk.SCOPE_BOOKMARKS, bk.SCOPE_VPN)
+        showScopeDialog(R.string.backup_dlg_title, all, true) { scopes ->
+            showPasswordDialog(R.string.backup_password_title, R.string.backup_password_msg) { pw ->
+                val plain = runCatching { bk.buildBackup(this, scopes) }.getOrNull()
+                if (plain == null) {
+                    com.example.streambrowser.util.JcToast.show(this, getString(R.string.backup_failed))
+                    return@showPasswordDialog
+                }
+                val encrypted = runCatching { bk.encrypt(plain, pw) }.getOrNull()
+                if (encrypted == null) {
+                    com.example.streambrowser.util.JcToast.show(this, getString(R.string.backup_failed))
+                    return@showPasswordDialog
+                }
+                pendingBackupBytes = encrypted
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.backup_dest_title)
+                    .setItems(
+                        arrayOf(
+                            getString(R.string.backup_to_cloud),
+                            getString(R.string.backup_to_local)
+                        )
+                    ) { d, which ->
+                        d.dismiss()
+                        if (which == 0) {
+                            val name = "JCBrowser-backup-" +
+                                java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US)
+                                    .format(java.util.Date()) + ".jcbak"
+                            val i = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = "application/octet-stream"
+                                putExtra(Intent.EXTRA_TITLE, name)
+                            }
+                            runCatching { startActivityForResult(i, REQ_BACKUP_SAVE) }
+                                .onFailure { pendingBackupBytes = null }
+                        } else {
+                            saveBackupLocal(encrypted)
+                        }
+                    }
+                    .show()
+            }
+        }
+    }
+
+    /** 로컬 백업 — 공용 Download/JC Browser 폴더에 MediaStore 로 저장 */
+    private fun saveBackupLocal(bytes: ByteArray) {
+        val name = "JCBrowser-backup-" +
+            java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US)
+                .format(java.util.Date()) + ".jcbak"
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            val ok = runCatching {
+                val values = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name)
+                    put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/octet-stream")
+                    put(android.provider.MediaStore.Downloads.RELATIVE_PATH,
+                        android.os.Environment.DIRECTORY_DOWNLOADS + "/JC Browser")
+                }
+                val uri = contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: throw java.io.IOException("insert failed")
+                contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                    ?: throw java.io.IOException("open failed")
+            }.isSuccess
+            com.example.streambrowser.util.JcToast.show(
+                this,
+                getString(if (ok) R.string.backup_done else R.string.backup_failed)
+            )
+        } else {
+            // API 28 이하: 외부 저장소 직접 쓰기 (WRITE_EXTERNAL_STORAGE 필요)
+            if (checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissions(arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 91)
+                pendingBackupBytes = bytes
+                return
+            }
+            writeBackupLocalLegacy(bytes, name)
+        }
+    }
+
+    private fun writeBackupLocalLegacy(bytes: ByteArray, name: String) {
+        val ok = runCatching {
+            val dir = java.io.File(
+                android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                ), "JC Browser"
+            )
+            dir.mkdirs()
+            java.io.File(dir, name).writeBytes(bytes)
+        }.isSuccess
+        com.example.streambrowser.util.JcToast.show(
+            this,
+            getString(if (ok) R.string.backup_done else R.string.backup_failed)
+        )
+    }
+
+    /** 복원 — 파일 선택 → 비밀번호 → 범위 확인 → 적용 */
+    private fun startBackupRestore() {
+        val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+        }
+        runCatching { startActivityForResult(i, REQ_BACKUP_OPEN) }
+    }
+
+    private fun handleBackupPicked(data: Intent?) {
+        val uri = data?.data ?: return
+        val bytes = runCatching {
+            contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        }.getOrNull()
+        if (bytes == null) {
+            com.example.streambrowser.util.JcToast.show(this, getString(R.string.backup_bad_file))
+            return
+        }
+        showPasswordDialog(R.string.backup_restore_password_title, R.string.backup_restore_password_msg) { pw ->
+            val plain = try {
+                bk.decrypt(bytes, pw)
+            } catch (e: com.example.streambrowser.util.BackupManager.BackupException) {
+                com.example.streambrowser.util.JcToast.show(
+                    this,
+                    getString(
+                        if (e.message == "not a JC Browser backup file") R.string.backup_bad_file
+                        else R.string.backup_wrong_password
+                    )
+                )
+                return@showPasswordDialog
+            }
+            val available = runCatching { bk.scopesIn(plain) }.getOrDefault(emptySet())
+            if (available.isEmpty()) {
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.backup_bad_file))
+                return@showPasswordDialog
+            }
+            showScopeDialog(R.string.backup_restore_scopes, available, true) { scopes ->
+                val replaceBm = bk.SCOPE_BOOKMARKS in scopes
+                val ok = runCatching {
+                    bk.applyRestore(this, plain, scopes, replaceBm)
+                }.isSuccess
+                com.example.streambrowser.util.JcToast.show(
+                    this,
+                    getString(if (ok) R.string.backup_restore_done else R.string.backup_restore_failed)
+                )
+                if (ok) recreate()
+            }
+        }
+    }
+
     private fun showDownloadFolderDialog() {
         val values = arrayOf("public", "custom", "app")
         val labels = arrayOf(
@@ -1966,7 +2188,7 @@ class MainActivity : Activity() {
 
     // ------------------------------------------------------- 테마 (다크/라이트/시스템)
 
-    /** 일반 파일 다운로드: 시스템 다운로드 매니저로 Downloads 폴터에 저장 (표준 브라우저 동작) */
+    /** 일반 파일 다운로드: 시스템 다운로드 매니저로 Downloads 폴더에 저장 (표준 브라우저 동작) */
     private fun downloadFile(u: String, contentDisposition: String?, mime: String?) {
         runCatching {
             val name = android.webkit.URLUtil.guessFileName(u, contentDisposition, mime)
@@ -2671,6 +2893,26 @@ class MainActivity : Activity() {
                 cb?.onReceiveValue(null)
             }
         }
+        // 백업 저장 (클라우드/SAF)
+        if (requestCode == REQ_BACKUP_SAVE) {
+            val bytes = pendingBackupBytes
+            pendingBackupBytes = null
+            if (resultCode == RESULT_OK && bytes != null) {
+                val ok = runCatching {
+                    data?.data?.let { uri ->
+                        contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                    }
+                }.isSuccess
+                com.example.streambrowser.util.JcToast.show(
+                    this,
+                    getString(if (ok) R.string.backup_done else R.string.backup_failed)
+                )
+            }
+        }
+        // 백업 파일 선택 → 복원
+        if (requestCode == REQ_BACKUP_OPEN && resultCode == RESULT_OK) {
+            handleBackupPicked(data)
+        }
         if ((requestCode == 1 || requestCode == 2) && resultCode == RESULT_OK) {
             data?.getStringExtra("url")?.let { current()?.web?.loadUrl(it) }
         }
@@ -2701,7 +2943,7 @@ class MainActivity : Activity() {
                 com.example.streambrowser.util.JcToast.show(this, getString(R.string.bookmark_export_failed))
             }
         }
-        // 사용자 지정 다운로드 폴터 (SAF 트리)
+        // 사용자 지정 다운로드 폴더 (SAF 트리)
         if (requestCode == 5 && resultCode == RESULT_OK) {
             runCatching {
                 data?.data?.let { uri ->
@@ -2719,6 +2961,25 @@ class MainActivity : Activity() {
         // 파일 관리자에서 선택한 .torrent
         if (requestCode == 6 && resultCode == RESULT_OK) {
             data?.data?.let { importTorrentFile(it) }
+        }
+    }
+
+    /** API 28 이하 로컬 백업용 WRITE_EXTERNAL_STORAGE 결과 */
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 91) {
+            val bytes = pendingBackupBytes
+            pendingBackupBytes = null
+            val name = "JCBrowser-backup-" +
+                java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US)
+                    .format(java.util.Date()) + ".jcbak"
+            if (bytes != null && grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                writeBackupLocalLegacy(bytes, name)
+            } else {
+                com.example.streambrowser.util.JcToast.show(this, getString(R.string.backup_failed))
+            }
         }
     }
 

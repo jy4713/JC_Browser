@@ -213,4 +213,43 @@ object VpnProfiles {
         meta.remove(id)
         saveMeta(meta)
     }
+
+    /** 백업용: 전체 프로파일(ovpn 본문+이름+인증정보) JSON 배열로 내보내기 */
+    fun exportAll(ctx: Context): org.json.JSONArray {
+        val arr = org.json.JSONArray()
+        for (p in list(ctx)) {
+            arr.put(JSONObject()
+                .put("name", p.name)
+                .put("file", p.fileName)
+                .put("country", p.country)
+                .put("needsAuth", p.needsAuth)
+                .put("user", p.username)
+                .put("pass", p.password)
+                .put("ovpn", runCatching { p.file.readText() }.getOrDefault("")))
+        }
+        return arr
+    }
+
+    /** 복원용: 백업 JSON 배열로 전체 교체 (기존 프로파일은 삭제) */
+    fun replaceAll(ctx: Context, arr: org.json.JSONArray) {
+        init(ctx)
+        // 기존 파일/메타 전부 제거
+        dir(ctx).listFiles()?.forEach { it.delete() }
+        val meta = JSONObject()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val text = o.optString("ovpn", "")
+            if (text.isBlank()) continue
+            val id = UUID.randomUUID().toString().substring(0, 8)
+            File(dir(ctx), "$id.ovpn").writeText(sanitize(text))
+            meta.put(id, JSONObject()
+                .put("name", o.optString("name", id))
+                .put("needsAuth", o.optBoolean("needsAuth", ovpnNeedsAuth(text)))
+                .put("user", o.optString("user", ""))
+                .put("pass", o.optString("pass", ""))
+                .put("file", o.optString("file", ""))
+                .put("country", o.optString("country", "")))
+        }
+        saveMeta(meta)
+    }
 }

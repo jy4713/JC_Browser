@@ -125,6 +125,46 @@ object BookmarkRepo {
         return n
     }
 
+    /** 전체 즐겨찾기 삭제 (백업 복원-교체용) */
+    fun clearAll(context: Context) {
+        BrowserDb.get(context).writableDatabase.delete("bookmarks", null, null)
+    }
+
+    /** 백업용: 폴더 구조를 유지한 JSON 트리 내보내기 */
+    fun exportTree(context: Context): org.json.JSONArray = exportTree(context, 0)
+
+    private fun exportTree(context: Context, parentId: Long): org.json.JSONArray {
+        val arr = org.json.JSONArray()
+        for (e in list(context, parentId)) {
+            if (e.isFolder) {
+                arr.put(org.json.JSONObject()
+                    .put("t", "f")
+                    .put("title", e.title)
+                    .put("children", exportTree(context, e.id)))
+            } else {
+                arr.put(org.json.JSONObject()
+                    .put("t", "b")
+                    .put("title", e.title)
+                    .put("url", e.url))
+            }
+        }
+        return arr
+    }
+
+    /** 복원용: JSON 트리를 parentId 아래에 재귀 삽입 */
+    fun importTree(context: Context, arr: org.json.JSONArray, parentId: Long = 0) {
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optString("t") == "f") {
+                val newId = addFolder(context, o.optString("title"), parentId)
+                importTree(context, o.optJSONArray("children") ?: org.json.JSONArray(), newId)
+            } else {
+                val url = o.optString("url")
+                if (url.isNotBlank()) add(context, o.optString("title").ifEmpty { url }, url, parentId)
+            }
+        }
+    }
+
     // ---------------- Netscape Bookmark HTML 내보내기 ----------------
 
     fun exportHtml(context: Context): String {
