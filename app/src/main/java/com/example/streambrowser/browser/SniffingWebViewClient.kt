@@ -67,25 +67,30 @@ class SniffingWebViewClient(
             return AdBlocker.emptyResponse()
         }
         runCatching {
-            // 문서 내비게이션(메인 프레임 + iframe 메인 리소스)은 차단 금지 —
-            // 빈 응답을 받은 프레임은 통째로 실패해 "콘텐츠를 가져올 수 없습니다"가 뜸
-            // (인스타그램/외부 임베드 등). 서드파티 차단은 프레임 내의 리소스에만 적용
-            val isNav = looksLikeDocument(request)
-            if (!isNav && AdBlocker.isBlocked(host, url)) {
-                return AdBlocker.emptyResponse()
-            }
-            // 이미지 차단 (데이터 절약): <img>뿐 아니라 CSS 배경/JS 삽입 이미지까지 요청 단계에서 차단
-            if (WebCleaner.blockImages && isImageRequest(request)) {
-                return AdBlocker.emptyResponse()
-            }
             val accept = request.requestHeaders["Accept"] ?: ""
-            detect(url, accept)?.let { kind ->
-                VideoStore.add(view, DetectedVideo(url = url, page = view.url ?: "", kind = kind, headers = captureHeaders(request)))
+            val mediaKind = detect(url, accept)
+            if (mediaKind != null) {
+                // 스트리밍 미디어(m3u8/mpd/mp4 등)는 광고 차단·이미지 차단 대상이 아님.
+                // 차단 필터가 스트리밍 CDN 호스트까지 걸러버리면 재생과 다운로드가 둘 다 먹통이 되는
+                // 사례가 있어 미디어는 무조건 통과시키고 목록에만 등록 (uBO와 동일 정책)
+                VideoStore.add(view, DetectedVideo(url = url, page = view.url ?: "", kind = mediaKind, headers = captureHeaders(request)))
+            } else {
+                // 문서 남비게이션(메인 프레임 + iframe 메인 리소스)은 차단 금지 —
+                // 빈 응답을 받은 프레임은 통째로 실패해 "콘텐츠를 가져올 수 없습니다"가 뜸
+                // (인스타그램/외부 임베드 등). 서드파티 차단은 프레임 내의 리소스에만 적용
+                val isNav = looksLikeDocument(request)
+                if (!isNav && AdBlocker.isBlocked(host, url)) {
+                    return AdBlocker.emptyResponse()
+                }
+                // 이미지 차단 (데이터 절약): <img>뿐 아니라 CSS 배경/JS 삽입 이미지까지 요청 단계에서 차단
+                if (WebCleaner.blockImages && isImageRequest(request)) {
+                    return AdBlocker.emptyResponse()
+                }
             }
             // HTML 문서(메인 프레임 + iframe)면 스캐너 JS 주입
             // - fetch/XHR(API)는 Sec-Fetch-Dest로 구분해 제외 — 가로채면 API가 깨지거나(네이버 추천 피드 등)
             //   스트리밍/롱폴 엔드포인트면 읽기가 멈춰 페이지 로딩이 끝나지 않음
-            if (request.method == "GET" && isNav) {
+            if (request.method == "GET" && looksLikeDocument(request)) {
                 injectScanner(view, request)?.let { return it }
             }
         }
@@ -472,7 +477,9 @@ class SniffingWebViewClient(
         val pathOnly = u.substringBefore("?")
         val a = accept.lowercase()
         return when {
-            ".m3u8" in u || "mpegurl" in a || "format=m3u8" in u || "protocol=hls" in u -> "HLS"
+            // m3u8 은 경로 어디에 있든 감지 (일부 플레이어는 /playlist/master 같은
+            // 확장자 없는 경로에 토큰만 쿼리로 붙임 — 서버 응답은 여전히 HLS)
+            "m3u8" in u || "mpegurl" in a || "format=m3u8" in u || "protocol=hls" in u -> "HLS"
             ".mpd" in u || "dash" in a || "/manifest" in u -> "DASH"
             ".f4m" in u -> "HDS"
             ".mp4" in pathOnly || ".m4v" in pathOnly || "video/mp4" in a -> "MP4"

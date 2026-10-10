@@ -84,6 +84,8 @@
 
     <!-- 동영상 길게 누르기 메뉴 (Soul 스타일) -->
     <string name="vm_title">Video options</string>
+    <string name="vm_download">Download video</string>
+    <string name="vm_no_video">No downloadable video found on this page</string>
     <string name="vm_fs_on">Fullscreen</string>
     <string name="vm_fs_off">Exit fullscreen</string>
     <string name="vm_landscape">Landscape</string>

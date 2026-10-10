@@ -683,10 +683,16 @@ class MainActivity : Activity() {
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
                 )
-                // Soul 스타일: 네이티브 전체화면에서 화면 오래 누륵면 톱니 버튼 표시
-                view.setOnLongClickListener {
-                    onVideoLongPressed()
-                    true
+                // Soul 스타일: 네이티브 전체화면에서 화면 오래 누륵면 톱니 버튼 표시.
+                // LongClick은 비디오 서피스가 터치를 소비해 안 먹는 경우가 있어 터치 유지 시간으로 감지
+                val lpRunnable = Runnable { onVideoLongPressed() }
+                view.setOnTouchListener { v, ev ->
+                    when (ev.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> v.postDelayed(lpRunnable, 600)
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_MOVE ->
+                            v.removeCallbacks(lpRunnable)
+                    }
+                    false
                 }
             }
 
@@ -1546,7 +1552,7 @@ class MainActivity : Activity() {
                     val folderInput = EditText(this).apply { hint = getString(R.string.dlg_folder_hint) }
                     AlertDialog.Builder(this)
                         .setTitle(R.string.dlg_new_folder)
-                        .setView(folderInput)
+                        .setView(com.example.streambrowser.ui.JcUi.fieldBox(this, folderInput))
                         .setPositiveButton(R.string.action_create) { _, _ ->
                             val fname = folderInput.text.toString().trim()
                             if (fname.isNotEmpty()) {
@@ -1571,7 +1577,7 @@ class MainActivity : Activity() {
         }
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.dlg_home_title))
-            .setView(edit)
+            .setView(com.example.streambrowser.ui.JcUi.fieldBox(this, edit))
             .setPositiveButton(getString(R.string.btn_ok)) { _, _ ->
                 var u = edit.text.toString().trim()
                 if (u.isNotEmpty()) {
@@ -1746,7 +1752,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle(titleRes)
             .setMessage(msgRes)
-            .setView(ed)
+            .setView(com.example.streambrowser.ui.JcUi.fieldBox(this, ed))
             .setPositiveButton(R.string.btn_ok) { d, _ ->
                 val pw = ed.text.toString()
                 if (pw.length < 4) {
@@ -2097,6 +2103,17 @@ class MainActivity : Activity() {
                 cornerRadius = r.toFloat()
             }
             elevation = 24f
+            addView(row(getString(R.string.vm_download)) {
+                // 현재 탭에서 감지된 동영상 중 다운로드 가능한 것 — 최신 것(토큰 유효) 우선
+                val vids = currentMedia()?.videos?.filter { !it.unavailable }
+                val best = vids?.lastOrNull { it.kind == "HLS" || it.kind == "MP4" }
+                    ?: vids?.lastOrNull()
+                if (best != null) {
+                    com.example.streambrowser.download.VideoAdapter.enqueue(this@MainActivity, best)
+                } else {
+                    com.example.streambrowser.util.JcToast.show(this@MainActivity, getString(R.string.vm_no_video))
+                }
+            })
             addView(row(getString(if (jsFsActive || fullscreenView != null) R.string.vm_fs_off else R.string.vm_fs_on)) {
                 when {
                     // 네이티브 HTML5 전체화면: 커스텀 뷰 종료
@@ -2324,7 +2341,7 @@ class MainActivity : Activity() {
         }
         android.app.AlertDialog.Builder(this)
             .setTitle(R.string.menu_torrent_open)
-            .setView(edit)
+            .setView(com.example.streambrowser.ui.JcUi.fieldBox(this, edit))
             .setPositiveButton(R.string.btn_ok) { _, _ ->
                 val u = edit.text.toString().trim()
                 if (u.isNotEmpty()) handleTorrentLink(u)

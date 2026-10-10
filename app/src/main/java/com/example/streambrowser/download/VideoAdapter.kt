@@ -31,6 +31,35 @@ import com.example.streambrowser.ui.PlayerActivity
  */
 class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
 
+    companion object {
+        /** 미디어 하나를 다운로드 큐에 등록 (목록 UI 없는 곳 — 전체화면 메뉴 등 — 에서도 사용) */
+        fun enqueue(ctx: Context, v: DetectedVideo) {
+            val id = System.currentTimeMillis()
+            DownloadStore.upsert(DlItem(id, v.url, v.page, v.kind, "", defaultExt(v), headers = v.headers))
+            val i = Intent(ctx, VideoDownloadService::class.java).apply {
+                putExtra(VideoDownloadService.EXTRA_ID, id)
+                putExtra(VideoDownloadService.EXTRA_URL, v.url)
+                putExtra(VideoDownloadService.EXTRA_PAGE, v.page)
+                putExtra(VideoDownloadService.EXTRA_KIND, v.kind)
+                putExtra(VideoDownloadService.EXTRA_EXT, defaultExt(v))
+                putExtra(VideoDownloadService.EXTRA_HEADERS, v.headers)
+            }
+            ctx.startForegroundService(i)
+            com.example.streambrowser.util.JcToast.show(ctx, ctx.getString(R.string.video_dl_started))
+        }
+
+        fun defaultExt(v: DetectedVideo): String {
+            val fromUrl = Regex("\\.([A-Za-z0-9]{2,5})(?:\\?.*)?$")
+                .find(Uri.parse(v.url).path ?: "")
+                ?.groupValues?.get(1)?.lowercase()
+            return when {
+                v.url.startsWith("blob:") -> "mp4"
+                v.kind == "HLS" -> "mp4"
+                else -> fromUrl ?: "mp4"
+            }
+        }
+    }
+
     /** 다운로드 불가 항목 표시 여부 */
     var showBlocked = false
 
@@ -252,14 +281,5 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
         notifyDataSetChanged()
     }
 
-    private fun defaultExt(v: DetectedVideo): String {
-        val fromUrl = Regex("\\.([A-Za-z0-9]{2,5})(?:\\?.*)?$")
-            .find(Uri.parse(v.url).path ?: "")
-            ?.groupValues?.get(1)?.lowercase()
-        return when {
-            v.url.startsWith("blob:") -> "mp4"
-            v.kind == "HLS" -> "mp4"
-            else -> fromUrl ?: "mp4"
-        }
-    }
+    private fun defaultExt(v: DetectedVideo): String = Companion.defaultExt(v)
 }

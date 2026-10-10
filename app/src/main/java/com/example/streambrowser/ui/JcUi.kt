@@ -34,6 +34,18 @@ object JcUi {
     fun dp(ctx: Context, n: Int): Int =
         (n * ctx.resources.displayMetrics.density).toInt()
 
+    /**
+     * 다이얼로그 입력창 래퍼 — AlertDialog.setView() 에 그대로 넣으면
+     * EditText 가 대화상자 가장자리에 딱 붙어 보이므로 좌우 여백(20dp)을 둔 세로 박스로 감쌈.
+     */
+    fun fieldBox(ctx: Context, vararg fields: View): LinearLayout =
+        LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            val h = dp(ctx, 20)
+            setPadding(h, dp(ctx, 4), h, 0)
+            fields.forEach { addView(it) }
+        }
+
     fun themedColor(ctx: Context, attr: Int, fallback: Int): Int {
         val ta = ctx.theme.obtainStyledAttributes(intArrayOf(attr))
         val c = ta.getColor(0, fallback)

@@ -82,6 +82,8 @@
 
     <!-- 동영상 길게 누르기 메뉴 -->
     <string name="vm_title">동영상 옵션</string>
+    <string name="vm_download">동영상 다운로드</string>
+    <string name="vm_no_video">이 페이지에서 다운로드 가능한 동영상을 찾지 못했습니다</string>
     <string name="vm_fs_on">전체화면</string>
     <string name="vm_fs_off">전체화면 해제</string>
     <string name="vm_landscape">가로로 보기</string>

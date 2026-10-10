@@ -256,7 +256,7 @@ class DownloadsActivity : Activity() {
         }
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.common_rename))
-            .setView(input)
+            .setView(com.example.streambrowser.ui.JcUi.fieldBox(this, input))
             .setPositiveButton(getString(R.string.common_save)) { _, _ ->
                 val newName = input.text.toString().trim().ifEmpty { return@setPositiveButton }
                 runCatching {

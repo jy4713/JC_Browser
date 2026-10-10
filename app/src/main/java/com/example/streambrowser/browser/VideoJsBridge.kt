@@ -95,6 +95,7 @@ class VideoJsBridge(private val owner: WebView? = null) {
   window.__sbScanner = true;
 
   var MEDIA_RE = /https?:\/\/[^\s"'<>]+?\.(m3u8|mpd|mp4|m4v|webm|flv)(\?[^\s"'<>]*)?/gi;
+  var M3U8_ANY_RE = /https?:\/\/[^\s"'<>]*m3u8[^\s"'<>]*/gi;
 
   function scanText(t){
     try{
@@ -106,13 +107,20 @@ class VideoJsBridge(private val owner: WebView? = null) {
         try{ abs = new URL(abs, location.href).href; }catch(x){}
         window.StreamBrowser.addVideo(abs, 'NET', location.href);
       }
+      /* 확장자 없이 토큰만으로 m3u8 을 가리키는 URL도 본문에서 잡아냄 */
+      M3U8_ANY_RE.lastIndex = 0;
+      while((m = M3U8_ANY_RE.exec(t)) !== null){
+        var abs2 = m[0];
+        try{ abs2 = new URL(abs2, location.href).href; }catch(x){}
+        window.StreamBrowser.addVideo(abs2, 'NET', location.href);
+      }
     }catch(e){}
   }
 
-  /* 요청 URL 자체가 미디어 링크면(상대 경로 포함) 바로 보고 */
+  /* 요청 URL 자체가 미디어 링크면(상대 경로 포함) 바로 보고 — m3u8 토큰은 경로 어디든 허용 */
   function reportUrl(u){
     try{
-      if(u && /\.(m3u8|mpd|mp4|m4v|webm|flv)(\?|#|$)/i.test(u)){
+      if(u && (/m3u8/i.test(u) || /\.(mpd|mp4|m4v|webm|flv)(\?|#|$)/i.test(u))){
         window.StreamBrowser.addVideo(new URL(u, location.href).href, 'NET', location.href);
       }
     }catch(e){}

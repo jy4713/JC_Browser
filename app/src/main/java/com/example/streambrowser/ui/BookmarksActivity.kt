@@ -89,7 +89,7 @@ class BookmarksActivity : Activity() {
         val input = EditText(this).apply { hint = getString(R.string.bookmark_folder_name) }
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.bookmark_new_folder))
-            .setView(input)
+            .setView(com.example.streambrowser.ui.JcUi.fieldBox(this, input))
             .setPositiveButton(getString(R.string.action_create)) { _, _ ->
                 val name = input.text.toString().trim()
                 if (name.isNotEmpty()) {
@@ -111,7 +111,7 @@ class BookmarksActivity : Activity() {
                         val input = EditText(this).apply { setText(e.title) }
                         AlertDialog.Builder(this)
                             .setTitle(getString(R.string.common_rename))
-                            .setView(input)
+                            .setView(com.example.streambrowser.ui.JcUi.fieldBox(this, input))
                             .setPositiveButton(getString(R.string.common_save)) { _, _ ->
                                 BookmarkRepo.rename(this, e.id, input.text.toString().trim())
                                 reload()
