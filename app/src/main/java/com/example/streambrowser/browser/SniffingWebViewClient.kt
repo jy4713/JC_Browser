@@ -163,6 +163,18 @@ class SniffingWebViewClient(
                     c.setRequestProperty(k, v)
                 }
             }
+            /* WebView 의 shouldInterceptRequest 는 Referer 헤더를 목록에서 빼는 경우가 많음(Chromium).
+             * 영상 호스팅 iframe 들은 리퍼러 없으면 404 → 폴드백(원본 로딩)으로 스캐너가 빠져
+             * 재생은 되는데 다운로드 목록이 텅 비는 사례가 있음.
+             * iframe 문서(메인 프레임 아님)면 부모 페이지(view.url)를 Referer 로 보충해 재요청 성공률을 높임 */
+            if (!request.isForMainFrame &&
+                request.requestHeaders.keys.none { it.equals("Referer", ignoreCase = true) }
+            ) {
+                runCatching {
+                    view.url?.takeIf { it.startsWith("http") }
+                        ?.let { c.setRequestProperty("Referer", it) }
+                }
+            }
             runCatching {
                 CookieManager.getInstance().getCookie(target)?.let { c.setRequestProperty("Cookie", it) }
             }
@@ -197,9 +209,15 @@ class SniffingWebViewClient(
                 break
             }
             saveCookies(conn)
-            if (conn.responseCode != 200) { conn.disconnect(); return null }
+            if (conn.responseCode != 200) {
+                android.util.Log.w("JC_Sniff", "scanner inject failed code=${conn.responseCode} $urlStr")
+                conn.disconnect(); return null
+            }
             val contentType = conn.contentType ?: ""
-            if (!contentType.contains("text/html")) { conn.disconnect(); return null }
+            if (!contentType.contains("text/html")) {
+                android.util.Log.w("JC_Sniff", "scanner inject skip ct=$contentType $urlStr")
+                conn.disconnect(); return null
+            }
 
             val charset = Regex("charset=([A-Za-z0-9\\-]+)").find(contentType)?.groupValues?.get(1) ?: "utf-8"
             val bodyStream = if (conn.contentEncoding.equals("gzip", ignoreCase = true)) {

@@ -4,9 +4,13 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.23 (versionCode 77)
+- 현재 버전: 2.11.24 (versionCode 78)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.24)
+- [x] **스트리밍 감지 실패 근본 원인 수정 — iframe 스캐너 주입 시 Referer 보충** — 사이트 분석 결과: 영상은 크로스오리진 iframe(호스트가 수시로 바뀌는 영상 호스팅, 예: FirePlayer/JWPlayer) 안에서 hls.js 가 m3u8 을 XHR 로 받아가는 구조. WebView 의 `shouldInterceptRequest` 는 요청 헤더에서 **Referer 를 빼고** 낚는 경우가 많아(Chromium), 스캐너 주입용 iframe HTML 재요청이 리퍼러 없이 나가 서버가 404 를 돌림 → 폴드백(원본 로딩)으로 스캐너 없이 로드돼 재생은 되는데 다운로드 목록이 텅 빔(실제 curl 로 리퍼러 유무에 따라 404/200 확인). 수정: 주입 재요청 시 복사된 헤더에 Referer 가 없고 메인 프레임이 아니면 `view.url`(부모 페이지)을 Referer 로 보충. 주입 실패/비-HTML 응답 시 Logcat(`JC_Sniff`) 경고 남김
+- [x] Soul Browser 감지 방식 분석 참고 — Soul 도 shouldInterceptRequest 에서 URL 패턴(m3u8/mpd 중첩 URL·Range 헤더·tsfake/m3fake 등)으로 네이티브 등록 + 별도 JS 주입 병용. 우리는 본문 기반 판별(v2.11.23)과 Referer 보충으로 iframe 커버를 완성하는 방향 유지
 
 #### 완료 (2026-10-10, v2.11.23)
 - [x] **스트리밍(HLS) 감지 근본 보강 — 스캐너 JS 본문 기반 판별** — XHR/fetch 훅에서 응답 본문에 `#EXTM3U`(또는 `<MPD`)가 있으면 URL 확장자/토큰과 무관하게 재생목록으로 등록 (확장자 없는 `?token=` 경로·실제로 m3u8 을 날리는 API 경로까지 포착), fetch content-type 조건에 `mpegurl` 추가, addVideo 에 종류 강제 파라미터(HLS/DASH) 추가
