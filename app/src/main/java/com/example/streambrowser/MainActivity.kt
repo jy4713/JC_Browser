@@ -1536,7 +1536,12 @@ class MainActivity : Activity() {
         val grid = dlg.findViewById<GridLayout>(R.id.shortcutGrid)
         grid?.let { fillShortcutGrid(it) }
         val list = dlg.findViewById<com.example.streambrowser.ui.MaxHeightRecyclerView>(R.id.listMenu) ?: return
-        if (list.layoutManager == null) list.layoutManager = LinearLayoutManager(this)
+        if (list.layoutManager == null) {
+            list.layoutManager = LinearLayoutManager(this)
+            // 기본 ItemAnimator 가 삽입/삭제를 애니메이션하면서 재활용 뷰가 겹쳐 보이는
+            // 문제가 있어 제거 — 메뉴는 기능 시트라 펼침/접힘 즉시 반영이 자연스러움
+            list.itemAnimator = null
+        }
         val rows = buildMenuRows()
         val adapter = menuAdapter.takeIf { list.adapter === it }
         if (adapter != null) {
@@ -1726,8 +1731,10 @@ class MainActivity : Activity() {
                    oldKeys[old.size - 1 - suf] == newKeys[newRows.size - 1 - suf]) suf++
             val oldMid = old.size - suf
             val newMid = newRows.size - suf
-            if (newMid > pre) notifyItemRangeInserted(pre, newMid - pre)
+            // 반드시 삭제(올드 좌표) 먼저, 삽입(뉴 좌표) 나중에 —
+            // 삽입을 먼저 본 다음 삭제하면 위치가 밀려 방금 삽입한 행이 잘려 나가 꼬임
             if (oldMid > pre) notifyItemRangeRemoved(pre, oldMid - pre)
+            if (newMid > pre) notifyItemRangeInserted(pre, newMid - pre)
             // 탭한 그룹 헤더(공통 접두어 마지막, 화살표 ▾↔▸) 상태 갱신
             if (pre > 0) notifyItemChanged(pre - 1)
         }
