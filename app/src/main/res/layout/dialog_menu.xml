@@ -25,6 +25,16 @@
         android:textSize="17sp"
         android:textStyle="bold" />
 
+    <!-- 상단 단축키 그리드 — 스크롤되지 않고 항상 고정 -->
+    <GridLayout
+        android:id="@+id/shortcutGrid"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:columnCount="4"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/listMenu"
         android:layout_width="match_parent"

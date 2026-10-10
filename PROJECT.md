@@ -4,9 +4,14 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.30 (versionCode 84)
+- 현재 버전: 2.11.31 (versionCode 85)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.31)
+- [x] **아코디언 펼침 위치 고정** — 그룹 탭하면 리스트가 새 어댑터로 갈아 끼워지면서 스크롤이 맨 위로 튀던 문제: rebuild 전 스크롤 상태 저장/복원으로 펼친 그룹이 그 자리에서 바로 아래로 펼쳐짐
+- [x] **상단 단축키 그리드 고정** — 12개 큰 아이콘(그리드)을 RecyclerView 행에서 다이얼로그 레이아웃의 고정 뷰로 이동. 아래 메뉴 그룹만 스크롤, 그리드는 항상 그 자리. 토글 상태 표시(강조색)는 rebuild 시 그리드 재채우기로 유지. 리스트 최대 높이는 화면 - 그리드 - 제목/패딩을 계산해 동적 clamp
+- [x] **Block images 위치 이동** — Privacy & security → Web Cleaner. 크롬(이미지 차단 = 사이트 콘텐츠 설정) 기준으로 광고/오버레이/JS 차단과 같은 콘텐츠 차단 그룹이 더 적합해 판단. Privacy & security 는 데이터 삭제만 남음
 
 #### 완료 (2026-10-10, v2.11.30)
 - [x] **메뉴 구조 재편성 — General 12개 → 용도별 분리** — 새 그룹 "화면/Display"(테마, 글자 크기, 언어), "검색/Search"(검색엔진, 검색어 제안) 추가. General 은 홈 설정/닫은 탭 다시 열기/탭 복원/동영상 탭 메뉴/백업 5개로 축소. About, Exit 는 상위 레벨 헤더에서 탭으로 바로 실행(VPN 방식). 나머지 그룹(Page, Web Cleaner, Download settings, Torrent, Privacy & security)은 기존 그룹핑이 적합해 유지

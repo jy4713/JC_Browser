@@ -1183,7 +1183,6 @@ class MainActivity : Activity() {
     )
 
     private sealed class MenuRow {
-        class Shortcut : MenuRow()
         class Quick(val entry: MenuEntry) : MenuRow()
         class Header(val groupRes: Int) : MenuRow()
         class Child(val entry: MenuEntry) : MenuRow()
@@ -1337,6 +1336,13 @@ class MainActivity : Activity() {
                     val on = !prefs.getBoolean("app_block", true)
                     prefs.edit().putBoolean("app_block", on).apply()
                     WebCleaner.appBlockEnabled = on
+                },
+                // 이미지 차단 — 크롬 기준 이미지 로딩 차단은 사이트 콘텐츠 설정 영역이라
+                // 광고/오버레이/JS 차단과 같은 Web Cleaner 그룹에 둠 (데이터 절약 목적)
+                MenuEntry(s(R.string.menu_block_images), R.drawable.ic_image, "block_images") {
+                    val on = !com.example.streambrowser.browser.WebCleaner.blockImages
+                    com.example.streambrowser.browser.WebCleaner.blockImages = on
+                    tabs.forEach { runCatching { it.web.settings.blockNetworkImage = on } }
                 }
             )),
             MenuGroup(R.string.group_dl_settings, R.drawable.ic_download, listOf(
@@ -1401,11 +1407,6 @@ class MainActivity : Activity() {
                 }
             )),
             MenuGroup(R.string.group_privacy, R.drawable.ic_incognito, listOf(
-                MenuEntry(s(R.string.menu_block_images), R.drawable.ic_image, "block_images") {
-                    val on = !com.example.streambrowser.browser.WebCleaner.blockImages
-                    com.example.streambrowser.browser.WebCleaner.blockImages = on
-                    tabs.forEach { runCatching { it.web.settings.blockNetworkImage = on } }
-                },
                 MenuEntry(s(R.string.menu_clear_data), R.drawable.ic_close, null) {
                     confirmClearData()
                 }
@@ -1459,7 +1460,6 @@ class MainActivity : Activity() {
     }
     private fun buildMenuRows(): List<MenuRow> {
         val rows = mutableListOf<MenuRow>()
-        rows += MenuRow.Shortcut()
         for (g in menuGroups()) {
             rows += MenuRow.Header(g.groupRes)
             // direct 실행 그룹(VPN)은 하위 항목 없음 — 헤더 탭으로 바로 실행
@@ -1499,16 +1499,53 @@ class MainActivity : Activity() {
         menuDialog?.let { refreshMenuContent(it) }
     }
 
+    /** 상단 단축키 그리드 채우기 — 메뉴 최초 오픈 시와 rebuild(토글 상태 변경) 시 호출 */
+    private fun fillShortcutGrid(grid: GridLayout) {
+        grid.removeAllViews()
+        val inflater = LayoutInflater.from(this)
+        shortcutItems().forEach { spec ->
+            val cell = inflater.inflate(R.layout.item_shortcut_cell, grid, false)
+            val iconV = cell.findViewById<ImageView>(R.id.scIcon)
+            val labelV = cell.findViewById<TextView>(R.id.scLabel)
+            iconV.setImageResource(spec.iconRes)
+            labelV.text = getString(spec.labelRes)
+            if (spec.state?.invoke() == true) {
+                val accent = resources.getColor(R.color.primary, theme)
+                iconV.setColorFilter(accent)
+                labelV.setTextColor(accent)
+            } else {
+                iconV.clearColorFilter()
+                labelV.setTextColor(resources.getColor(R.color.text_primary, theme))
+            }
+            cell.setOnClickListener { spec.action() }
+            grid.addView(cell)
+        }
+    }
+
     private fun refreshMenuContent(dlg: Dialog) {
+        val grid = dlg.findViewById<GridLayout>(R.id.shortcutGrid)
+        grid?.let { fillShortcutGrid(it) }
         val list = dlg.findViewById<RecyclerView>(R.id.listMenu) ?: return
         list.layoutManager = LinearLayoutManager(this)
+        // 아코디언 펼침/닫힘 때 스크롤 위치 유지 — 펼친 그룹이 화면에서 튀지 않고 그 자리에서 펼쳐짐
+        val lm = list.layoutManager as LinearLayoutManager
+        val scrollState = lm.onSaveInstanceState()
+        // 내용이 줄었을 때 이전 고정 높이가 남지 않게 다시 wrap 으로
+        if (list.layoutParams.height != ViewGroup.LayoutParams.WRAP_CONTENT) {
+            list.layoutParams = list.layoutParams.apply { height = ViewGroup.LayoutParams.WRAP_CONTENT }
+        }
         list.adapter = MenuSheetAdapter(buildMenuRows())
+        lm.onRestoreInstanceState(scrollState)
         // wrap_content 높이에서 스크롤하면 아이템 재활용/재측정 때마다 높이가 다시 계산돼
-        // 레이아웃(그리드 열/들여쓰기)이 흔들리는 문제 — 첫 측정 후 최대 470dp 로 고정 clamp
+        // 레이아웃(들여쓰기)이 흔들리는 문제 — 첫 측정 후 고정 clamp.
+        // 상단 그리드가 항상 보여야 하므로 화면 높이에서 그리드/제목/패딩을 뺀 값까지 허용
         list.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
             override fun onPreDraw(): Boolean {
                 list.viewTreeObserver.removeOnPreDrawListener(this)
-                val maxH = (470 * resources.displayMetrics.density).toInt()
+                val density = resources.displayMetrics.density
+                val other = (grid?.height ?: 0) + (170 * density).toInt()
+                val maxByScreen = resources.displayMetrics.heightPixels - other
+                val maxH = minOf((470 * density).toInt(), maxByScreen)
                 if (list.height > maxH) {
                     list.layoutParams = list.layoutParams.apply { height = maxH }
                 }
@@ -1676,14 +1713,10 @@ class MainActivity : Activity() {
             val state: TextView? = v.findViewById(R.id.menuState)
         }
 
-        override fun getItemViewType(position: Int): Int =
-            if (rows[position] is MenuRow.Shortcut) 0 else 1
+        override fun getItemViewType(position: Int): Int = 1
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-            val v = if (viewType == 0)
-                LayoutInflater.from(parent.context).inflate(R.layout.item_menu_shortcuts, parent, false)
-            else
-                LayoutInflater.from(parent.context).inflate(R.layout.item_menu, parent, false)
+            val v = LayoutInflater.from(parent.context).inflate(R.layout.item_menu, parent, false)
             return VH(v, viewType)
         }
 
@@ -1691,25 +1724,6 @@ class MainActivity : Activity() {
 
         override fun onBindViewHolder(h: VH, position: Int) {
             when (val r = rows[position]) {
-                is MenuRow.Shortcut -> {
-                    val grid = h.itemView.findViewById<GridLayout>(R.id.shortcutGrid) ?: return
-                    grid.removeAllViews()
-                    val inflater = LayoutInflater.from(this@MainActivity)
-                    shortcutItems().forEach { spec ->
-                        val cell = inflater.inflate(R.layout.item_shortcut_cell, grid, false)
-                        val iconV = cell.findViewById<ImageView>(R.id.scIcon)
-                        val labelV = cell.findViewById<TextView>(R.id.scLabel)
-                        iconV.setImageResource(spec.iconRes)
-                        labelV.text = getString(spec.labelRes)
-                        if (spec.state?.invoke() == true) {
-                            val accent = resources.getColor(R.color.primary, theme)
-                            iconV.setColorFilter(accent)
-                            labelV.setTextColor(accent)
-                        }
-                        cell.setOnClickListener { spec.action() }
-                        grid.addView(cell)
-                    }
-                }
                 is MenuRow.Header -> {
                     h.group?.visibility = View.GONE
                     // 재활용 전에 Child 였던 뷰의 들여쓰기 패딩이 남지 않게 리셋
