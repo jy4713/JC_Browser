@@ -133,6 +133,9 @@ class JcVpnService : VpnService() {
         val password = intent.getStringExtra(EXTRA_PASSWORD) ?: profile.password
 
         stopRequested = false
+        // 이전 연결의 tun 이 남아 있으면 먼저 닫기 — CONNECTED 전까진 VPN 경유 금지
+        runCatching { tunPfd?.close() }
+        tunPfd = null
         setState("CONNECTING", profile.name)
         logLine("jc", getString(R.string.vpn_log_start, profile.name, profile.file.name))
         createChannel()
@@ -341,7 +344,14 @@ class JcVpnService : VpnService() {
                                 setState("CONNECTED", profile.name)
                                 updateNotif(profile.name, getString(R.string.vpn_notif_connected))
                             }
-                            "WAIT", "RECONNECTING" -> { setState("WAIT", profile.name); updateNotif(profile.name, getString(R.string.vpn_notif_wait)) }
+                            // 재연결 시도 중엔 트래픽이 tun(블랙홀)로 빨려 들어가 흰 페이지가 나오므로
+                            // tun 을 닫아 일반 네트워크를 그대로 쓰게 함 — VPN 경유는 CONNECTED 이후뿐
+                            "WAIT", "RECONNECTING" -> {
+                                runCatching { tunPfd?.close() }
+                                tunPfd = null
+                                setState("WAIT", profile.name)
+                                updateNotif(profile.name, getString(R.string.vpn_notif_wait))
+                            }
                             "AUTH", "GET_CONFIG", "RESOLVE" -> { setState("AUTH", profile.name); updateNotif(profile.name, getString(R.string.vpn_notif_auth)) }
                             "ASSIGN_IP" -> { setState("ASSIGN_IP", profile.name); updateNotif(profile.name, getString(R.string.vpn_notif_assign_ip)) }
                             "EXITING" -> { setState("DISCONNECTED", profile.name) }

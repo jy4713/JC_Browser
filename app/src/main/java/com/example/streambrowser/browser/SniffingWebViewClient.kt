@@ -137,6 +137,9 @@ class SniffingWebViewClient(
         // 보안 인증(Cloudflare Turnstile/hCaptcha/reCAPTCHA) 관련 페이지에는 주입하지 않음
         // (JS 훅이 챌린지를 감지해 체크박스가 나타나지 않는 문제 방지)
         if (isSecurityChallengeHost(host)) return null
+        // 네이버 계열은 문서를 우리가 재전송하면 블로그 임베드가 "콘텐츠를 가져올 수 없습니다"로
+        // 깨지는 사례가 있어 제외 — 네이버는 스트리밍 스니핑 대상이 아니니 네이티브 로딩 유지
+        if (host == "naver.com" || host.endsWith(".naver.com")) return null
 
         // 리다이렉트(302 등)를 수동으로 따라가며 각 hop 의 Set-Cookie 를 CookieManager에 저장.
         // HttpURLConnection 의 자동 리다이렉트는 중간 응답의 Set-Cookie 를 버려서, 세션 쿠키가
@@ -147,6 +150,9 @@ class SniffingWebViewClient(
             c.connectTimeout = 10000
             c.readTimeout = 10000
             c.instanceFollowRedirects = false
+            // User-Agent 명시 — WebView 의 requestHeaders 에 UA가 빠져 있으면 Java 기본 UA 가 나가
+            // 서버(네이버 등)가 다른 응답/에러 페이지를 돌려주는 원인이 됨
+            c.setRequestProperty("User-Agent", view.settings.userAgentString)
             request.requestHeaders.forEach { (k, v) ->
                 if (k.lowercase() !in setOf("accept-encoding", "connection", "content-length")) {
                     c.setRequestProperty(k, v)

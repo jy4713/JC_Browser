@@ -4,9 +4,16 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.18 (versionCode 72)
+- 현재 버전: 2.11.19 (versionCode 73)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.19)
+- [x] **VPN CONNECTED 전 트래픽 VPN 경유(흰 페이지) 수정** — WAIT/RECONNECTING 상태에서 기존 tun 이 열린 채로 재시도되어 트래픽이 블랙홀 tun 으로 빨려 들어가 흰 페이지가 나오던 것. WAIT/RECONNECTING 진입 시 tun 을 닫아 일반 네트워크를 그대로 사용 — VPN 경유는 CONNECTED 이후뿐. 새 연결 시작 시 남은 tun 도 선 정리
+- [x] **데스크톱(UA) 모드 기본 ON** — 사용자 요청으로 desktop 기본값 false→true (WebView 생성/메뉴 토글/설정 초기화 3곳)
+- [x] **WebView 혼합 콘텐츠 정책 크롬/엣지 정합** — https 페이지의 http 리소스를 차단하지 않고 허용 (MIXED_CONTENT_COMPATIBILITY_MODE, 데스크톱 크롬과 동일)
+- [x] **다운로드 실패/취소 시 노티바 알림 정리** — 실패 경로(onFailure/FastVideoDownloader 폴스루 포함)에서 최종 알림 갱신이 없어 진행 프로그레스 바가 영구 남던 것. FAILED/CANCELED 는 알림을 cancel, 완료/일시정지만 최종 문구 표시. 서비스 종료 시 stopForeground(STOP_FOREGROUND_REMOVE) 로 잔여 알림 명시 제거
+- [x] **네이버 블로그 임베드 iframe 실패 추가 수정** — injectScanner 재요청 시 User-Agent 를 WebView UA 로 명시 (requestHeaders 에 UA 없으면 Java 기본 UA 가 나가 서버가 에러 페이지 반환하던 원인). naver.com 호스트는 문서 재전송 자체를 제외해 네이티브 로딩 유지 (네이버는 스트리밍 스니핑 대상 아님)
 
 #### 완료 (2026-10-10, v2.11.18)
 - [x] **공유 링크(goto 리다이렉트) 페이지의 임베드 iframe 실패 수정** — 다른 브라우저는 정상인데 우리 것만 "일시적으로 콘텐츠 정보를 가져올 수 없습니다"가 뜨던 문제. 원인 2개: ① **injectScanner 리다이렉트 쿠키 손실** — 302로 이어지는 문서를 우리가 재요청할 때 HttpURLConnection 자동 리다이렉트가 중간 hop 응답의 Set-Cookie 를 버려 세션이 깨짐 → 리다이렉트를 수동으로 따라가며 각 hop 의 Set-Cookie 를 CookieManager에 저장하도록 재작성 (최대 10 hop) ② **AdBlocker가 iframe 문서(프레임 내비게이션)까지 차단** — 서드파티 규칙에 걸린 임베드 문서가 빈 응답이 되어 프레임 전체가 실패 → Sec-Fetch-Dest가 document/iframe 이거나 Accept에 text/html 인 내비게이션 요청은 차단에서 제외 (uBO 와 동일 — 메인/프레임 문서는 차단하지 않고 그 낶의 리소스만 차단)

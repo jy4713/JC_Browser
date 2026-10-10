@@ -558,7 +558,9 @@ class MainActivity : Activity() {
             displayZoomControls = false
             loadWithOverviewMode = true
             useWideViewPort = true
-            userAgentString = if (prefs.getBoolean("desktop", false)) UA_DESKTOP else UA_MOBILE
+            // 최신 크롬/엣지와 동일 — https 페이지의 http 리소스(혼합 콘텐츠)를 차단하지 않고 허용
+            mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+            userAgentString = if (prefs.getBoolean("desktop", true)) UA_DESKTOP else UA_MOBILE
             textZoom = prefs.getInt("text_zoom", 100)
             blockNetworkImage = com.example.streambrowser.browser.WebCleaner.blockImages
             setSupportMultipleWindows(true)
@@ -1115,8 +1117,8 @@ class MainActivity : Activity() {
                 menuDialog?.dismiss()
             },
             // ON/OFF toggles (state shown as blue tint, no toasts)
-            ShortcutSpec(R.drawable.ic_desktop, R.string.menu_desktop, { prefs.getBoolean("desktop", false) }) {
-                val on = !prefs.getBoolean("desktop", false)
+            ShortcutSpec(R.drawable.ic_desktop, R.string.menu_desktop, { prefs.getBoolean("desktop", true) }) {
+                val on = !prefs.getBoolean("desktop", true)
                 prefs.edit().putBoolean("desktop", on).apply()
                 tabs.forEach {
                     it.web.settings.userAgentString = if (on) UA_DESKTOP else UA_MOBILE
@@ -1366,7 +1368,8 @@ class MainActivity : Activity() {
 
     /** 각 설정의 실제 동작 기본값 (메뉴 ON 표시와 일치시키기 위함) */
     private fun prefDefault(key: String): Boolean = when (key) {
-        "desktop", "auto_pip", "js_block", "torrent_play", "block_images", "torrent_no_seed" -> false
+        "auto_pip", "js_block", "torrent_play", "block_images", "torrent_no_seed" -> false
+        "desktop" -> true
         "adblock" -> AdBlocker.enabled
         else -> true // restore_tabs, fast_dl, dl_notify, overlay_block, popup_block, app_block, suggest
     }

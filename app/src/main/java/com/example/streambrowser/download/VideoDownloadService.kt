@@ -169,17 +169,7 @@ class VideoDownloadService : Service() {
                                     DownloadFolder.export(this, out, "video/mp4")
                                 }
                         DownloadStore.upsert(item)
-                        if (notifyOn) {
-                            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                            val msg = when (item.status) {
-                                DlStatus.DONE -> "${getString(com.example.streambrowser.R.string.notif_done)}: ${out.name}"
-                                DlStatus.CANCELED -> "${getString(com.example.streambrowser.R.string.notif_canceled)}: ${out.name}"
-                                DlStatus.PAUSED -> "${getString(com.example.streambrowser.R.string.notif_paused)}: ${out.name}"
-                                else -> "${getString(com.example.streambrowser.R.string.notif_failed)}: ${out.name}"
-                            }
-                            nm.notify(notifBase + (id % 500).toInt(), buildNotification(item.name, msg, indeterminate = false))
-                        }
-                        if (!DownloadStore.hasRunning()) stopSelf(startId)
+                        notifyFinished(item, notifyOn, startId)
                     },
                     {},
                     { stats ->
@@ -200,7 +190,7 @@ class VideoDownloadService : Service() {
             }.onFailure {
                 item.status = DlStatus.FAILED
                 DownloadStore.upsert(item)
-                if (!DownloadStore.hasRunning()) stopSelf(startId)
+                notifyFinished(item, notifyOn, startId)
             }
         }.start()
 
@@ -219,21 +209,27 @@ class VideoDownloadService : Service() {
     }
 
     private fun notifyFinished(item: DlItem, notifyOn: Boolean, startId: Int) {
+        val notifId = notifBase + (item.id % 500).toInt()
         if (notifyOn) {
             val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            val fname = item.file?.name ?: item.name
-            val msg = when (item.status) {
-                DlStatus.DONE -> "${getString(R.string.notif_done)}: $fname"
-                DlStatus.CANCELED -> "${getString(R.string.notif_canceled)}: $fname"
-                DlStatus.PAUSED -> "${getString(R.string.notif_paused)}: $fname"
-                else -> "${getString(R.string.notif_failed)}: $fname"
+            if (item.status == DlStatus.FAILED || item.status == DlStatus.CANCELED) {
+                // 실패/취소 — 진행 표시(프로그레스 바)가 노티바에 남지 않게 제거
+                nm.cancel(notifId)
+            } else {
+                val fname = item.file?.name ?: item.name
+                val msg = when (item.status) {
+                    DlStatus.DONE -> "${getString(R.string.notif_done)}: $fname"
+                    DlStatus.PAUSED -> "${getString(R.string.notif_paused)}: $fname"
+                    else -> "${getString(R.string.notif_failed)}: $fname"
+                }
+                nm.notify(notifId, buildNotification(item.name, msg, indeterminate = false))
             }
-            nm.notify(
-                notifBase + (item.id % 500).toInt(),
-                buildNotification(item.name, msg, indeterminate = false)
-            )
         }
-        if (!DownloadStore.hasRunning()) stopSelf(startId)
+        if (!DownloadStore.hasRunning()) {
+            // 포그라운드 알림이 시스템에 남지 않게 명시적으로 제거 후 서비스 종료
+            runCatching { stopForeground(Service.STOP_FOREGROUND_REMOVE) }
+            stopSelf(startId)
+        }
     }
 
     /** 다운로드용 헤더 조립.
