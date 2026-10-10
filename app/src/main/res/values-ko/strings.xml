@@ -94,6 +94,9 @@
     <string name="vm_speed_1">배속 1.0x</string>
     <string name="vm_speed_15">배속 1.5x</string>
     <string name="vm_speed_2">배속 2.0x</string>
+    <string name="vm_touch_lock">터치 잠금</string>
+    <string name="vm_prev">이전 화</string>
+    <string name="vm_next">다음 화</string>
 
     <!-- 항목 메뉴 -->
     <string name="item_open_tab">새 탭으로 열기</string>
@@ -169,6 +172,7 @@
     <!-- 알림 -->
     <string name="notif_channel">영상 다운로드</string>
     <string name="notif_preparing">다운로드 준비 중…</string>
+    <string name="notif_queued">다운로드 대기 중 (앞 %d개)</string>
     <string name="notif_done">완료</string>
     <string name="notif_canceled">취소됨</string>
     <string name="notif_failed">실패</string>
@@ -260,6 +264,8 @@
     <string name="menu_fast_dl">고속 다운로드 (분할 병렬)</string>
     <string name="menu_dl_split">한 파일 분할 수 (%d)</string>
     <string name="menu_dl_conn">동시 연결 수 (%d)</string>
+    <string name="menu_dl_max">동시에 받을 동영상 수 (%d)</string>
+    <string name="menu_video_tap">화면 탭으로 동영상 메뉴 열기</string>
     <string name="dlg_split_title">한 파일 분할 수</string>
     <string name="dlg_conn_title">동시 연결 수</string>
     <string name="no_video_playing">재샽 중인 동영상이없습니다</string>

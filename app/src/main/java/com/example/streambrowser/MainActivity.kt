@@ -17,6 +17,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -38,6 +39,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import kotlin.math.roundToInt
 import android.webkit.WebSettings
 import android.webkit.WebStorage
 import android.webkit.WebView
@@ -378,6 +380,10 @@ class MainActivity : Activity() {
         // Soul 스타일 동영상 길게 누르기 (JS 다리) — 전체화면이면 톱니 버튼 2초 표시, 아니면 바로 메뉴
         VideoJsBridge.onVideoLongPress = { runOnUiThread { onVideoLongPressed() } }
 
+        // 전체화면 제스처: 밝기/음량 조절 (JS 오버레이 → 네이티브)
+        VideoJsBridge.onGestureBright = { norm -> runOnUiThread { adjustBrightness(-norm * 1.2f) } }
+        VideoJsBridge.onGestureVolume = { norm -> runOnUiThread { adjustVolume(-norm) } }
+
         // 동영상 재생 상태 추적 (PIP 자동 진입 여부 판단용)
         VideoJsBridge.onVideoStateChange = { playing ->
             runOnUiThread {
@@ -624,7 +630,19 @@ class MainActivity : Activity() {
                     }
                     // 보안 인증(Cloudflare 등) 페이지에는 주입 건 넘어감 — 인증 스크립트가 훅을 감지해 체크가 안 나타나는 문제 방지
                     if (com.example.streambrowser.browser.SniffingWebViewClient.isSecurityChallengeUrl(url)) return@runOnUiThread
-                    runCatching { view.evaluateJavascript("window.__sbMinImg=${VideoJsBridge.imageMinWidth};" + VideoJsBridge.SCANNER_JS, null) }
+                    runCatching { view.evaluateJavascript(scannerPrefix(view) + VideoJsBridge.SCANNER_JS, null) }
+                    /* SPA/늦게 뜨는 프레임 대비 주기적 재주입 — __sbScanner 가드로 중복 실행 없음.
+                       프리픽스(배속/탭메뉴/이미지 폭)는 매번 갱신 */
+                    mainHandler.postDelayed(object : Runnable {
+                        override fun run() {
+                            val alive = view.windowToken != null && tabs.any { it.web == view }
+                            if (!alive) return
+                            runCatching {
+                                view.evaluateJavascript(scannerPrefix(view) + VideoJsBridge.SCANNER_JS, null)
+                            }
+                            mainHandler.postDelayed(this, 5000)
+                        }
+                    }, 5000)
                     // Brave 스타일 요소 숨김 (##규칙 CSS 주입)
                     val css = AdBlocker.hideCss()
                     if (css.isNotEmpty()) {
@@ -670,30 +688,56 @@ class MainActivity : Activity() {
                     callback.onCustomViewHidden()
                     return
                 }
-                fullscreenView = view
-                fullscreenCallback = callback
-                topBar.visibility = View.GONE
-                bottomBar.visibility = View.GONE
-                findBar.visibility = View.GONE
-                enterImmersive()
-                container.addView(
+                // Soul 스타일: 네이티브 전체화면에서 화면 오래 누륵면 톱니 버튼 표시.
+                // 자식 비디오 서피스가 터치를 소비해 뷰 자체의 OnTouchListener는 안 먹는 경우가
+                // 많아 dispatchTouchEvent를 오버라이드한 래퍼로 감쌈 (부모가 항상 먼저 받음)
+                val wrapper = object : FrameLayout(this@MainActivity) {
+                    private var downAt = 0L
+                    private var downX = 0f
+                    private var downY = 0f
+                    private val lpRunnable = Runnable { onVideoLongPressed() }
+                    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+                        when (ev.actionMasked) {
+                            MotionEvent.ACTION_DOWN -> {
+                                downAt = System.currentTimeMillis()
+                                downX = ev.x; downY = ev.y
+                                postDelayed(lpRunnable, 600)
+                            }
+                            MotionEvent.ACTION_MOVE ->
+                                if (Math.abs(ev.x - downX) > 24 || Math.abs(ev.y - downY) > 24)
+                                    removeCallbacks(lpRunnable)
+                            MotionEvent.ACTION_UP -> {
+                                removeCallbacks(lpRunnable)
+                                val quick = System.currentTimeMillis() - downAt < 300
+                                if (quick && Math.abs(ev.x - downX) < 24 && Math.abs(ev.y - downY) < 24
+                                    && prefs.getBoolean("video_tap_menu", false)
+                                ) onVideoLongPressed()
+                            }
+                            MotionEvent.ACTION_CANCEL -> removeCallbacks(lpRunnable)
+                        }
+                        return super.dispatchTouchEvent(ev)
+                    }
+                }
+                wrapper.addView(
                     view,
                     FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
                 )
-                // Soul 스타일: 네이티브 전체화면에서 화면 오래 누륵면 톱니 버튼 표시.
-                // LongClick은 비디오 서피스가 터치를 소비해 안 먹는 경우가 있어 터치 유지 시간으로 감지
-                val lpRunnable = Runnable { onVideoLongPressed() }
-                view.setOnTouchListener { v, ev ->
-                    when (ev.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> v.postDelayed(lpRunnable, 600)
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_MOVE ->
-                            v.removeCallbacks(lpRunnable)
-                    }
-                    false
-                }
+                fullscreenView = wrapper
+                fullscreenCallback = callback
+                topBar.visibility = View.GONE
+                bottomBar.visibility = View.GONE
+                findBar.visibility = View.GONE
+                enterImmersive()
+                container.addView(
+                    wrapper,
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                )
             }
 
             override fun onHideCustomView() {
@@ -1301,6 +1345,12 @@ class MainActivity : Activity() {
                 MenuEntry(getString(R.string.menu_dl_conn, prefs.getInt("dl_conn", 4)), R.drawable.ic_folder, null) {
                     showConnDialog()
                 },
+                MenuEntry(getString(R.string.menu_dl_max, prefs.getInt("dl_max_concurrent", 2)), R.drawable.ic_tune, null) {
+                    showIntPickerDialog(getString(R.string.menu_dl_max, prefs.getInt("dl_max_concurrent", 2)), 1, 4, prefs.getInt("dl_max_concurrent", 2)) { v ->
+                        prefs.edit().putInt("dl_max_concurrent", v).apply()
+                        rebuildMenu()
+                    }
+                },
                 MenuEntry(s(R.string.menu_dl_notify), R.drawable.ic_play, "dl_notify") {
                     val on = !prefs.getBoolean("dl_notify", true)
                     prefs.edit().putBoolean("dl_notify", on).apply()
@@ -1363,6 +1413,10 @@ class MainActivity : Activity() {
                 },
                 MenuEntry(getString(R.string.menu_theme) + ": " + themeModeLabel(), R.drawable.ic_dark, null) {
                     showThemeDialog()
+                },
+                MenuEntry(s(R.string.menu_video_tap), R.drawable.ic_play, "video_tap_menu") {
+                    val on = !prefs.getBoolean("video_tap_menu", false)
+                    prefs.edit().putBoolean("video_tap_menu", on).apply()
                 },
                 MenuEntry(s(R.string.menu_text_size), R.drawable.ic_expand_more, null) {
                     showTextSizeDialog()
@@ -1445,7 +1499,7 @@ class MainActivity : Activity() {
 
     /** 각 설정의 실제 동작 기본값 (메뉴 ON 표시와 일치시키기 위함) */
     private fun prefDefault(key: String): Boolean = when (key) {
-        "desktop", "auto_pip", "js_block", "torrent_play", "block_images", "torrent_no_seed" -> false
+        "desktop", "auto_pip", "js_block", "torrent_play", "block_images", "torrent_no_seed", "video_tap_menu" -> false
         "adblock" -> AdBlocker.enabled
         else -> true // restore_tabs, fast_dl, dl_notify, overlay_block, popup_block, app_block, suggest
     }
@@ -2006,6 +2060,39 @@ class MainActivity : Activity() {
         orientListener = null
     }
 
+    /* ---------- 전체화면 제스처: 밝기/음량 ---------- */
+
+    private var manualBrightness = -1f
+
+    /** 화면 밝기 조절 (delta: + 밝게 / - 어둡게, 0..1 스케일) */
+    private fun adjustBrightness(delta: Float) {
+        val lp = window.attributes
+        val cur = if (manualBrightness >= 0f) manualBrightness
+        else lp.screenBrightness.takeIf { it in 0.01f..1f } ?: 0.5f
+        manualBrightness = (cur + delta).coerceIn(0.05f, 1f)
+        lp.screenBrightness = manualBrightness
+        window.attributes = lp
+    }
+
+    /** 미디어 음량 조절 (delta: 정규화된 값, 1.0 = 최대 볼륨 만큼) */
+    private fun adjustVolume(delta: Float) {
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        if (max <= 0) return
+        val cur = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+        val next = (cur + delta * max).roundToInt().coerceIn(0, max)
+        am.setStreamVolume(AudioManager.STREAM_MUSIC, next, 0)
+    }
+
+    /* ---------- 스캐너 주입 프리픽스 (이미지 최소 폭 + 사이트별 배속 + 탭메뉴 설정) ---------- */
+
+    private fun scannerPrefix(view: WebView): String {
+        val host = runCatching { Uri.parse(view.url ?: "").host ?: "" }.getOrDefault("")
+        val rate = prefs.getFloat("speed_$host", 1.0f)
+        val tap = prefs.getBoolean("video_tap_menu", false)
+        return "window.__sbMinImg=${VideoJsBridge.imageMinWidth};window.__sbRate=${rate};window.__sbTapMenu=$tap;"
+    }
+
     /* ---------- Soul 스타일: 동영상 위 플로팅 메뉴 버튼 ---------- */
 
     private var videoMenuBtn: TextView? = null
@@ -2147,6 +2234,26 @@ class MainActivity : Activity() {
                     startAutoRotate()
                 })
             }
+            // 터치 잠금: JS 풀스크린 모드의 제스처 오버레이를 잠금 (잠금 중엔 터치 무시)
+            if (jsFsActive) {
+                addView(row(getString(R.string.vm_touch_lock)) {
+                    runVideoJs("if(window.__sbLockToggle)window.__sbLockToggle();")
+                })
+            }
+            // 이전/다음 화: URL 마지막 숫자를 ±1 (드라마 회차 이동용)
+            val pageUrl = current()?.web?.url
+            if (!pageUrl.isNullOrEmpty()) {
+                episodeUrl(pageUrl, -1)?.let { prev ->
+                    addView(row(getString(R.string.vm_prev)) {
+                        current()?.web?.loadUrl(prev)
+                    })
+                }
+                episodeUrl(pageUrl, 1)?.let { next ->
+                    addView(row(getString(R.string.vm_next)) {
+                        current()?.web?.loadUrl(next)
+                    })
+                }
+            }
             addView(row(getString(R.string.vm_play)) {
                 runVideoJs("var v=window.__sbBigVideo(); if(v){try{v.play();}catch(e){}}")
             })
@@ -2154,13 +2261,16 @@ class MainActivity : Activity() {
                 runVideoJs("var v=window.__sbBigVideo(); if(v){try{v.pause();}catch(e){}}")
             })
             addView(row(getString(R.string.vm_speed_1)) {
-                runVideoJs("var v=window.__sbBigVideo(); if(v){v.playbackRate=1.0;}")
+                saveSpeed(1.0f)
+                runVideoJs("window.__sbRate=1.0;var v=window.__sbBigVideo(); if(v){v.playbackRate=1.0;}")
             })
             addView(row(getString(R.string.vm_speed_15)) {
-                runVideoJs("var v=window.__sbBigVideo(); if(v){v.playbackRate=1.5;}")
+                saveSpeed(1.5f)
+                runVideoJs("window.__sbRate=1.5;var v=window.__sbBigVideo(); if(v){v.playbackRate=1.5;}")
             })
             addView(row(getString(R.string.vm_speed_2)) {
-                runVideoJs("var v=window.__sbBigVideo(); if(v){v.playbackRate=2.0;}")
+                saveSpeed(2.0f)
+                runVideoJs("window.__sbRate=2.0;var v=window.__sbBigVideo(); if(v){v.playbackRate=2.0;}")
             })
             addView(row(getString(R.string.btn_cancel)) {
                 videoMenuPopup?.dismiss()
@@ -2185,6 +2295,23 @@ class MainActivity : Activity() {
         videoHideRunnable?.let { mainHandler.removeCallbacks(it) }
         videoHideRunnable = Runnable { videoMenuPopup?.dismiss() }
         mainHandler.postDelayed(videoHideRunnable!!, 4000)
+    }
+
+    /** 사이트별 배속 저장 — 같은 호스트에서 재생하면 자동 적용 */
+    private fun saveSpeed(rate: Float) {
+        val host = runCatching { Uri.parse(current()?.web?.url ?: "").host ?: "" }.getOrDefault("")
+        if (host.isNotEmpty()) prefs.edit().putFloat("speed_$host", rate).apply()
+    }
+
+    /** URL 마지막 숫자 부분을 ±1 이동한 회차 URL (숫자가 없거나 0 이하가 되면 null) */
+    private fun episodeUrl(url: String, dir: Int): String? {
+        val m = Regex("(\\d+)(?=[^\\d]*$)").find(url) ?: return null
+        val len = m.groupValues[1].length
+        val n = m.groupValues[1].toIntOrNull() ?: return null
+        val next = n + dir
+        if (next < 1) return null
+        val repl = next.toString().padStart(len, '0')
+        return url.replaceRange(m.range, repl)
     }
 
     // ------------------------------------------------------- 기타 헬퍼

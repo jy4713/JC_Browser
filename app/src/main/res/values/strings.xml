@@ -96,6 +96,9 @@
     <string name="vm_speed_1">Speed 1.0x</string>
     <string name="vm_speed_15">Speed 1.5x</string>
     <string name="vm_speed_2">Speed 2.0x</string>
+    <string name="vm_touch_lock">Touch lock</string>
+    <string name="vm_prev">Previous episode</string>
+    <string name="vm_next">Next episode</string>
 
     <!-- 항목 메뉴 -->
     <string name="item_open_tab">Open in new tab</string>
@@ -171,6 +174,7 @@
     <!-- 알림 -->
     <string name="notif_channel">Video download</string>
     <string name="notif_preparing">Preparing download…</string>
+    <string name="notif_queued">Download queued (%d waiting)</string>
     <string name="notif_done">Complete</string>
     <string name="notif_canceled">Canceled</string>
     <string name="notif_failed">Failed</string>
@@ -262,6 +266,8 @@
     <string name="menu_fast_dl">Fast download (segmented parallel)</string>
     <string name="menu_dl_split">Segments per file (%d)</string>
     <string name="menu_dl_conn">Simultaneous connections (%d)</string>
+    <string name="menu_dl_max">Simultaneous downloads (%d)</string>
+    <string name="menu_video_tap">Tap screen to open video menu</string>
     <string name="dlg_split_title">Segments per file</string>
     <string name="dlg_conn_title">Simultaneous connections</string>
     <string name="no_video_playing">No video playing</string>

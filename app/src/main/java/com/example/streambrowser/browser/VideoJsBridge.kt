@@ -12,9 +12,10 @@ import android.webkit.WebView
 class VideoJsBridge(private val owner: WebView? = null) {
 
     @JavascriptInterface
-    fun addVideo(url: String, tag: String, page: String) {
+    fun addVideo(url: String, tag: String, page: String, force: String?) {
         if (url.isBlank()) return
         val kind = when {
+            force == "HLS" || force == "DASH" -> force
             url.startsWith("blob:") -> "BLOB"
             ".m3u8" in url -> "HLS"
             ".mpd" in url -> "DASH"
@@ -68,6 +69,18 @@ class VideoJsBridge(private val owner: WebView? = null) {
         onVideoStateChange?.invoke(playing)
     }
 
+    /** 전체화면 제스처: 밝기 조절 (norm: 세로 이동량/화면 높이, 아래로 내리면 -) */
+    @JavascriptInterface
+    fun gestureBright(norm: Double) {
+        onGestureBright?.invoke(norm.toFloat())
+    }
+
+    /** 전체화면 제스처: 음량 조절 (norm: 세로 이동량/화면 높이) */
+    @JavascriptInterface
+    fun gestureVolume(norm: Double) {
+        onGestureVolume?.invoke(norm.toFloat())
+    }
+
     companion object {
         @Volatile
         var onVideoLongPress: (() -> Unit)? = null
@@ -80,6 +93,12 @@ class VideoJsBridge(private val owner: WebView? = null) {
 
         @Volatile
         var onVideoStateChange: ((Boolean) -> Unit)? = null
+
+        @Volatile
+        var onGestureBright: ((Float) -> Unit)? = null
+
+        @Volatile
+        var onGestureVolume: ((Float) -> Unit)? = null
 
         /** 이미지 다운로드 목록에 올릴 최소 가로 픽셀 (설정에서 변경) */
         @Volatile
@@ -152,7 +171,13 @@ class VideoJsBridge(private val owner: WebView? = null) {
   /* 1-0) 동영상 재생 상태를 네이티브에 전달 (PIP 자동 진입 여부 판단용) */
   try{
     document.addEventListener('play', function(e){
-      try{ if (e.target && e.target.tagName === 'VIDEO') window.StreamBrowser.videoState(true); }catch(x){}
+      try{
+        if (e.target && e.target.tagName === 'VIDEO'){
+          /* 저장된 배속이 있으면 재생 시작 시 자동 적용 (사이트별) */
+          if (window.__sbRate && e.target.playbackRate !== window.__sbRate) e.target.playbackRate = window.__sbRate;
+          window.StreamBrowser.videoState(true);
+        }
+      }catch(x){}
     }, true);
     document.addEventListener('pause', function(e){
       try{ if (e.target && e.target.tagName === 'VIDEO') window.StreamBrowser.videoState(false); }catch(x){}
@@ -265,6 +290,20 @@ class VideoJsBridge(private val owner: WebView? = null) {
       this.addEventListener('load', function(){
         try{ reportUrl(this.__u); }catch(e){}
         try{ scanText(this.__u); }catch(e){}
+        /* 확장자 없는 재생목록 URL 대비: 응답 본문이 실제 HLS/DASH 목록이면
+           URL 자체를 등록 (hls.js/dash.js가 ?token= 만 붙인 경로로 받는 경우 필수) */
+        try{
+          var rt = this.responseType;
+          if (rt === '' || rt === 'text'){
+            var xt = this.responseText;
+            if (xt && xt.length > 0 && xt.length <= 500000 && this.__u){
+              if (xt.indexOf('#EXTM3U') >= 0)
+                window.StreamBrowser.addVideo(new URL(this.__u, location.href).href, 'NET', location.href, 'HLS');
+              else if (xt.indexOf('<MPD') >= 0)
+                window.StreamBrowser.addVideo(new URL(this.__u, location.href).href, 'NET', location.href, 'DASH');
+            }
+          }
+        }catch(e){}
         try{ if (this.responseType === '' || this.responseType === 'text') scanText(this.responseText); }catch(e){}
       });
     }catch(e){}
@@ -282,14 +321,127 @@ class VideoJsBridge(private val owner: WebView? = null) {
           scanText(u);
           var ct = '';
           try{ ct = (res.headers && res.headers.get) ? (res.headers.get('content-type') || '') : ''; }catch(e){}
-          if (ct.indexOf('json') >= 0 || ct.indexOf('text') >= 0 || /\.(m3u8|mpd)/i.test(u)){
-            res.clone().text().then(scanText).catch(function(){});
+          if (ct.indexOf('json') >= 0 || ct.indexOf('text') >= 0 || ct.indexOf('mpegurl') >= 0 || /\.(m3u8|mpd)/i.test(u)){
+            res.clone().text().then(function(t){
+              try{
+                if (t && t.length <= 500000 && u){
+                  if (t.indexOf('#EXTM3U') >= 0)
+                    window.StreamBrowser.addVideo(new URL(u, location.href).href, 'NET', location.href, 'HLS');
+                  else if (t.indexOf('<MPD') >= 0)
+                    window.StreamBrowser.addVideo(new URL(u, location.href).href, 'NET', location.href, 'DASH');
+                }
+              }catch(e){}
+              scanText(t);
+            }).catch(function(){});
           }
         }catch(e){}
         return res;
       });
     };
   }
+
+  /* 4) 전체화면 제스처 — JS 강제 풀스크린(__sbFsOn) 상태에서만 동작.
+     좌측 40% 세로 드래그: 밝기 / 우측 40%: 음량 / 가로 드래그: 시크(전체 폭=90초) /
+     양쪽 더블탭: 10초 탐색 / 톱니 메뉴에서 터치 잠금 가능 */
+  window.__sbFsActive = function(){
+    var vs = document.querySelectorAll('video');
+    for (var i=0;i<vs.length;i++){ if (vs[i].__sbfs !== undefined) return true; }
+    return false;
+  };
+  window.__sbGest = {lock:false, sx:0, sy:0, cx:0, cy:0, st:0, seekBase:-1, moved:false, lastTap:0, lastTapX:0, ov:null};
+  window.__sbGestEnsure = function(){
+    var g = window.__sbGest;
+    if (g.ov) return g.ov;
+    var d = document.createElement('div');
+    d.setAttribute('style','position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;display:none;');
+    var lockBtn = document.createElement('div');
+    lockBtn.textContent = '\u{1F512}';
+    lockBtn.setAttribute('style','position:absolute;left:50%;bottom:14%;transform:translateX(-50%);font-size:30px;padding:14px;display:none;color:#fff;text-shadow:0 0 6px #000;');
+    lockBtn.addEventListener('touchend', function(e){
+      e.stopPropagation();
+      g.lock = false; g.lockUi();
+    }, {passive:true});
+    d.appendChild(lockBtn);
+    var seekLbl = document.createElement('div');
+    seekLbl.setAttribute('style','position:absolute;top:14%;left:50%;transform:translateX(-50%);color:#fff;background:rgba(0,0,0,.55);font:16px monospace;padding:6px 14px;border-radius:6px;display:none;');
+    d.appendChild(seekLbl);
+    var seekHide = null;
+    g.lockUi = function(){ lockBtn.style.display = g.lock ? 'block' : 'none'; };
+    g._seekShow = function(sec){
+      if (!(sec >= 0)) return;
+      var h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = Math.floor(sec%60);
+      seekLbl.textContent = (h>0 ? h+':' : '') + (m<10?'0':'') + m + ':' + (s<10?'0':'') + s;
+      seekLbl.style.display = 'block';
+      if (seekHide) clearTimeout(seekHide);
+      seekHide = setTimeout(function(){ seekLbl.style.display='none'; }, 1200);
+    };
+    d.addEventListener('touchstart', function(e){
+      var t = e.changedTouches[0];
+      g.sx = t.clientX; g.sy = t.clientY; g.cx = t.clientX; g.cy = t.clientY;
+      g.st = Date.now(); g.seekBase = -1; g.moved = false;
+      if (g.lock) { try{ e.preventDefault(); }catch(x){} }
+    }, {passive:false});
+    d.addEventListener('touchmove', function(e){
+      if (!window.__sbFsActive()) return;
+      if (g.lock) { try{ e.preventDefault(); }catch(x){} return; }
+      var t = e.changedTouches[0];
+      g.cx = t.clientX; g.cy = t.clientY;
+      var dx = g.cx - g.sx, dy = g.cy - g.sy;
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) g.moved = true;
+      var v = window.__sbBigVideo();
+      if (!v) return;
+      if (g.seekBase >= 0 || Math.abs(dx) > Math.abs(dy) * 1.4){
+        if (g.seekBase < 0) g.seekBase = v.currentTime;
+        var dur = v.duration || 0;
+        var nt = g.seekBase + (dx / window.innerWidth) * 90;
+        if (dur > 0) nt = Math.min(Math.max(nt, 0), dur);
+        try{ v.currentTime = nt; }catch(x){}
+        g._seekShow(nt);
+      } else if (Math.abs(dy) > 8){
+        if (g.sx < window.innerWidth * 0.4) { try{ window.StreamBrowser.gestureBright(dy / window.innerHeight); }catch(x){} }
+        else if (g.sx > window.innerWidth * 0.6) { try{ window.StreamBrowser.gestureVolume(dy / window.innerHeight); }catch(x){} }
+        g.sy = g.cy;
+      }
+    }, {passive:false});
+    d.addEventListener('touchend', function(e){
+      var dt = Date.now() - g.st;
+      if (g.lock) return;
+      if (!g.moved && dt < 250 && window.__sbFsActive()){
+        var t = e.changedTouches[0];
+        var now = Date.now();
+        if (now - g.lastTap < 350 && Math.abs(t.clientX - g.lastTapX) < 80){
+          g.lastTap = 0;
+          var v = window.__sbBigVideo();
+          if (v){
+            var back = t.clientX < window.innerWidth * 0.4;
+            var nv = v.currentTime + (back ? -10 : 10);
+            if (v.duration > 0) nv = Math.min(Math.max(nv, 0), v.duration);
+            try{ v.currentTime = nv; }catch(x){}
+          }
+        } else {
+          g.lastTap = now; g.lastTapX = t.clientX;
+          if (window.__sbTapMenu) { try{ window.StreamBrowser.videoLongPress(); }catch(x){} }
+        }
+      }
+    }, {passive:true});
+    (document.body || document.documentElement).appendChild(d);
+    g.ov = d;
+    return d;
+  };
+  window.__sbLockToggle = function(){
+    var g = window.__sbGest;
+    window.__sbGestEnsure();
+    g.lock = !g.lock;
+    g.lockUi();
+  };
+  /* 풀스크린 진입/해제에 맞춰 제스처 오버레이 표시 전환 */
+  setInterval(function(){
+    try{
+      var d = window.__sbGestEnsure();
+      var want = window.__sbFsActive() ? 'block' : 'none';
+      if (d.style.display !== want) d.style.display = want;
+    }catch(e){}
+  }, 1000);
 })();
 """
     }

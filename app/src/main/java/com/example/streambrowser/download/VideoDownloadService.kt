@@ -38,6 +38,12 @@ class VideoDownloadService : Service() {
 
         val sessions = ConcurrentHashMap<Long, Session>()
 
+        /** 동시 다운로드 제한 대기열 — 초과 건은 여기 쌓아두고 완료 시 순서대로 시작 */
+        private val waitQueue = java.util.ArrayDeque<Intent>()
+
+        @Volatile
+        private var runningCount = 0
+
         fun cancel(id: Long) {
             sessions[id]?.cancel()
             FastVideoDownloader.cancel(id)
@@ -58,6 +64,21 @@ class VideoDownloadService : Service() {
         DownloadStore.init(this)
         val id = intent?.getLongExtra(EXTRA_ID, System.currentTimeMillis()) ?: System.currentTimeMillis()
         val url = intent?.getStringExtra(EXTRA_URL) ?: run { stopSelf(); return START_NOT_STICKY }
+
+        // 동시 다운로드 제한 — 초과 건은 대기열에 넣고 실행 중 것이 끝나면 순서대로 시작
+        val sp0 = getSharedPreferences("settings", MODE_PRIVATE)
+        val maxConcurrent = sp0.getInt("dl_max_concurrent", 2).coerceAtLeast(1)
+        synchronized(waitQueue) {
+            if (runningCount >= maxConcurrent) {
+                intent.let { waitQueue.add(it) }
+                com.example.streambrowser.util.JcToast.show(
+                    this,
+                    getString(R.string.notif_queued, waitQueue.size)
+                )
+                return START_NOT_STICKY
+            }
+            runningCount++
+        }
         val page = intent.getStringExtra(EXTRA_PAGE) ?: ""
         val kind = intent.getStringExtra(EXTRA_KIND) ?: ""
         val name = intent.getStringExtra(EXTRA_NAME) ?: ("video_" + System.currentTimeMillis())
@@ -224,6 +245,15 @@ class VideoDownloadService : Service() {
                 }
                 nm.notify(notifId, buildNotification(item.name, msg, indeterminate = false))
             }
+        }
+        // 실행 슬롯 해제 — 대기 중인 건이 있으면 바로 다음 다운로드 시작
+        val next: Intent? = synchronized(waitQueue) {
+            runningCount--
+            waitQueue.poll()
+        }
+        if (next != null) {
+            runCatching { startService(next) }
+            return
         }
         if (!DownloadStore.hasRunning()) {
             // 포그라운드 알림이 시스템에 남지 않게 명시적으로 제거 후 서비스 종료

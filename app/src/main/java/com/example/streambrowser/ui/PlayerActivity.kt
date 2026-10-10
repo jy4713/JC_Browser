@@ -81,7 +81,8 @@ class PlayerActivity : Activity() {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>html,body{margin:0;padding:0;background:#000;height:100%;overflow:hidden}
 video{width:100vw;height:100vh;object-fit:contain;background:#000}
-#sbErr{display:none;position:fixed;left:8px;right:8px;bottom:8px;background:rgba(60,0,0,.85);color:#fff;font:12px monospace;padding:10px;border-radius:6px;white-space:pre-wrap;word-break:break-all;z-index:9}</style>
+#sbErr{display:none;position:fixed;left:8px;right:8px;bottom:8px;background:rgba(60,0,0,.85);color:#fff;font:12px monospace;padding:10px;border-radius:6px;white-space:pre-wrap;word-break:break-all;z-index:9}
+#sbSub{position:fixed;left:5%;right:5%;bottom:9%;text-align:center;color:#fff;font:18px/1.4 sans-serif;text-shadow:0 1px 3px #000;white-space:pre-wrap;pointer-events:none;z-index:5}</style>
 </head><body>
 <video controls autoplay playsinline webkit-playsinline ${if (isHls) "" else "src=\"$escaped\""}></video>
 <div id="sbErr"></div>
@@ -147,7 +148,69 @@ ${if (isHls) """<script>$hlsJs</script>
                 // 파일명을 URL 인코딩(공백/한글 등) + HTML 이스케이프
                 val encName = android.net.Uri.encode(File(path).name)
                     .replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;")
-                htmlFile.writeText(html.replace("src=\"$escaped\"", "src=\"$encName\""))
+                /* 자막: 같은 폴터의 같은 이름 .srt/.vtt (Soul 방식). UTF-8이 아니면 EUC-KR로 재시도 */
+                val baseName = File(path).nameWithoutExtension
+                val subFile = dir.listFiles()?.firstOrNull { f ->
+                    f.isFile && f.nameWithoutExtension == baseName &&
+                            f.extension.lowercase() in setOf("srt", "vtt")
+                }
+                val subJs: String
+                if (subFile != null) {
+                    val raw = subFile.readBytes()
+                    var text = raw.toString(Charsets.UTF_8)
+                    if (text.count { it == '�' } > 3) {
+                        text = String(raw, java.nio.charset.Charset.forName("EUC-KR"))
+                    }
+                    // "</" 를 "<\/" 로 — 자막 본문에 </script>가 있어도 HTML을 깨지 않게
+                    val subJson = org.json.JSONObject.quote(text).replace("</", "<\\/")
+                    subJs = """
+<div id="sbSub"></div>
+<script>
+(function(){
+  var SUB_ARR = $subJson;
+  function tsec(str){
+    var p = String(str).trim().replace(',', '.').split(':');
+    var r = 0;
+    for (var i = 0; i < p.length; i++) r = r * 60 + (parseFloat(p[i]) || 0);
+    return r;
+  }
+  function parseSubs(t){
+    t = t.replace(/\r/g, '').replace(/^﻿/, '');
+    if (/^\s*WEBVTT/i.test(t)) t = t.replace(/^WEBVTT[^\n]*(\n|$)/, '');
+    var blocks = t.split(/\n\n+/);
+    var out = [];
+    for (var i = 0; i < blocks.length; i++){
+      var lines = blocks[i].split('\n');
+      if (lines.length < 2) continue;
+      var ti = (/-->/).test(lines[0]) ? 0 : ((/-->/).test(lines[1]) ? 1 : -1);
+      if (ti < 0) continue;
+      var mm = lines[ti].match(/(.+?)\s*-->\s*(.+)/);
+      if (!mm) continue;
+      var s = tsec(mm[1].split(/\s/)[0]), e = tsec(mm[2].split(/\s/)[0]);
+      if (!(e > s)) continue;
+      out.push({s: s, e: e, x: lines.slice(ti + 1).join('\n').replace(/<[^>]+>/g, '')});
+    }
+    return out;
+  }
+  var subs = parseSubs(SUB_ARR);
+  if (subs.length){
+    var box = document.getElementById('sbSub');
+    v.addEventListener('timeupdate', function(){
+      var t = v.currentTime, cur = '';
+      for (var i = 0; i < subs.length; i++){
+        if (subs[i].s <= t && t <= subs[i].e){ cur = subs[i].x; break; }
+        if (subs[i].s > t) break;
+      }
+      if (box.textContent !== cur) box.textContent = cur;
+    });
+  }
+})();
+</script>"""
+                } else subJs = ""
+                val pageHtml = html
+                    .replace("src=\"$escaped\"", "src=\"$encName\"")
+                    .replace("</body>", "$subJs</body>")
+                htmlFile.writeText(pageHtml)
                 web.loadUrl("file://${htmlFile.absolutePath}")
             }.onFailure { finish() }
         } else {

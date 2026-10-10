@@ -502,12 +502,13 @@ class SniffingWebViewClient(
             return CHALLENGE_HOST_PARTS.any { it in h }
         }
 
-        /** HTML 내용이 보안 인증 챌린지 페이지인지 */
+        /** HTML 내용이 보안 인증 챌린지 페이지인지. recaptcha는 실제 위젯 사용(g-recaptcha)일 때만
+         *  스킵 — 플레이어 페이지가 recaptcha api.js만 참조하는 경우까지 제외하면 스트리밍 감지가 빠짐 */
         fun isSecurityChallengePage(html: String): Boolean {
             val t = html.lowercase()
             return "challenges.cloudflare.com" in t || "__cf_chl" in t ||
                     "cdn-cgi/challenge" in t || "cf-turnstile" in t ||
-                    "hcaptcha.com" in t || "recaptcha" in t
+                    "hcaptcha.com" in t || "g-recaptcha" in t || "grecaptcha" in t
         }
 
         /** URL이 보안 인증 절차를 거치는 중인지 (페이지 로드 완료 후 주입 스킵용) */
