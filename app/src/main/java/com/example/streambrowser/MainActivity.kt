@@ -106,6 +106,10 @@ class MainActivity : Activity() {
     private lateinit var chromeClient: WebChromeClient
     private lateinit var prefs: SharedPreferences
 
+    /** 사이트 파일 업로드(input type=file) 콜백 대기 — REQ_FILE_PICK(5) 결과 수신 */
+    private var pendingFileCallback: android.webkit.ValueCallback<Array<Uri>>? = null
+    private val REQ_FILE_PICK = 5
+
     private lateinit var videoAdapter: VideoAdapter
     private lateinit var imageAdapter: ImageAdapter
 
@@ -560,7 +564,7 @@ class MainActivity : Activity() {
             useWideViewPort = true
             // 최신 크롬/엣지와 동일 — https 페이지의 http 리소스(혼합 콘텐츠)를 차단하지 않고 허용
             mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-            userAgentString = if (prefs.getBoolean("desktop", true)) UA_DESKTOP else UA_MOBILE
+            userAgentString = if (prefs.getBoolean("desktop", false)) UA_DESKTOP else UA_MOBILE
             textZoom = prefs.getInt("text_zoom", 100)
             blockNetworkImage = com.example.streambrowser.browser.WebCleaner.blockImages
             setSupportMultipleWindows(true)
@@ -690,6 +694,65 @@ class MainActivity : Activity() {
                 bottomBar.visibility = View.VISIBLE
                 stopAutoRotate()
                 if (!jsFsActive) exitImmersive()
+            }
+
+            // 사이트 파일 업로드(input type=file) — 파일 선택기 띄우고 결과를 콜백
+            override fun onShowFileChooser(
+                webView: WebView, filePathCallback: android.webkit.ValueCallback<Array<Uri>>,
+                fileChooserParams: WebChromeClient.FileChooserParams
+            ): Boolean {
+                pendingFileCallback?.onReceiveValue(null)
+                pendingFileCallback = filePathCallback
+                return runCatching {
+                    startActivityForResult(
+                        Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "*/*"
+                        }, REQ_FILE_PICK
+                    )
+                    true
+                }.getOrElse {
+                    pendingFileCallback = null
+                    false
+                }
+            }
+
+            // 위치 정보 요청 — 허용/거부 다이얼로그
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String, callback: android.webkit.GeolocationPermissions.Callback
+            ) {
+                val originText = origin.trim().removePrefix("https://").removePrefix("http://")
+                    .trimEnd('/').ifEmpty { origin }
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(R.string.perm_location_title)
+                    .setMessage(getString(R.string.perm_location_msg, originText))
+                    .setPositiveButton(R.string.btn_allow) { _, _ -> callback.invoke(origin, true, false) }
+                    .setNegativeButton(R.string.btn_deny) { _, _ -> callback.invoke(origin, false, false) }
+                    .setOnCancelListener { callback.invoke(origin, false, false) }
+                    .show()
+            }
+
+            // WebRTC 카메라/마이크 권한 요청 — 허용/거부 다이얼로그
+            override fun onPermissionRequest(request: android.webkit.PermissionRequest) {
+                val wantsCapture = request.resources.any {
+                    it == android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE ||
+                        it == android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE
+                }
+                if (!wantsCapture) {
+                    request.deny()
+                    return
+                }
+                val originText = request.origin?.toString()?.trim()?.removePrefix("https://")
+                    ?.removePrefix("http://")?.trimEnd('/')?.ifEmpty { request.origin.toString() } ?: ""
+                runOnUiThread {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle(R.string.perm_media_title)
+                        .setMessage(getString(R.string.perm_media_msg, originText))
+                        .setPositiveButton(R.string.btn_allow) { _, _ -> runCatching { request.grant(request.resources) } }
+                        .setNegativeButton(R.string.btn_deny) { _, _ -> request.deny() }
+                        .setOnCancelListener { request.deny() }
+                        .show()
+                }
             }
         }
         wv.webChromeClient = chromeClient
@@ -1117,8 +1180,8 @@ class MainActivity : Activity() {
                 menuDialog?.dismiss()
             },
             // ON/OFF toggles (state shown as blue tint, no toasts)
-            ShortcutSpec(R.drawable.ic_desktop, R.string.menu_desktop, { prefs.getBoolean("desktop", true) }) {
-                val on = !prefs.getBoolean("desktop", true)
+            ShortcutSpec(R.drawable.ic_desktop, R.string.menu_desktop, { prefs.getBoolean("desktop", false) }) {
+                val on = !prefs.getBoolean("desktop", false)
                 prefs.edit().putBoolean("desktop", on).apply()
                 tabs.forEach {
                     it.web.settings.userAgentString = if (on) UA_DESKTOP else UA_MOBILE
@@ -1368,8 +1431,7 @@ class MainActivity : Activity() {
 
     /** 각 설정의 실제 동작 기본값 (메뉴 ON 표시와 일치시키기 위함) */
     private fun prefDefault(key: String): Boolean = when (key) {
-        "auto_pip", "js_block", "torrent_play", "block_images", "torrent_no_seed" -> false
-        "desktop" -> true
+        "desktop", "auto_pip", "js_block", "torrent_play", "block_images", "torrent_no_seed" -> false
         "adblock" -> AdBlocker.enabled
         else -> true // restore_tabs, fast_dl, dl_notify, overlay_block, popup_block, app_block, suggest
     }
@@ -2598,6 +2660,17 @@ class MainActivity : Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        // 사이트 파일 업로드(input type=file) 결과
+        if (requestCode == REQ_FILE_PICK) {
+            val cb = pendingFileCallback
+            pendingFileCallback = null
+            if (resultCode == RESULT_OK) {
+                val uri = data?.data
+                cb?.onReceiveValue(if (uri != null) arrayOf(uri) else null)
+            } else {
+                cb?.onReceiveValue(null)
+            }
+        }
         if ((requestCode == 1 || requestCode == 2) && resultCode == RESULT_OK) {
             data?.getStringExtra("url")?.let { current()?.web?.loadUrl(it) }
         }

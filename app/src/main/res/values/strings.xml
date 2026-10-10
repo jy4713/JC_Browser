@@ -128,6 +128,12 @@
     <string name="ssl_error_msg">This site\'s security certificate has a problem. Continuing may expose your information to attackers.</string>
     <string name="ssl_error_continue">Proceed anyway</string>
     <string name="btn_ok">OK</string>
+    <string name="perm_location_title">Location request</string>
+    <string name="perm_location_msg">%1$s requests your location.</string>
+    <string name="perm_media_title">Camera / microphone request</string>
+    <string name="perm_media_msg">%1$s requests access to your camera and/or microphone.</string>
+    <string name="btn_allow">Allow</string>
+    <string name="btn_deny">Deny</string>
     <string name="dlg_adblock_host">Domain to block</string>
     <string name="btn_add">Add</string>
     <string name="dlg_tabs_close">Close current tab</string>

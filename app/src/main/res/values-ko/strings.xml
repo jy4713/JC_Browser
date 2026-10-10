@@ -126,6 +126,12 @@
     <string name="ssl_error_msg">이 사이트의 보안 인증서에 문제가 있습니다. 계속 진행하면 정보가 공격자에게 노출될 수 있습니다.</string>
     <string name="ssl_error_continue">위험을 감수하고 계속</string>
     <string name="btn_ok">확인</string>
+    <string name="perm_location_title">위치 정보 요청</string>
+    <string name="perm_location_msg">%1$s에서 위치 정보 접근을 요청합니다.</string>
+    <string name="perm_media_title">카메라 / 마이크 요청</string>
+    <string name="perm_media_msg">%1$s에서 카메라 및/또는 마이크 접근을 요청합니다.</string>
+    <string name="btn_allow">허용</string>
+    <string name="btn_deny">거부</string>
     <string name="dlg_adblock_host">광고 차단할 도메인</string>
     <string name="btn_add">추가</string>
     <string name="dlg_tabs_close">현재 탭 닫기</string>

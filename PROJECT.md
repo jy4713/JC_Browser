@@ -4,9 +4,17 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.19 (versionCode 73)
+- 현재 버전: 2.11.20 (versionCode 74)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.20)
+- [x] **데스크톱(UA) 모드 기본 OFF로 되돌림** — v2.11.19 의 기본 ON 을 모바일 기본으로 재변경 (WebView 생성/메뉴 토글/설정 초기화 4곳). 필요 시 메뉴에서 수동 전환 가능
+- [x] **사이트 파일 업로드(input type=file) 지원 추가** — 기존엔 WebChromeClient 에 onShowFileChooser 가 없어 사이트의 파일 업로드 버튼이 묵살. ACTION_OPEN_DOCUMENT 파일 선택기 + 기존 onActivityResult(REQ 5) 로 결과를 ValueCallback 에 전달 (취소 시 null)
+- [x] **위치 정보 권한 요청 지원 추가** — onGeolocationPermissionsShowPrompt 구현 (기존 무응답 → 사이트별 허용/거부 다이얼로그, origin 의 사이트명 표시)
+- [x] **WebRTC 카메라/마이크 권한 요청 지원 추가** — onPermissionRequest 구현. RESOURCE_VIDEO_CAPTURE/AUDIO_CAPTURE 만 허용/거부 다이얼로그, 그 외 리소스는 자동 거부. 메니페스트에 CAMERA/RECORD_AUDIO/ACCESS_FINE/COARSE_LOCATION 권한 4개 선언 추가
+- [x] **전체 검증: 언어(한/영) 적용 상태** — 액티비티 10개 전부 attachBaseContext 에 LocaleHelper.wrap + onCreate 에 ThemeHelper.apply 확인, strings ko/en 키 일치 확인 (신규 6키 ko/en 동시 추가 — 위치/미디어 권한 안내, 허용/거부)
+- [x] **브라우저 기본 동작 점검** — WebView 설정(javaScript/domStorage/multipleWindows/mixedContent COMPATIBILITY_MODE), 다운로드 리스너, 팝업 차단(onCreateWindow), 전체화면(onShowCustomView), 롱클릭 메뉴, 파일 업로드/위치/WebRTC 추가로 다른 브라우저 수준의 기본 동작 갖춤
 
 #### 완료 (2026-10-10, v2.11.19)
 - [x] **VPN CONNECTED 전 트래픽 VPN 경유(흰 페이지) 수정** — WAIT/RECONNECTING 상태에서 기존 tun 이 열린 채로 재시도되어 트래픽이 블랙홀 tun 으로 빨려 들어가 흰 페이지가 나오던 것. WAIT/RECONNECTING 진입 시 tun 을 닫아 일반 네트워크를 그대로 사용 — VPN 경유는 CONNECTED 이후뿐. 새 연결 시작 시 남은 tun 도 선 정리
