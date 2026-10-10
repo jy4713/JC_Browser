@@ -20,6 +20,10 @@ class PlayerActivity : Activity() {
     companion object {
         const val EXTRA_URL = "url"
         const val EXTRA_PAGE = "page"
+        /** 감지된 미디어 종류(HLS/DASH/MP4...) — 확장자가 없는 재생목록(master.txt 등) 판별용 */
+        const val EXTRA_KIND = "kind"
+        /** 감지 시점의 요청 헤더("K: V" 줄 목록) — CDN 이 Referer/Cookie 를 요구할 때 재생에 적용 */
+        const val EXTRA_HEADERS = "headers"
     }
 
     private lateinit var web: WebView
@@ -71,7 +75,18 @@ class PlayerActivity : Activity() {
         }
 
         val escaped = url.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;")
-        val isHls = ".m3u8" in url.lowercase()
+        // 확장자 없는 재생목록(master.txt 등) 대비 — 감지 당시 판별된 종류 우선 사용
+        val kind = intent.getStringExtra(EXTRA_KIND) ?: ""
+        val isHls = kind == "HLS" || ".m3u8" in url.lowercase()
+        // 감지 시점의 핵심 헤더를 hls.js xhrSetup 에 넘김 — CDN 이 Referer/Cookie/UA 를 검사하는
+        // 스트림의 재생 성공률을 높임 (크로미엄 금지 헤더는 조용히 무시됨)
+        val headersJs = intent.getStringExtra(EXTRA_HEADERS)
+            ?.lines()
+            ?.filter { it.contains(":") }
+            ?.associate { it.substringBefore(":").trim() to it.substringAfter(":").trim() }
+            ?.filterValues { it.isNotBlank() }
+            ?.let { org.json.JSONObject(it as Map<*, *>).toString() }
+            ?: "{}"
         // m3u8은 WebView <video> 네이티브 미지원(code=4) → hls.js(MSE) 인라인 주입
         val hlsJs: String = if (isHls) runCatching {
             assets.open("hls.min.js").use { it.readBytes() }.toString(Charsets.UTF_8)
@@ -113,7 +128,10 @@ ${if (isHls) """<script>$hlsJs</script>
   }
   try{
     if (window.Hls && Hls.isSupported()) {
-      var h=new Hls({enableWorker:false});
+      var HD=$headersJs;
+      var h=new Hls({enableWorker:false, xhrSetup:function(xhr,u){
+        for(var k in HD){ try{ xhr.setRequestHeader(k,HD[k]); }catch(e){} }
+      }});
       window.h=h;
       h.loadSource(SRC); h.attachMedia(v);
       h.on(Hls.Events.ERROR,function(ev,data){

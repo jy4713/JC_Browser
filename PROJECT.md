@@ -4,9 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.26 (versionCode 80)
+- 현재 버전: 2.11.27 (versionCode 81)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.27)
+- [x] **다운로드 목록 "실행" 재생 실패 수정 — 확장자 없는 HLS 재생목록(master.txt 등) 인식** — 스캐너가 본문 기반으로 잡아낸 HLS 인데 URL 에 `.m3u8` 이 없어 PlayerActivity 가 일반 MP4 로 취급, `<video src>` 직접 재생 → `VIDEO ERROR code=4 network=3`(MEDIA_ERR_SRC_NOT_SUPPORTED). `DetectedVideo.kind`(HLS) 와 감지 시점 헤더를 PlayerActivity 에 전달해 ① HLS 판정을 kind 우선으로, ② hls.js `xhrSetup` 에 Referer/Cookie/UA 등 감지 헤더 적용 (CDN 헤더 검사 대응, 크로미엄 금지 헤더는 조용히 무시)
 
 #### 완료 (2026-10-10, v2.11.26)
 - [x] **스트리밍 감지 실패의 진짜 근본 원인 수정 — 백그라운드 스레드 WebView 메서드 호출 예외** — 로그(`JC_Sniff`)로 확정: `shouldInterceptRequest` 는 `ThreadPoolForeg` 등 백그라운드 스레드에서 불리는데, 스캐너 주입 재요청 시 `view.settings.userAgentString` 접근이 최신 System WebView 의 스레드 체크(`All WebView methods must be called on the same thread`)에 걸려 **모든 주입이 예외로 실패** → 원본 로딩 폴드백 → 스캐너 없이 재생만 되고 다운로드 목록 텅 빔. 미디어 감지 경로의 `view.url` 도 동일 예외 위험이 있어 함께 수정. 최근 WebView 업데이트로 체크가 강화돼 "갑자기" 동작이 멈춘 것과 일치

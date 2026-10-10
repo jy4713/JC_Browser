@@ -153,6 +153,8 @@ class VideoAdapter : RecyclerView.Adapter<VideoAdapter.VH>() {
                 Intent(ctx, PlayerActivity::class.java)
                     .putExtra(PlayerActivity.EXTRA_URL, v.url)
                     .putExtra(PlayerActivity.EXTRA_PAGE, v.page)
+                    .putExtra(PlayerActivity.EXTRA_KIND, v.kind)
+                    .putExtra(PlayerActivity.EXTRA_HEADERS, v.headers)
             )
         }
 
