@@ -1490,7 +1490,7 @@ class MainActivity : Activity() {
             setGravity(Gravity.BOTTOM)
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
-        dlg.setOnDismissListener { menuDialog = null }
+        dlg.setOnDismissListener { menuDialog = null; menuAdapter = null; menuRowCount = 0 }
         refreshMenuContent(dlg)
         dlg.show()
     }
@@ -1522,20 +1522,28 @@ class MainActivity : Activity() {
         }
     }
 
+    /** 현재 메뉴 어댑터/행 수 — rebuild 시 어댑터 재사용과 축소 판정용 */
+    private var menuAdapter: MenuSheetAdapter? = null
+    private var menuRowCount = 0
+
     private fun refreshMenuContent(dlg: Dialog) {
         val grid = dlg.findViewById<GridLayout>(R.id.shortcutGrid)
         grid?.let { fillShortcutGrid(it) }
         val list = dlg.findViewById<RecyclerView>(R.id.listMenu) ?: return
-        list.layoutManager = LinearLayoutManager(this)
-        // 아코디언 펼침/닫힘 때 스크롤 위치 유지 — 펼친 그룹이 화면에서 튀지 않고 그 자리에서 펼쳐짐
-        val lm = list.layoutManager as LinearLayoutManager
-        val scrollState = lm.onSaveInstanceState()
-        // 내용이 줄었을 때 이전 고정 높이가 남지 않게 다시 wrap 으로
-        if (list.layoutParams.height != ViewGroup.LayoutParams.WRAP_CONTENT) {
-            list.layoutParams = list.layoutParams.apply { height = ViewGroup.LayoutParams.WRAP_CONTENT }
+        if (list.layoutManager == null) list.layoutManager = LinearLayoutManager(this)
+        val rows = buildMenuRows()
+        val adapter = menuAdapter.takeIf { list.adapter === it }
+        if (adapter != null) {
+            // 같은 어댑터 갱신 — RecyclerView 가 스크롤 앵커를 유지해 펼친 그룹이 그 자리에서 펼쳐짐
+            adapter.update(rows)
+            if (rows.size < menuRowCount) {
+                // 메뉴 접힘(축소) — 이전 고정 높이가 남지 않게 다시 wrap 으로 (아래 preDraw 가 재고정)
+                list.layoutParams = list.layoutParams.apply { height = ViewGroup.LayoutParams.WRAP_CONTENT }
+            }
+        } else {
+            list.adapter = MenuSheetAdapter(rows).also { menuAdapter = it }
         }
-        list.adapter = MenuSheetAdapter(buildMenuRows())
-        lm.onRestoreInstanceState(scrollState)
+        menuRowCount = rows.size
         // wrap_content 높이에서 스크롤하면 아이템 재활용/재측정 때마다 높이가 다시 계산돼
         // 레이아웃(들여쓰기)이 흔들리는 문제 — 첫 측정 후 고정 clamp.
         // 상단 그리드가 항상 보여야 하므로 화면 높이에서 그리드/제목/패딩을 뺀 값까지 허용
@@ -1703,8 +1711,14 @@ class MainActivity : Activity() {
     }
 
     private inner class MenuSheetAdapter(
-        private val rows: List<MenuRow>
+        var rows: List<MenuRow>
     ) : RecyclerView.Adapter<MenuSheetAdapter.VH>() {
+
+        /** 같은 어댑터로 행 갱신 — 새 어댑터 교체 없이 스크롤 위치가 유지됨 */
+        fun update(newRows: List<MenuRow>) {
+            rows = newRows
+            notifyDataSetChanged()
+        }
 
         inner class VH(v: View, val type: Int) : RecyclerView.ViewHolder(v) {
             val group: TextView? = v.findViewById(R.id.menuGroupTitle)

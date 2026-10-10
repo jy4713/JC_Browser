@@ -4,9 +4,12 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.31 (versionCode 85)
+- 현재 버전: 2.11.32 (versionCode 86)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.32)
+- [x] **메뉴 펼침 시 튕기며 맨 위로 올라가던 문제 재수정** — v2.11.31 의 스크롤 복원이 동작하지 않던 원인: rebuild 때마다 새 LinearLayoutManager 를 생성해 빈 상태에서 스크롤 상태를 저장하고 있었음 + 높이를 매번 WRAP_CONTENT 로 초기화해 시트가 튐. 수정: ① 어댑터를 재사용하고 notifyDataSetChanged 로 갱신 — RecyclerView 가 스크롤 앵커를 자동 유지해 펼친 그룹이 그 자리에서 바로 펼쳐짐 ② 높이 wrap 초기화는 메뉴가 접혀 내용이 줄어들 때만 수행
 
 #### 완료 (2026-10-10, v2.11.31)
 - [x] **아코디언 펼침 위치 고정** — 그룹 탭하면 리스트가 새 어댑터로 갈아 끼워지면서 스크롤이 맨 위로 튀던 문제: rebuild 전 스크롤 상태 저장/복원으로 펼친 그룹이 그 자리에서 바로 아래로 펼쳐짐
