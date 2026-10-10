@@ -60,26 +60,20 @@ class TorrentActivity : Activity() {
         finish()
     }
 
-    /** magnet 또는 .torrent URL → TorrentInfo (IO 스레드) */
+    /** .torrent URL → TorrentInfo (IO 스레드). 마그넷은 TorrentManager.addMagnet 경로로 직접 처리 */
     private fun resolve(url: String) {
         runCatching {
-            when {
-                url.startsWith("magnet:") ->
-                    TorrentManager.fetchMagnetInfo(withDefaultTrackers(url), 120, workDir())
-                else -> {
-                    val conn = URL(url).openConnection() as HttpURLConnection
-                    conn.connectTimeout = 15000
-                    conn.readTimeout = 20000
-                    conn.instanceFollowRedirects = true
-                    if (conn.responseCode != 200) { conn.disconnect(); null }
-                    else conn.inputStream.use { TorrentInfo(it.readBytes()) }
-                        .also { conn.disconnect() }
-                }
-            }
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.connectTimeout = 15000
+            conn.readTimeout = 20000
+            conn.instanceFollowRedirects = true
+            if (conn.responseCode != 200) { conn.disconnect(); null }
+            else conn.inputStream.use { TorrentInfo(it.readBytes()) }
+                .also { conn.disconnect() }
         }.onSuccess { info ->
             runOnUiThread {
                 if (info == null) {
-                    txtStatus.text = getString(R.string.torrent_load_failed) + "\n" + getString(R.string.torrent_magnet_timeout)
+                    txtStatus.text = getString(R.string.torrent_load_failed)
                 } else {
                     ti = info
                     showMeta(info)
@@ -94,18 +88,6 @@ class TorrentActivity : Activity() {
     }
 
     private fun workDir(): File = File(filesDir, "torrent").apply { mkdirs() }
-
-    /** 트래커가 없는 마그넷에 공개 트래커를 붙여 메타데이터 수신 성공률을 높인다 */
-    private fun withDefaultTrackers(magnet: String): String {
-        if (magnet.contains("tr=")) return magnet
-        val trackers = listOf(
-            "udp://tracker.opentrackr.org:1337/announce",
-            "udp://open.stealth.si:80/announce",
-            "udp://tracker.torrent.eu.org:451/announce",
-            "udp://exodus.desync.com:6969/announce"
-        )
-        return magnet + trackers.joinToString("") { "&tr=" + java.net.URLEncoder.encode(it, "UTF-8") }
-    }
 
     private fun showMeta(info: TorrentInfo) {
         val fs = info.files()

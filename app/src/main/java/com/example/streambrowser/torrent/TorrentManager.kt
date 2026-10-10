@@ -20,7 +20,8 @@ object TorrentManager {
 
     class Job(
         val info: TorrentInfo,
-        val handle: TorrentHandle,
+        /** VPN 전환 등으로 세션이 재시작되면 핸들이 바뀔 수 있어 var */
+        var handle: TorrentHandle,
         val saveDir: File
     ) {
         val key: String get() = info.infoHash().toString()
@@ -217,16 +218,19 @@ object TorrentManager {
     fun resumeJob(key: String) {
         jobs[key]?.let { j ->
             if (j.state == State.PAUSED || j.state == State.CANCELLED || j.state == State.FAILED) {
-                runCatching { j.handle.resume() }
-                if (j.state != State.PAUSED) {
-                    // 세션에서 제거된 경우 다시 등록
-                    if (runCatching { j.handle.status() }.getOrNull() == null) {
-                        runCatching {
-                            val fs = j.info.files()
-                            session?.download(j.info, j.saveDir, null, Array(fs.numFiles()) { Priority.DEFAULT }, null, torrent_flags_t())
+                // 세션에서 제거된 경우 다시 등록하고 새 핸들로 갱신
+                if (j.state != State.PAUSED || runCatching { j.handle.status() }.getOrNull() == null) {
+                    runCatching {
+                        val fs = j.info.files()
+                        session?.download(j.info, j.saveDir, null, Array(fs.numFiles()) { Priority.DEFAULT }, null, torrent_flags_t())
+                        for (i in 0 until 50) {
+                            val h = session?.find(j.info.infoHash())
+                            if (h != null) { j.handle = h; break }
+                            Thread.sleep(100)
                         }
                     }
                 }
+                runCatching { j.handle.resume() }
                 j.state = State.RUNNING
                 Thread { monitor(j) }.apply { isDaemon = true }.start()
             }
@@ -257,22 +261,127 @@ object TorrentManager {
     }
 
     /**
-     * 마그넷 메타데이터만 조회 (파일 목록 확인용). 블로킹 — IO 스레드에서.
-     * @return null 이면 메타데이터 수신 실패(시드 없음/시간 초과)
+     * 마그넷에서 infohash 추출 (소문자 hex, base32 도 디코딩) — 중복 판정/핸들 탐색용
      */
-    fun fetchMagnetInfo(magnet: String, timeoutSec: Int = 60, workDir: File): TorrentInfo? {
-        val s = ensureSession()
-        val tmp = File(workDir, ".magnet")
-        tmp.mkdirs()
-        val bytes = runCatching { s.fetchMagnet(magnet, timeoutSec, tmp) }.getOrNull()
-            ?: return null
-        return TorrentInfo(bytes)
+    fun magnetHash(magnet: String): String? {
+        val m = Regex("(?i)xt=urn:btih:([a-zA-Z0-9]+)").find(magnet) ?: return null
+        val h = m.groupValues[1]
+        if (h.length == 40) return h.lowercase()
+        return if (h.length == 32) base32ToHex(h) else null
     }
 
-    /** 마그넷 추가: 메타데이터를 먼저 받아 파일 목록을 확인한 뒤 add()로 등록 (IO 스레드) */
-    fun addMagnet(magnet: String, saveDir: File, maxActive: Int = Int.MAX_VALUE, timeoutSec: Int = 120): Job? {
-        val ti = fetchMagnetInfo(magnet, timeoutSec, saveDir) ?: return null
-        return add(ti, saveDir, maxActive)
+    private fun base32ToHex(s: String): String? {
+        val alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+        return runCatching {
+            val out = StringBuilder()
+            var buffer = 0
+            var bitsLeft = 0
+            for (c in s.uppercase()) {
+                val v = alphabet.indexOf(c)
+                if (v < 0) return null
+                buffer = (buffer shl 5) or v
+                bitsLeft += 5
+                if (bitsLeft >= 8) {
+                    out.append(((buffer ushr (bitsLeft - 8)) and 0xFF).toString(16).padStart(2, '0'))
+                    bitsLeft -= 8
+                }
+            }
+            out.toString()
+        }.getOrNull()
+    }
+
+    /** 트래커가 없는 마그넷에 공개 트래커를 붙여 메타데이터 수신 성공률을 높인다 */
+    fun withDefaultTrackers(magnet: String): String {
+        if (magnet.contains("tr=")) return magnet
+        val trackers = listOf(
+            "udp://tracker.opentrackr.org:1337/announce",
+            "udp://open.stealth.si:80/announce",
+            "udp://tracker.torrent.eu.org:451/announce",
+            "udp://exodus.desync.com:6969/announce"
+        )
+        return magnet + trackers.joinToString("") { "&tr=" + java.net.URLEncoder.encode(it, "UTF-8") }
+    }
+
+    /**
+     * 마그넷 추가: 세션에 마그넷을 직접 등록(일반 .torrent 와 동일한 경로)해
+     * 메타데이터를 받은 뒤 Job 을 생성한다. 블로킹 — IO 스레드에서.
+     * fetchMagnet() 는 일부 기기/환경에서 네이티브 크래시를 일으켜 사용하지 않음.
+     * @return null 이면 메타데이터 수신 실패(시드 없음/시간 초과)
+     * @throws IllegalStateException("max_active") 동시 다운로드 상한 초과
+     */
+    @Synchronized
+    fun addMagnet(magnet: String, saveDir: File, maxActive: Int = Int.MAX_VALUE, timeoutSec: Int = 180): Job? {
+        val hash = magnetHash(magnet)
+        if (hash != null) {
+            jobs[hash]?.let { existing ->
+                if (existing.state == State.CANCELLED || existing.state == State.FAILED) resumeJob(existing.key)
+                return existing
+            }
+        }
+        val running = jobs.values.count { it.state == State.RUNNING }
+        if (running >= maxActive) throw IllegalStateException("max_active")
+        val s = ensureSession()
+        saveDir.mkdirs()
+        runCatching { s.download(magnet, saveDir, torrent_flags_t()) }.onFailure { return null }
+        // 등록된 핸들 탐색 (infohash 매칭)
+        var handle: TorrentHandle? = null
+        for (i in 0 until 100) {
+            handle = runCatching {
+                val v = s.swig().get_torrents()
+                (0 until v.size)
+                    .map { TorrentHandle(v.get(it)) }
+                    .firstOrNull { runCatching { it.infoHash().toHex().lowercase() }.getOrNull() == hash }
+            }.getOrNull()
+            if (handle != null) break
+            Thread.sleep(100)
+        }
+        val h = handle ?: return null
+        // 메타데이터 수신 대기
+        for (i in 0 until timeoutSec) {
+            val st = runCatching { h.status() }.getOrNull() ?: return null
+            if (runCatching { st.hasMetadata() }.getOrDefault(false)) break
+            if (i == timeoutSec - 1) {
+                runCatching { s.remove(h) }
+                return null
+            }
+            Thread.sleep(1000)
+        }
+        val ti = runCatching { h.torrentFile() }.getOrNull() ?: return null
+        runCatching { h.resume() }
+        val job = Job(ti, h, saveDir)
+        jobs[job.key] = job
+        Thread { monitor(job) }.apply { isDaemon = true }.start()
+        return job
+    }
+
+    /**
+     * 세션 재시작 (VPN 연결/해제 전환 시) — 재시작 후 기존 작업을 세션에 다시 등록.
+     * tun 기반 VPN 은 소켓이 연결 이후 생성돼야 경유되므로, VPN 상태가 바뀌면
+     * 토렌트 세션을 재시작해 이후 소켓들이 새 경로(또는 일반 경로)를 쓰게 함
+     */
+    @Synchronized
+    fun restartSession() {
+        val hasSession = session != null
+        val reattach = jobs.values.filter {
+            it.state == State.RUNNING || it.state == State.PAUSED || it.state == State.DONE
+        }
+        if (!hasSession && reattach.isEmpty()) return
+        runCatching { session?.stop() }
+        session = null
+        if (reattach.isEmpty()) return
+        val s = ensureSession()
+        reattach.forEach { j ->
+            runCatching {
+                val fs = j.info.files()
+                s.download(j.info, j.saveDir, null, Array(fs.numFiles()) { Priority.DEFAULT }, null, torrent_flags_t())
+                for (i in 0 until 100) {
+                    val h = s.find(j.info.infoHash())
+                    if (h != null) { j.handle = h; break }
+                    Thread.sleep(100)
+                }
+                runCatching { j.handle.resume() }
+            }
+        }
     }
 
     @Synchronized

@@ -4,9 +4,16 @@
 
 - 저장소: https://github.com/jy4713/JC_Browser
 - 작업 디렉터리: `C:\Temp\workspace\JC_Browser\stream-browser`
-- 현재 버전: 2.11.35 (versionCode 89)
+- 현재 버전: 2.11.36 (versionCode 90)
 
 ## 이슈 트래커
+
+#### 완료 (2026-10-10, v2.11.36)
+- [x] **마그넷 크래시 수정 (fetchMagnet 제거)** — magnet 열기 / open torrent-magnet에 magnet URL 넣기에서 "로딩중" 뒤 앱 크래시. 원인: `SessionManager.fetchMagnet()` (별도 메타데이터 수신 경로) 가 네이티브 SIGSEGV 를 일으킴. 수정: 마그넷을 세션에 직접 등록(`download(magnetUri, ...)`, 일반 .torrent 와 동일한 경로) → infohash(`xt=urn:btih:` 파싱, base32 도 hex 디코딩)로 핸들 탐색 → `hasMetadata()` 대기 → `torrentFile()` 로 TorrentInfo 획득 후 Job 생성. 클릭 시 다운로드 관리 화면을 바로 열고 메타데이터 수신은 백그라운드에서 처리 (목록에는 수신 완료 시점에 표시)
+- [x] **.torrent 다운로드 후 빈 새 탭 남던 문제 수정** — 메인프레임 가로채기 경로에서 현재 탭이 .torrent URL/빈 페이지가 된 경우 탭을 닫도록 정리 조건 보강 (기존엔 fromWindow 팝업만 처리)
+- [x] **토렌트 지원 OFF 동작 정리** — Open torrent / magnet 메뉴 항목에 `enabled` 조건 추가 (OFF 면 흐리게 표시, 탭 시 켜기 안내 토스트). magnet/.torrent 클릭은 기존 정책 유지 (magnet 안내, .torrent 는 시스템 다운로드로 일반 파일 수신 — 진행 중인 것은 계속 받음). MenuEntry 에 enabled 람다 추가, 비활성 시 alpha 0.38 + ON 표시 숨김
+- [x] **취소(cancel) 후 재시작 동작 수정** — cancel 로 세션에서 날린 토렌트를 재시작할 때 재등록 후 새 핸들로 갱신하지 않아 동작하지 않던 문제: `Job.handle` 을 var 로 변경, resumeJob/restartSession 이 재등록 시 핸들 재탐색
+- [x] **VPN 연결 시 토렌트도 VPN 경유** — tun 기반 VPN 은 연결 이후 생성된 소켓부터 경유됨. JcVpnService 의 setState 에서 CONNECTED/DISCONNECTED/ERROR 전환 시 `TorrentManager.restartSession()` 호출 — 세션 재시작 후 진행/일시중지/완료 Job 을 세션에 다시 등록(파일 이어 받기), 이후 소켓들이 새 경로 사용
 
 #### 완료 (2026-10-10, v2.11.35)
 - [x] **메뉴 아이콘 전수 검토·교체** — 잘못 매칭된 아이콘 교체: Print(목록→프린터), Clear data(X→휴지통), 백업/복원(다운로드→클우드 백업), 동영상 탭 메뉴(재생→비디오), 언어(점 세로→지구본), 글자 크기(화살표→A), About(돋보기→정보 i), Torrent 그룹(다운로드→자석), 분할/연결 수(폴터→슬라이더) — Search 그룹 돋보기는 정상이라 유지. 신규 벡터 아이콘 7개 추가 (ic_info/ic_globe/ic_text_size/ic_print/ic_backup/ic_delete/ic_torrent, 머티리얼 스타일 #5F6368 톤 통일). 메뉴 행 아이콘은 레이아웃의 tint(text_primary) 가 적용돼 다크모드에서도 자동 대응

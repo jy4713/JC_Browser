@@ -162,9 +162,12 @@ class MainActivity : Activity() {
         com.example.streambrowser.browser.SniffingWebViewClient.onTorrentLink = { _, url ->
             runOnUiThread {
                 handleTorrentLink(url)
-                // 가로챈 링크가 빈 팝업 탭(fromWindow)에서 열린 경우 그 탭을 닫고 원래 탭으로
+                // 가로챈 링크가 빈 팝업 탭(fromWindow)에서 열리거나, 메인프레임 가로채기로
+                // 현재 탭이 .torrent URL/빈 페이지가 된 경우 그 탭을 닫고 원래 탭으로
                 val t = current()
-                if (t?.fromWindow == true && tabs.size > 1 && t.web.url.isNullOrEmpty()) {
+                val nowUrl = t?.web?.url
+                val blanked = nowUrl.isNullOrEmpty() || nowUrl == "about:blank" || nowUrl == url
+                if (tabs.size > 1 && t != null && blanked && (t.fromWindow || nowUrl == url)) {
                     closeTab(current)
                 }
             }
@@ -1170,6 +1173,8 @@ class MainActivity : Activity() {
         val iconRes: Int,
         val prefKey: String?,     // pref-based check state
         val state: (() -> Boolean)? = null,  // custom check state (e.g. per-site allow)
+        /** false 를 리턴하면 항목이 비활성(흐리게) 표시되고 탭 시 안내 토스트 — 미설정이면 항상 활성 */
+        val enabled: () -> Boolean = { true },
         val action: () -> Unit
     )
     private class MenuGroup(
@@ -1404,7 +1409,8 @@ class MainActivity : Activity() {
                 MenuEntry(torrentRateLabel(), R.drawable.ic_tune, null) {
                     showTorrentRateDialog()
                 },
-                MenuEntry(s(R.string.menu_torrent_open), R.drawable.ic_open_in_new, null) {
+                MenuEntry(s(R.string.menu_torrent_open), R.drawable.ic_open_in_new, null,
+                    enabled = { prefs.getBoolean("torrent_play", false) }) {
                     showTorrentOpenDialog()
                 },
                 // 다운 완료 후 시딩 중지 — 완료되는 순간 일시 정지해 업로드가 아예 안 생기게 함
@@ -1792,6 +1798,8 @@ class MainActivity : Activity() {
                     h.icon?.setImageResource(e.iconRes)
                     h.title?.text = e.title
                     h.title?.setTypeface(h.title?.typeface, android.graphics.Typeface.NORMAL)
+                    val enabled = e.enabled()
+                    h.itemView.alpha = if (enabled) 1f else 0.38f
                     val checked = when {
                         e.state != null -> e.state.invoke()
                         e.prefKey == "adblock" -> AdBlocker.enabled
@@ -1799,10 +1807,16 @@ class MainActivity : Activity() {
                         else -> false
                     }
                     h.state?.visibility =
-                        if ((e.prefKey != null || e.state != null) && checked) View.VISIBLE else View.GONE
+                        if (enabled && (e.prefKey != null || e.state != null) && checked) View.VISIBLE else View.GONE
                     h.state?.text = getString(R.string.on_state)
                     h.state?.setTextColor(resources.getColor(R.color.primary, theme))
                     h.itemView.setOnClickListener {
+                        if (!e.enabled()) {
+                            com.example.streambrowser.util.JcToast.show(
+                                this@MainActivity, getString(R.string.torrent_need_enable)
+                            )
+                            return@setOnClickListener
+                        }
                         e.action()
                         rebuildMenu()
                     }
@@ -2375,6 +2389,38 @@ class MainActivity : Activity() {
     /** magnet/.torrent 링크 진입점 — 토렌트 지원 ON일 때만 토렌트로, OFF면 .torrent만 일반 다운로드 */
     private fun handleTorrentLink(url: String) {
         if (prefs.getBoolean("torrent_play", false)) {
+            if (url.startsWith("magnet:")) {
+                // 마그넷: 관리 화면을 바로 열고 백그라운드에서 메타데이터 수신 → 목록에 추가.
+                // (메타데이터를 받아야 이름/크기를 알 수 있어 목록에는 수신 완료 시점에 나타남)
+                runCatching {
+                    startActivity(Intent(this, com.example.streambrowser.ui.TorrentDownloadsActivity::class.java))
+                }
+                kotlin.concurrent.thread {
+                    val max = prefs.getInt("torrent_max", 2)
+                    val magnet = com.example.streambrowser.torrent.TorrentManager.withDefaultTrackers(url)
+                    val res = runCatching {
+                        com.example.streambrowser.torrent.TorrentManager.addMagnet(
+                            magnet, java.io.File(filesDir, "torrent/downloads"), max, 180
+                        )
+                    }
+                    runOnUiThread {
+                        val job = res.getOrNull()
+                        when {
+                            job != null -> com.example.streambrowser.util.JcToast.show(
+                                this, getString(R.string.torrent_started, job.name)
+                            )
+                            res.exceptionOrNull()?.message == "max_active" ->
+                                com.example.streambrowser.util.JcToast.show(
+                                    this, getString(R.string.torrent_max_reached, max)
+                                )
+                            else -> com.example.streambrowser.util.JcToast.show(
+                                this, getString(R.string.torrent_load_failed)
+                            )
+                        }
+                    }
+                }
+                return
+            }
             runCatching {
                 startActivity(Intent(this, com.example.streambrowser.ui.TorrentActivity::class.java)
                     .putExtra(com.example.streambrowser.ui.TorrentActivity.EXTRA_URL, url))

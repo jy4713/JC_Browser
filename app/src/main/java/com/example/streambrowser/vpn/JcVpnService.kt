@@ -89,6 +89,13 @@ class JcVpnService : VpnService() {
                 connectedSince = 0
                 rxRate = 0; txRate = 0; rxTotal = 0; txTotal = 0
             }
+            // VPN 경로가 바뀌면 토렌트 세션을 재시작 — tun 은 연결 이후 생성된 소켓부터
+            // 경유되므로, 기존 소켓을 버리고 새 경로로 다시 연결하게 함 (파일은 이어 받기)
+            if (s == "CONNECTED" || s == "DISCONNECTED" || s == "ERROR") {
+                kotlin.concurrent.thread {
+                    runCatching { com.example.streambrowser.torrent.TorrentManager.restartSession() }
+                }
+            }
             runCatching { onStateChange?.invoke() }
         }
     }
